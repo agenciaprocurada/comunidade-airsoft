@@ -1,0 +1,25 @@
+---
+import { Image } from "astro:assets";
+import logo from "../assets/logo.webp";
+
+/**
+ * DS §04: o arquivo padrão é o original preto + oliva sobre fundo claro.
+ * Em faixa escura o componente pai aplica `.faixa-escura`, que inverte o
+ * logo via filtro — o original sobre fundo escuro perde o "SOFT" e a
+ * linha "COMUNIDADE".
+ *
+ * Respiro mínimo ao redor: 1x a altura da mira.
+ */
+interface Props {
+  class?: string;
+}
+
+const { class: classe = "h-10 w-auto" } = Astro.props;
+---
+
+<Image
+  src={logo}
+  alt="Comunidade Airsoft"
+  class:list={["logo", classe]}
+  loading="eager"
+/>

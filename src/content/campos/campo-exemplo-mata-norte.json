@@ -1,0 +1,22 @@
+{
+  "nome": "Campo Exemplo Mata Norte",
+  "descricao": "Campo de exemplo usado no desenvolvimento. Mata nativa com desnivel acentuado, voltado a operacoes longas e milsim. Sem aluguel de equipamento.",
+  "uf": "GO",
+  "cidade": "Anápolis",
+  "cidade_slug": "anapolis",
+  "status": "publicado",
+  "verificado": true,
+  "verificado_em": "2026-08-10",
+  "fonte": "semente-desenvolvimento",
+  "terreno": ["mata"],
+  "estrutura": ["safe-zone-coberta", "banheiro", "estacionamento"],
+  "fps": [
+    { "categoria": "AEG", "limite": 380 }
+  ],
+  "funcionamento": "Sábados, das 7h às 18h.",
+  "valor_min": 70,
+  "aceita_iniciante": false,
+  "tem_aluguel": false,
+  "contato": {},
+  "fotos": []
+}

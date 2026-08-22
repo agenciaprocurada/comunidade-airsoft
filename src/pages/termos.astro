@@ -1,0 +1,105 @@
+---
+import Base from "../layouts/Base.astro";
+
+/**
+ * RASCUNHO. Não é peça jurídica pronta.
+ * Precisa de revisão por advogado antes do lançamento — o documento de
+ * projeto (§9) trata a delimitação "não somos vendedor de réplica" e a
+ * exigência de maioridade como riscos jurídicos altos.
+ */
+const atualizado = "21 de agosto de 2026";
+---
+
+<Base
+  titulo="Termos de Uso"
+  descricao="Termos de Uso da plataforma Comunidade Airsoft."
+  semIndexar={true}
+>
+  <div class="conteudo mx-auto max-w-[68ch] px-5 py-12 md:px-12">
+    <div class="mb-8 border border-alerta bg-alerta-bg p-5">
+      <p class="font-display text-lg font-bold uppercase text-alerta-texto">
+        Rascunho — não publicar sem revisão jurídica
+      </p>
+      <p class="mt-1 text-base text-alerta-texto">
+        Este texto é um esqueleto de trabalho. Precisa passar por advogado
+        antes do lançamento, principalmente nas cláusulas de maioridade e
+        de delimitação da atividade.
+      </p>
+    </div>
+
+    <h1 class="font-display text-4xl font-extrabold uppercase italic leading-[0.95]">
+      Termos de Uso
+    </h1>
+    <p class="mt-3 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+      Atualizado em {atualizado}
+    </p>
+
+    <h2>1. O que é a Comunidade Airsoft</h2>
+    <p>
+      A Comunidade Airsoft é um <strong>diretório de informações</strong> sobre
+      campos, lojas, operações, equipes e criadores de conteúdo de airsoft no
+      Brasil. O acesso ao conteúdo é gratuito.
+    </p>
+
+    <h2>2. O que a plataforma não faz</h2>
+    <p>Fica expressamente estabelecido que a plataforma:</p>
+    <ul>
+      <li>não vende réplicas de airsoft nem qualquer produto controlado;</li>
+      <li>não importa, não revende e não intermedia a compra de réplicas;</li>
+      <li>
+        não organiza operações — apenas divulga eventos organizados por
+        terceiros;
+      </li>
+      <li>
+        não se responsabiliza pelas informações prestadas por campos, lojas e
+        organizadores, cabendo ao usuário confirmá-las diretamente com o
+        responsável.
+      </li>
+    </ul>
+
+    <h2>3. Idade mínima</h2>
+    <p>
+      O airsoft é atividade destinada a <strong>maiores de 18 anos</strong>. Ao
+      criar conta, o usuário declara ter no mínimo 18 anos completos. Contas
+      identificadas como de menores de idade serão removidas.
+    </p>
+
+    <h2>4. Conteúdo enviado pela comunidade</h2>
+    <p>
+      Campos, lojas e eventos podem ser cadastrados por usuários e passam por
+      conferência antes da publicação. O envio não garante a publicação.
+    </p>
+
+    <h2>5. Reivindicação de páginas</h2>
+    <p>
+      O responsável por um campo ou loja pode reivindicar a página
+      correspondente, mediante comprovação de vínculo, para editar os dados.
+    </p>
+
+    <h2>6. Contato</h2>
+    <p>
+      [Definir e-mail de contato antes da publicação.]
+    </p>
+  </div>
+
+  <style is:global>
+    .conteudo h2 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.5rem;
+      text-transform: uppercase;
+      margin: 2.5rem 0 0.75rem;
+    }
+    .conteudo p {
+      margin: 0 0 1rem;
+      color: var(--color-texto);
+    }
+    .conteudo ul {
+      margin: 0 0 1.25rem 1.25rem;
+      list-style: square;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  </style>
+</Base>

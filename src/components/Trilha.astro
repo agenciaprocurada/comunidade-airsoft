@@ -1,0 +1,54 @@
+---
+/**
+ * Breadcrumb. Além da navegação, emite BreadcrumbList em JSON-LD —
+ * o Google usa isso para exibir a hierarquia no lugar da URL crua.
+ */
+interface Item {
+  href?: string;
+  texto: string;
+}
+
+interface Props {
+  itens: Item[];
+}
+
+const { itens } = Astro.props;
+
+const lista = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Início", item: new URL("/", Astro.site).href },
+    ...itens.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 2,
+      name: item.texto,
+      ...(item.href ? { item: new URL(item.href, Astro.site).href } : {}),
+    })),
+  ],
+};
+---
+
+<nav aria-label="Trilha de navegação">
+  <ol class="flex flex-wrap items-center gap-2 font-dado text-[11px] uppercase tracking-[0.14em] text-oliva-400">
+    <li><a href="/" class="hover:text-oliva-500">Início</a></li>
+    {
+      itens.map((item) => (
+        <>
+          <li aria-hidden="true">/</li>
+          <li>
+            {item.href ? (
+              <a href={item.href} class="hover:text-oliva-500">
+                {item.texto}
+              </a>
+            ) : (
+              <span class="text-texto-2">{item.texto}</span>
+            )}
+          </li>
+        </>
+      ))
+    }
+  </ol>
+</nav>
+
+<script is:inline type="application/ld+json" set:html={JSON.stringify(lista)} />

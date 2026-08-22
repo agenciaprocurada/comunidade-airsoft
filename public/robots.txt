@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /reivindicar
+Disallow: /reportar
+Disallow: /enviar-campo
+
+Sitemap: https://comunidadeairsoft.com.br/sitemap-index.xml

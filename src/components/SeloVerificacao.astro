@@ -1,0 +1,48 @@
+---
+import Etiqueta from "./Etiqueta.astro";
+
+/**
+ * Mitigação direta de dois riscos do documento de projeto:
+ * dado desatualizado (§9) e a mecânica de reivindicação (§6.3).
+ *
+ * A data da última conferência fica visível. Quando não houver data,
+ * dizemos isso — nunca omitimos.
+ */
+interface Props {
+  verificado: boolean;
+  verificadoEm?: Date;
+}
+
+const { verificado, verificadoEm } = Astro.props;
+
+const formatador = new Intl.DateTimeFormat("pt-BR", {
+  month: "long",
+  year: "numeric",
+});
+
+const dataTexto = verificadoEm
+  ? formatador.format(verificadoEm)
+  : null;
+---
+
+<div class="flex flex-wrap items-center gap-3">
+  {
+    verificado ? (
+      <Etiqueta tom="ok">Verificado pelo responsável</Etiqueta>
+    ) : (
+      <Etiqueta tom="neutro">Não verificado</Etiqueta>
+    )
+  }
+
+  {
+    dataTexto ? (
+      <span class="font-dado text-[11px] tracking-[0.14em] uppercase text-oliva-400">
+        Conferido em {dataTexto}
+      </span>
+    ) : (
+      <span class="font-dado text-[11px] tracking-[0.14em] uppercase text-oliva-400">
+        Sem conferência registrada
+      </span>
+    )
+  }
+</div>

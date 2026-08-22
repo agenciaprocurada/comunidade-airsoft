@@ -1,0 +1,80 @@
+---
+import Logo from "./Logo.astro";
+
+const ano = new Date().getFullYear();
+
+const colunas = [
+  {
+    titulo: "Diretório",
+    links: [
+      { href: "/campos", texto: "Campos" },
+      { href: "/lojas", texto: "Lojas" },
+      { href: "/operacoes", texto: "Operações" },
+      { href: "/grupos", texto: "Grupos de WhatsApp" },
+    ],
+  },
+  {
+    titulo: "Conteúdo",
+    links: [
+      { href: "/guias", texto: "Guias" },
+      { href: "/guias/guia-do-iniciante", texto: "Guia do iniciante" },
+    ],
+  },
+  {
+    titulo: "A plataforma",
+    links: [
+      { href: "/sobre", texto: "Sobre" },
+      { href: "/termos", texto: "Termos de Uso" },
+      { href: "/privacidade", texto: "Política de Privacidade" },
+    ],
+  },
+];
+---
+
+<footer class="faixa-escura mt-20 border-t border-borda">
+  <div class="mx-auto max-w-[1240px] px-5 py-14 md:px-12">
+    <div class="grid gap-10 md:grid-cols-[1.2fr_repeat(3,1fr)]">
+      <div class="flex flex-col gap-5">
+        <Logo class="h-11 w-auto" />
+        <p class="max-w-[36ch] text-base leading-relaxed text-oliva-100">
+          Onde encontrar campo, operação, loja, equipe e gente para jogar
+          airsoft no Brasil.
+        </p>
+      </div>
+
+      {
+        colunas.map((coluna) => (
+          <nav aria-label={coluna.titulo}>
+            <h2 class="mb-4 font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-300">
+              {coluna.titulo}
+            </h2>
+            <ul class="flex flex-col gap-2.5">
+              {coluna.links.map((link) => (
+                <li>
+                  <a
+                    href={link.href}
+                    class="text-base text-texto transition-colors hover:text-oliva-300"
+                  >
+                    {link.texto}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))
+      }
+    </div>
+
+    <div
+      class="mt-12 flex flex-col gap-4 border-t border-oliva-700 pt-6 text-oliva-300 md:flex-row md:items-center md:justify-between"
+    >
+      <p class="font-dado text-[11px] uppercase tracking-[0.16em]">
+        © {ano} Comunidade Airsoft · Atividade para maiores de 18 anos
+      </p>
+      <p class="max-w-[60ch] text-sm leading-relaxed">
+        Esta plataforma é um diretório. Não vendemos, importamos nem
+        intermediamos a compra de réplicas ou de qualquer produto controlado.
+      </p>
+    </div>
+  </div>
+</footer>

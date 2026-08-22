@@ -1,0 +1,29 @@
+{
+  "nome": "Arena Exemplo Cerrado",
+  "descricao": "Campo de exemplo usado no desenvolvimento. Substituir pelos campos reais coletados na planilha. Area de mata fechada com trechos de CQB montados em containers, safe zone coberta e estacionamento interno.",
+  "uf": "GO",
+  "cidade": "Goiânia",
+  "cidade_slug": "goiania",
+  "endereco": "Rodovia de exemplo, km 0 — Zona Rural",
+  "lat": -16.6869,
+  "lng": -49.2648,
+  "status": "publicado",
+  "verificado": false,
+  "fonte": "semente-desenvolvimento",
+  "terreno": ["mata", "cqb"],
+  "estrutura": ["safe-zone-coberta", "banheiro", "estacionamento", "aluguel-equipamento", "lanchonete"],
+  "fps": [
+    { "categoria": "AEG", "limite": 400, "observacao": "Medido com BB 0.20g" },
+    { "categoria": "DMR", "limite": 450, "observacao": "Distância mínima de 20m" },
+    { "categoria": "Sniper", "limite": 550, "observacao": "Distância mínima de 30m" }
+  ],
+  "funcionamento": "Domingos, das 8h às 17h. Operações especiais aos sábados.",
+  "valor_min": 60,
+  "valor_max": 90,
+  "aceita_iniciante": true,
+  "tem_aluguel": true,
+  "contato": {
+    "instagram": "@exemplo"
+  },
+  "fotos": []
+}

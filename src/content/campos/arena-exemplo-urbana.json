@@ -1,0 +1,23 @@
+{
+  "nome": "Arena Exemplo Urbana",
+  "descricao": "Campo de exemplo usado no desenvolvimento. Estrutura urbana coberta para CQB e speedsoft, com jogos noturnos durante a semana.",
+  "uf": "SP",
+  "cidade": "Campinas",
+  "cidade_slug": "campinas",
+  "status": "publicado",
+  "verificado": false,
+  "fonte": "semente-desenvolvimento",
+  "terreno": ["cqb", "urbano"],
+  "estrutura": ["safe-zone-coberta", "banheiro", "aluguel-equipamento", "loja-no-local", "lanchonete", "energia"],
+  "fps": [
+    { "categoria": "AEG", "limite": 350, "observacao": "Limite reduzido por ser ambiente fechado" },
+    { "categoria": "GBB pistola", "limite": 330 }
+  ],
+  "funcionamento": "Quartas e sextas à noite, sábados o dia todo.",
+  "valor_min": 50,
+  "valor_max": 70,
+  "aceita_iniciante": true,
+  "tem_aluguel": true,
+  "contato": {},
+  "fotos": []
+}

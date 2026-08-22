@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Comunidade Airsoft — tokens do Design System v2.0 (base ESCURA)
+   Origem: _uploads/Design System Airsoft Community v2.zip
+           seção 06 (tokens) e seção 05 (texturas).
+
+   O v1.1 (base clara) está arquivado no zip sem sufixo e NÃO vale
+   mais. Os nomes dos tokens são os mesmos das duas versões — só os
+   valores mudaram, então nenhum componente sabe que o tema é escuro.
+   Não inventar valores novos aqui. Alterou o DS? Alterou aqui.
+   ============================================================ */
+
+@theme {
+  /* --- cores: neutros (base ESCURA é o padrão do produto) --- */
+  --color-fundo: #0b0d09;
+  --color-papel: #14180f;
+  --color-papel-2: #1c2115;
+  --color-borda: #2b3222;
+  --color-borda-forte: #46512f;
+  --color-tinta: #f0f2e9;
+  --color-texto: #cdd2c0;
+  --color-texto-2: #98a087;
+  --color-desabilitado: #5a6150;
+  --color-desabilitado-bg: #191d13;
+
+  /* --- cores: marca / oliva ---
+     Na base escura a escala segue clareando de 900 (mais escuro)
+     para 100 (mais claro). O acento de interface é o 500. */
+  --color-oliva-050: #191e11; /* tint de superfície, o mais discreto */
+  --color-oliva-100: #d6e0b6;
+  --color-oliva-300: #a9bd66;
+  --color-oliva-400: #93a84a;
+  --color-oliva-500: #7d9139; /* acento principal: link, ativo, CTA */
+  --color-oliva-700: #4d5a24;
+  --color-oliva-900: #070903;
+
+  /* --- cores: sinalização (recalibradas para fundo escuro) --- */
+  --color-latao: #d1a13c;
+  --color-latao-escuro: #b0842a;
+  --color-ok: #6fae80;
+  --color-ok-bg: #12200f;
+  --color-ok-texto: #9fd3ad;
+  --color-alerta: #d97a55;
+  --color-alerta-bg: #2a1610;
+  --color-alerta-texto: #eda88b;
+  --color-info: #8fa6bd;
+
+  /* --- tipografia --- */
+  --font-display: "Saira Condensed", sans-serif;
+  --font-texto: "Barlow", sans-serif;
+  --font-dado: "Share Tech Mono", monospace;
+
+  /* --- forma: cantos retos por padrão (DS seção 04) --- */
+  --radius-none: 0px;
+
+  /* A escala de espaçamento do DS (4/8/12/20/32/56) coincide com a
+     escala padrão do Tailwind: 1, 2, 3, 5, 8, 14. Usar essas. */
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+@layer base {
+  html {
+    background: var(--color-fundo);
+    color: var(--color-tinta);
+    font-family: var(--font-texto);
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  ::selection {
+    background: var(--color-oliva-500);
+    color: var(--color-fundo);
+  }
+
+  /* Foco visível sempre — requisito de acessibilidade, não decoração. */
+  :focus-visible {
+    outline: 2px solid var(--color-oliva-300);
+    outline-offset: 2px;
+  }
+
+  /* DS: mínimo de 15px em qualquer texto de leitura. */
+  p,
+  li {
+    font-size: 1.0625rem;
+    line-height: 1.6;
+  }
+}
+
+/* ============================================================
+   Utilitários do DS
+   ============================================================ */
+
+@layer utilities {
+  /* Chanfro de 10px — DS: permitido SOMENTE no CTA primário. */
+  .chanfro {
+    clip-path: polygon(
+      10px 0,
+      100% 0,
+      100% calc(100% - 10px),
+      calc(100% - 10px) 100%,
+      0 100%,
+      0 10px
+    );
+  }
+
+  /* Rótulo em mono — número, hora, coordenada, FPS, patente. */
+  .rotulo {
+    font-family: var(--font-dado);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-oliva-400);
+  }
+
+  /* Faixa escura — no tema escuro é o tom mais fundo da página.
+     Usada no rodapé. */
+  .faixa-escura {
+    background: var(--color-oliva-900);
+    color: var(--color-tinta);
+  }
+
+  /* O logo original é preto + oliva sobre fundo claro. Em qualquer
+     superfície escura ele é invertido para branco puro.
+     TODO: substituir por um arquivo de logo exportado para fundo
+     escuro — o filtro perde o oliva da marca. */
+  .logo {
+    filter: brightness(0) invert(1);
+  }
+
+  /* Grade tática de fundo — sinaliza "mapa/HUD" sem competir com o
+     conteúdo. Sempre em opacidade baixíssima. */
+  .grade-tatica {
+    background-image:
+      linear-gradient(rgba(147, 168, 74, 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(147, 168, 74, 0.055) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  /* Faixa de perigo (zebrada) — divisor de seção. Puramente decorativa. */
+  .faixa-perigo {
+    height: 6px;
+    background-image: repeating-linear-gradient(
+      -45deg,
+      #c9a227 0 10px,
+      #0b0d09 10px 20px
+    );
+    opacity: 0.55;
+  }
+
+  /* Moldura tática: ticks de canto em vez de borda fechada. */
+  .moldura-tatica {
+    position: relative;
+  }
+  .moldura-tatica::before,
+  .moldura-tatica::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: var(--color-oliva-500);
+    pointer-events: none;
+  }
+  .moldura-tatica::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid;
+    border-left: 2px solid;
+  }
+  .moldura-tatica::after {
+    right: -1px;
+    bottom: -1px;
+    border-right: 2px solid;
+    border-bottom: 2px solid;
+  }
+
+  /* Desgaste do título de impacto — máscara de ruído que "come"
+     pedaços da letra, imitando estêncil pintado.
+     Aplicar SÓ no h1 da home. Em qualquer outro lugar vira poluição. */
+  .desgaste {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><filter id='r'><feTurbulence type='fractalNoise' baseFrequency='0.035 0.09' numOctaves='4' seed='12'/><feColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -7 5.1'/></filter><rect width='400' height='400' filter='url(%23r)'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><filter id='r'><feTurbulence type='fractalNoise' baseFrequency='0.035 0.09' numOctaves='4' seed='12'/><feColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -7 5.1'/></filter><rect width='400' height='400' filter='url(%23r)'/></svg>");
+    -webkit-mask-size: 400px 400px;
+    mask-size: 400px 400px;
+  }
+
+  /* A máscara tem tamanho fixo: no título menor do celular os riscos
+     ficariam proporcionalmente enormes. Encolhe junto. */
+  @media (max-width: 767px) {
+    .desgaste {
+      -webkit-mask-size: 190px 190px;
+      mask-size: 190px 190px;
+    }
+  }
+
+  /* Vinheta do hero: escurece as bordas para o texto respirar
+     por cima da foto. */
+  .vinheta {
+    background:
+      linear-gradient(
+        to right,
+        rgba(11, 13, 9, 0.97) 0%,
+        rgba(11, 13, 9, 0.86) 34%,
+        rgba(11, 13, 9, 0.45) 62%,
+        rgba(11, 13, 9, 0.72) 100%
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(11, 13, 9, 0.75) 0%,
+        rgba(11, 13, 9, 0) 30%,
+        rgba(11, 13, 9, 0.5) 78%,
+        rgba(11, 13, 9, 1) 100%
+      );
+  }
+}

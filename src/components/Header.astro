@@ -1,0 +1,92 @@
+---
+import Logo from "./Logo.astro";
+
+interface Props {
+  /**
+   * Header flutuando por cima do hero (só a home). Sem fundo e sem
+   * borda — a vinheta do hero é que garante o contraste do texto.
+   */
+  sobreposto?: boolean;
+}
+
+const { sobreposto = false } = Astro.props;
+
+const links = [
+  { href: "/campos", texto: "Campos" },
+  { href: "/lojas", texto: "Lojas" },
+  { href: "/operacoes", texto: "Operações" },
+  { href: "/guias", texto: "Guias" },
+];
+
+const atual = Astro.url.pathname;
+---
+
+<header
+  class:list={[
+    "z-30 w-full",
+    sobreposto
+      ? "absolute inset-x-0 top-0 bg-transparent"
+      : "sticky top-0 border-b border-borda bg-fundo/92 backdrop-blur",
+  ]}
+>
+  <div
+    class="mx-auto flex max-w-[1240px] items-center justify-between gap-8 px-5 py-4 md:px-12 md:py-5"
+  >
+    <a href="/" class="shrink-0" aria-label="Comunidade Airsoft — página inicial">
+      <Logo class="h-10 w-auto md:h-14" />
+    </a>
+
+    <nav aria-label="Principal" class="hidden md:block">
+      <ul class="flex items-center gap-9">
+        {
+          links.map((link) => {
+            const ativo = atual === link.href || atual.startsWith(link.href + "/");
+            return (
+              <li>
+                <a
+                  href={link.href}
+                  aria-current={ativo ? "page" : undefined}
+                  class:list={[
+                    "block border-b-2 pb-1 font-display text-lg font-bold uppercase tracking-[0.08em] transition-colors",
+                    ativo
+                      ? "border-oliva-500 text-tinta"
+                      : "border-transparent text-tinta/75 hover:border-oliva-500 hover:text-tinta",
+                  ]}
+                >
+                  {link.texto}
+                </a>
+              </li>
+            );
+          })
+        }
+      </ul>
+    </nav>
+
+    <details class="relative md:hidden">
+      <summary
+        class="cursor-pointer list-none border border-borda-forte bg-fundo/80 px-3 py-2 font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-300"
+      >
+        Menu
+      </summary>
+      <nav
+        aria-label="Principal"
+        class="absolute right-0 z-40 mt-2 w-56 border border-borda-forte bg-papel"
+      >
+        <ul class="flex flex-col">
+          {
+            links.map((link) => (
+              <li class="border-b border-borda last:border-b-0">
+                <a
+                  href={link.href}
+                  class="block px-5 py-3 font-display text-lg font-bold uppercase tracking-[0.08em] text-tinta hover:bg-oliva-050 hover:text-oliva-300"
+                >
+                  {link.texto}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+    </details>
+  </div>
+</header>

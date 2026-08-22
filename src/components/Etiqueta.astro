@@ -1,0 +1,46 @@
+---
+/**
+ * DS §03 — Etiquetas (base escura).
+ * Sempre em mono, caixa alta, sem arredondamento.
+ */
+interface Props {
+  tom?: "neutro" | "ok" | "alerta" | "escassez" | "info";
+  /** Prefixa um ✓ — usado no selo de verificação. */
+  check?: boolean;
+  class?: string;
+}
+
+const { tom = "neutro", check = false, class: classe } = Astro.props;
+
+const tons = {
+  neutro: "bg-oliva-050 border-borda-forte text-oliva-300",
+  ok: "bg-ok-bg border-ok/70 text-ok-texto",
+  alerta: "bg-alerta-bg border-alerta/70 text-alerta-texto",
+  escassez: "bg-latao border-latao text-fundo",
+  info: "bg-papel-2 border-info/50 text-info",
+};
+---
+
+<span
+  class:list={[
+    "inline-flex items-center gap-1.5 border px-3 py-1.5 font-dado text-[11px] tracking-[0.16em] uppercase whitespace-nowrap",
+    tons[tom],
+    classe,
+  ]}
+>
+  {
+    check && (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        class="h-3 w-3 shrink-0"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="3"
+      >
+        <path d="m4 12 5.5 6L20 6" stroke-linecap="square" />
+      </svg>
+    )
+  }
+  <slot />
+</span>

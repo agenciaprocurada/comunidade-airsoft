@@ -1,0 +1,84 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../../layouts/Base.astro";
+import CardCampo from "../../../components/CardCampo.astro";
+import Trilha from "../../../components/Trilha.astro";
+import { NOME_UF } from "../../../lib/uf";
+
+/** Hub estadual — agrupa as cidades e lista todos os campos do estado. */
+export async function getStaticPaths() {
+  const campos = await getCollection("campos", ({ data }) => data.status === "publicado");
+
+  const porUf = new Map<string, typeof campos>();
+  for (const campo of campos) {
+    const uf = campo.data.uf;
+    porUf.set(uf, [...(porUf.get(uf) ?? []), campo]);
+  }
+
+  return [...porUf].map(([uf, lista]) => ({
+    params: { uf: uf.toLowerCase() },
+    props: { campos: lista, sigla: uf },
+  }));
+}
+
+const { campos, sigla } = Astro.props;
+const nomeUf = NOME_UF[sigla] ?? sigla;
+
+const cidades = [...new Set(campos.map((c) => c.data.cidade_slug))].map((slug) => {
+  const primeiro = campos.find((c) => c.data.cidade_slug === slug)!;
+  return {
+    slug,
+    nome: primeiro.data.cidade,
+    total: campos.filter((c) => c.data.cidade_slug === slug).length,
+  };
+}).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+const titulo = `Campos de airsoft em ${nomeUf} (${sigla})`;
+const descricao = `${campos.length} ${
+  campos.length === 1 ? "campo de airsoft" : "campos de airsoft"
+} em ${nomeUf}, em ${cidades.length} ${
+  cidades.length === 1 ? "cidade" : "cidades"
+}. Endereço, valores, limite de FPS e estrutura de cada campo.`;
+---
+
+<Base titulo={titulo} descricao={descricao}>
+  <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
+    <Trilha itens={[{ href: "/campos", texto: "Campos" }, { texto: nomeUf }]} />
+
+    <header class="mt-8 border-b border-borda pb-8">
+      <h1
+        class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"
+      >
+        Campos de airsoft<br />em {nomeUf}
+      </h1>
+      <p class="mt-4 max-w-[60ch] text-lg leading-relaxed text-texto-2">
+        {descricao}
+      </p>
+    </header>
+
+    <nav aria-label="Cidades" class="mt-8">
+      <h2 class="rotulo mb-3">Cidades com campo cadastrado</h2>
+      <ul class="flex flex-wrap gap-2">
+        {
+          cidades.map((cidade) => (
+            <li>
+              <a
+                href={`/campos/${sigla.toLowerCase()}/${cidade.slug}`}
+                class="inline-block border border-borda bg-papel px-4 py-2 text-base transition-colors hover:border-oliva-500 hover:text-oliva-500"
+              >
+                {cidade.nome}
+                <span class="ml-2 font-dado text-[11px] text-oliva-400">
+                  {cidade.total}
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {campos.map((campo) => <CardCampo campo={campo} />)}
+    </div>
+  </div>
+</Base>

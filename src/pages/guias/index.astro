@@ -1,0 +1,51 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import Trilha from "../../components/Trilha.astro";
+
+const guias = (await getCollection("guias", ({ data }) => !data.rascunho)).sort(
+  (a, b) => b.data.publicado_em.getTime() - a.data.publicado_em.getTime(),
+);
+---
+
+<Base
+  titulo="Guias de airsoft para iniciantes"
+  descricao="Guias sobre como começar no airsoft: regras, equipamento, custo real, primeiro dia no campo e dúvidas legais. Conteúdo gratuito da Comunidade Airsoft."
+>
+  <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
+    <Trilha itens={[{ texto: "Guias" }]} />
+
+    <header class="mt-8 border-b border-borda pb-8">
+      <h1
+        class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"
+      >
+        Guias
+      </h1>
+      <p class="mt-4 max-w-[60ch] text-lg leading-relaxed text-texto-2">
+        O que ninguém explica direito para quem está começando: quanto custa,
+        o que é obrigatório, como funciona o primeiro dia no campo.
+      </p>
+    </header>
+
+    {
+      guias.length === 0 ? (
+        <p class="mt-10 text-lg text-texto-2">
+          Os primeiros guias estão em produção.
+        </p>
+      ) : (
+        <ul class="mt-10 grid gap-6 md:grid-cols-2">
+          {guias.map((guia) => (
+            <li class="border border-borda bg-papel p-6 transition-colors hover:border-oliva-300">
+              <h2 class="font-display text-2xl font-bold uppercase leading-tight">
+                <a href={`/guias/${guia.id}`} class="hover:text-oliva-500">
+                  {guia.data.titulo}
+                </a>
+              </h2>
+              <p class="mt-3 leading-relaxed text-texto-2">{guia.data.resumo}</p>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </div>
+</Base>

@@ -1,0 +1,86 @@
+---
+/**
+ * DS §03 — Botões (base escura).
+ * O chanfro de 10px é exclusivo da variante primária. Não replicar
+ * em nenhum outro elemento.
+ */
+interface Props {
+  variante?: "primario" | "secundario" | "fantasma" | "escassez";
+  tamanho?: "sm" | "md";
+  href?: string;
+  tipo?: "button" | "submit";
+  desabilitado?: boolean;
+  /** Acrescenta a seta "›" ao fim do rótulo. */
+  seta?: boolean;
+  class?: string;
+  rel?: string;
+  target?: string;
+}
+
+const {
+  variante = "primario",
+  tamanho = "md",
+  href,
+  tipo = "button",
+  desabilitado = false,
+  seta = false,
+  class: classe,
+  ...resto
+} = Astro.props;
+
+const base =
+  "inline-flex items-center justify-center gap-2 font-display font-bold uppercase tracking-[0.06em] border transition-colors cursor-pointer";
+
+const tamanhos = {
+  sm: "text-sm px-[18px] py-[9px]",
+  md: "text-[17px] px-[26px] py-[13px]",
+};
+
+const variantes = {
+  primario:
+    "chanfro bg-oliva-500 text-fundo border-oliva-500 hover:bg-oliva-400 hover:border-oliva-400",
+  secundario:
+    "bg-papel/70 text-tinta border-borda-forte hover:bg-oliva-050 hover:border-oliva-500 hover:text-oliva-300",
+  fantasma:
+    "bg-transparent text-texto-2 border-transparent hover:text-tinta px-[18px]",
+  escassez:
+    "bg-latao text-fundo border-latao hover:bg-latao-escuro hover:border-latao-escuro",
+};
+
+const desabilitadoClasses =
+  "bg-desabilitado-bg text-desabilitado border-borda cursor-not-allowed hover:bg-desabilitado-bg";
+
+const classes = [
+  base,
+  tamanhos[tamanho],
+  desabilitado ? desabilitadoClasses : variantes[variante],
+  classe,
+];
+
+const Tag = href && !desabilitado ? "a" : "button";
+---
+
+<Tag
+  class:list={classes}
+  href={Tag === "a" ? href : undefined}
+  type={Tag === "button" ? tipo : undefined}
+  disabled={Tag === "button" && desabilitado ? true : undefined}
+  aria-disabled={desabilitado ? "true" : undefined}
+  {...resto}
+>
+  <slot />
+  {
+    seta && (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        class="h-[1.1em] w-[1.1em] text-oliva-300"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+      >
+        <path d="m9 5 7 7-7 7" stroke-linecap="square" />
+      </svg>
+    )
+  }
+</Tag>

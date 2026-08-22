@@ -1,0 +1,280 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../../../layouts/Base.astro";
+import Etiqueta from "../../../../components/Etiqueta.astro";
+import Botao from "../../../../components/Botao.astro";
+import SeloVerificacao from "../../../../components/SeloVerificacao.astro";
+import Trilha from "../../../../components/Trilha.astro";
+import {
+  NOME_UF,
+  ROTULO_TERRENO,
+  ROTULO_ESTRUTURA,
+  faixaDeValor,
+} from "../../../../lib/uf";
+
+export async function getStaticPaths() {
+  const campos = await getCollection("campos", ({ data }) => data.status === "publicado");
+
+  return campos.map((campo) => ({
+    params: {
+      uf: campo.data.uf.toLowerCase(),
+      cidade: campo.data.cidade_slug,
+      slug: campo.id,
+    },
+    props: { campo },
+  }));
+}
+
+const { campo } = Astro.props;
+const d = campo.data;
+
+const nomeUf = NOME_UF[d.uf] ?? d.uf;
+const titulo = `${d.nome} — campo de airsoft em ${d.cidade}, ${d.uf}`;
+const descricao = `${d.nome}: campo de airsoft em ${d.cidade} (${d.uf}). ${
+  d.terreno.map((t) => ROTULO_TERRENO[t]).join(", ")
+}. ${d.aceita_iniciante ? "Aceita iniciante." : ""} ${
+  d.tem_aluguel ? "Tem aluguel de equipamento." : ""
+}`.trim().slice(0, 160);
+
+// schema.org — é o que faz o campo aparecer com endereço e horário no Google.
+const dadoEstruturado: Record<string, unknown> = {
+  "@context": "https://schema.org",
+  "@type": "SportsActivityLocation",
+  name: d.nome,
+  description: d.descricao,
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: d.cidade,
+    addressRegion: d.uf,
+    addressCountry: "BR",
+    ...(d.endereco ? { streetAddress: d.endereco } : {}),
+  },
+  ...(d.lat && d.lng
+    ? {
+        geo: {
+          "@type": "GeoCoordinates",
+          latitude: d.lat,
+          longitude: d.lng,
+        },
+      }
+    : {}),
+  ...(d.contato.site ? { url: d.contato.site } : {}),
+  ...(d.contato.telefone ? { telephone: d.contato.telefone } : {}),
+  ...(d.funcionamento ? { openingHours: d.funcionamento } : {}),
+  sport: "Airsoft",
+};
+
+const temContato = Object.values(d.contato).some(Boolean);
+---
+
+<Base titulo={titulo} descricao={descricao} dadosEstruturados={[dadoEstruturado]}>
+  <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
+    <Trilha
+      itens={[
+        { href: "/campos", texto: "Campos" },
+        { href: `/campos/${d.uf.toLowerCase()}`, texto: nomeUf },
+        {
+          href: `/campos/${d.uf.toLowerCase()}/${d.cidade_slug}`,
+          texto: d.cidade,
+        },
+        { texto: d.nome },
+      ]}
+    />
+
+    <div class="mt-8 grid gap-12 lg:grid-cols-[1fr_360px]">
+      <div>
+        <header class="border-b border-borda pb-8">
+          <h1
+            class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"
+          >
+            {d.nome}
+          </h1>
+          <p
+            class="mt-3 font-dado text-xs uppercase tracking-[0.18em] text-oliva-400"
+          >
+            {d.cidade} · {nomeUf}
+          </p>
+
+          <div class="mt-6">
+            <SeloVerificacao
+              verificado={d.verificado}
+              verificadoEm={d.verificado_em}
+            />
+          </div>
+
+          <div class="mt-6 flex flex-wrap gap-2">
+            {d.terreno.map((t) => <Etiqueta>{ROTULO_TERRENO[t] ?? t}</Etiqueta>)}
+            {d.aceita_iniciante && <Etiqueta tom="info">Aceita iniciante</Etiqueta>}
+            {d.tem_aluguel && <Etiqueta tom="info">Tem aluguel</Etiqueta>}
+          </div>
+        </header>
+
+        <section class="py-8">
+          <p class="max-w-[65ch] leading-relaxed text-texto">{d.descricao}</p>
+        </section>
+
+        {
+          d.fps.length > 0 && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                Limites de FPS
+              </h2>
+              <table class="w-full max-w-lg border border-borda bg-papel text-left">
+                <thead>
+                  <tr class="border-b border-borda">
+                    <th class="rotulo p-3 font-normal">Categoria</th>
+                    <th class="rotulo p-3 font-normal">Limite</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.fps.map((f) => (
+                    <tr class="border-b border-borda last:border-b-0">
+                      <td class="p-3">
+                        <div class="font-medium">{f.categoria}</div>
+                        {f.observacao && (
+                          <div class="text-sm text-texto-2">{f.observacao}</div>
+                        )}
+                      </td>
+                      <td class="p-3 font-dado tracking-[0.14em] text-oliva-500">
+                        {f.limite} FPS
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p class="mt-3 max-w-[60ch] text-sm text-texto-2">
+                Limites medidos com BB de 0.20g, salvo indicação do campo.
+                Confirme antes de viajar — o campo pode alterar as regras.
+              </p>
+            </section>
+          )
+        }
+
+        {
+          d.estrutura.length > 0 && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                Estrutura
+              </h2>
+              <ul class="grid gap-2 sm:grid-cols-2">
+                {d.estrutura.map((e) => (
+                  <li class="flex items-center gap-2 text-base">
+                    <span aria-hidden="true" class="text-oliva-500">
+                      ▪
+                    </span>
+                    {ROTULO_ESTRUTURA[e] ?? e}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
+        }
+      </div>
+
+      <aside class="lg:sticky lg:top-8 lg:self-start">
+        <div class="border border-borda bg-papel">
+          <div class="border-b border-borda p-5">
+            <div class="rotulo mb-2">Valor</div>
+            <div class="font-display text-3xl font-bold uppercase">
+              {faixaDeValor(d.valor_min, d.valor_max)}
+            </div>
+          </div>
+
+          {
+            d.funcionamento && (
+              <div class="border-b border-borda p-5">
+                <div class="rotulo mb-2">Funcionamento</div>
+                <p class="text-base">{d.funcionamento}</p>
+              </div>
+            )
+          }
+
+          {
+            d.endereco && (
+              <div class="border-b border-borda p-5">
+                <div class="rotulo mb-2">Endereço</div>
+                <p class="text-base">{d.endereco}</p>
+                <p class="text-base text-texto-2">{d.cidade} — {d.uf}</p>
+              </div>
+            )
+          }
+
+          <div class="p-5">
+            <div class="rotulo mb-3">Contato</div>
+            {
+              temContato ? (
+                <ul class="flex flex-col gap-2">
+                  {d.contato.whatsapp && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        href={`https://wa.me/${d.contato.whatsapp.replace(/\D/g, "")}`}
+                        rel="nofollow noopener"
+                      >
+                        WhatsApp
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.telefone && <li>{d.contato.telefone}</li>}
+                  {d.contato.instagram && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        href={`https://instagram.com/${d.contato.instagram.replace("@", "")}`}
+                        rel="nofollow noopener"
+                      >
+                        {d.contato.instagram}
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.site && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        href={d.contato.site}
+                        rel="nofollow noopener"
+                      >
+                        Site oficial
+                      </a>
+                    </li>
+                  )}
+                </ul>
+              ) : (
+                <p class="text-base text-texto-2">
+                  Ainda não temos contato confirmado deste campo.
+                </p>
+              )
+            }
+          </div>
+        </div>
+
+        {
+          !d.verificado && (
+            <div class="mt-5 border border-oliva-300 bg-oliva-050 p-5">
+              <h2 class="font-display text-xl font-bold uppercase">
+                É seu este campo?
+              </h2>
+              <p class="mt-2 text-base leading-relaxed text-texto-2">
+                Esta página já existe e já recebe visitas. Assuma o controle
+                para corrigir os dados e publicar suas operações.
+              </p>
+              <Botao
+                href={`/reivindicar?tipo=campo&id=${campo.id}`}
+                class="mt-4 w-full"
+              >
+                Reivindicar esta página
+              </Botao>
+            </div>
+          )
+        }
+
+        <a
+          href={`/reportar?tipo=campo&id=${campo.id}`}
+          class="mt-4 block text-center text-sm text-texto-2 underline hover:text-tinta"
+        >
+          Reportar informação desatualizada
+        </a>
+      </aside>
+    </div>
+  </div>
+</Base>

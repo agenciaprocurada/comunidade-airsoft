@@ -1,0 +1,27 @@
+---
+import Base from "../layouts/Base.astro";
+import Botao from "../components/Botao.astro";
+---
+
+<Base
+  titulo="Página não encontrada"
+  descricao="A página que você procurou não existe ou foi movida."
+  semIndexar={true}
+>
+  <div class="mx-auto max-w-[68ch] px-5 py-24 text-center md:px-12">
+    <p class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400">
+      Erro 404
+    </p>
+    <h1 class="mt-4 font-display text-5xl font-extrabold uppercase italic leading-[0.95] md:text-7xl">
+      Fora de área
+    </h1>
+    <p class="mx-auto mt-5 max-w-[46ch] text-lg leading-relaxed text-texto-2">
+      Esta página não existe ou foi movida. Se você chegou aqui por um link
+      nosso, avise — a gente conserta.
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3">
+      <Botao href="/campos">Ver campos</Botao>
+      <Botao href="/" variante="secundario">Voltar ao início</Botao>
+    </div>
+  </div>
+</Base>

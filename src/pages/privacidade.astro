@@ -1,0 +1,104 @@
+---
+import Base from "../layouts/Base.astro";
+
+/**
+ * RASCUNHO. Não é peça jurídica pronta.
+ * O documento de projeto (§7.2) trata a LGPD como pré-requisito da
+ * monetização: o consentimento precisa nascer granular e registrado.
+ */
+const atualizado = "21 de agosto de 2026";
+---
+
+<Base
+  titulo="Política de Privacidade"
+  descricao="Política de Privacidade da plataforma Comunidade Airsoft."
+  semIndexar={true}
+>
+  <div class="conteudo mx-auto max-w-[68ch] px-5 py-12 md:px-12">
+    <div class="mb-8 border border-alerta bg-alerta-bg p-5">
+      <p class="font-display text-lg font-bold uppercase text-alerta-texto">
+        Rascunho — não publicar sem revisão jurídica
+      </p>
+      <p class="mt-1 text-base text-alerta-texto">
+        Refazer o consentimento depois, com a base já formada, é inviável.
+        Este texto precisa estar correto antes do primeiro cadastro.
+      </p>
+    </div>
+
+    <h1 class="font-display text-4xl font-extrabold uppercase italic leading-[0.95]">
+      Política de Privacidade
+    </h1>
+    <p class="mt-3 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+      Atualizado em {atualizado}
+    </p>
+
+    <h2>1. Dados que coletamos</h2>
+    <p>
+      Enquanto você apenas consulta o site, não coletamos dado pessoal além do
+      necessário para medir audiência de forma agregada.
+    </p>
+    <p>Ao criar conta, coletamos:</p>
+    <ul>
+      <li>nome ou apelido e e-mail;</li>
+      <li>cidade e estado;</li>
+      <li>nível de experiência e estilo de jogo preferido;</li>
+      <li>data, hora e IP do aceite dos termos.</li>
+    </ul>
+
+    <h2>2. Para que usamos</h2>
+    <ul>
+      <li>identificar você na plataforma;</li>
+      <li>mostrar campos, lojas e operações da sua região;</li>
+      <li>
+        enviar comunicações — <strong>somente</strong> se você consentir de
+        forma específica;
+      </li>
+      <li>
+        recomendar produtos de lojas parceiras — <strong>somente</strong> se
+        você consentir de forma específica e separada da anterior.
+      </li>
+    </ul>
+
+    <h2>3. Consentimento separado</h2>
+    <p>
+      Os dois consentimentos acima são pedidos separadamente e podem ser
+      retirados a qualquer momento, sem que isso encerre sua conta.
+    </p>
+
+    <h2>4. Com quem compartilhamos</h2>
+    <p>
+      Não vendemos sua base de dados. [Listar os operadores usados —
+      hospedagem, e-mail, analytics — antes da publicação.]
+    </p>
+
+    <h2>5. Seus direitos</h2>
+    <p>
+      Você pode pedir acesso, correção ou exclusão dos seus dados a qualquer
+      momento pelo canal [definir e-mail]. Respondemos em até 15 dias.
+    </p>
+
+    <h2>6. Encarregado de dados</h2>
+    <p>[Definir responsável e e-mail antes da publicação.]</p>
+  </div>
+
+  <style is:global>
+    .conteudo h2 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.5rem;
+      text-transform: uppercase;
+      margin: 2.5rem 0 0.75rem;
+    }
+    .conteudo p {
+      margin: 0 0 1rem;
+      color: var(--color-texto);
+    }
+    .conteudo ul {
+      margin: 0 0 1.25rem 1.25rem;
+      list-style: square;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  </style>
+</Base>
