@@ -1,0 +1,93 @@
+---
+import Base from "./Base.astro";
+
+/**
+ * Moldura das paginas de /conta: barra do usuario, sub-navegacao e o
+ * botao de sair. Sempre noindex — area logada nao vai para o Google.
+ */
+interface Props {
+  titulo: string;
+  descricao: string;
+}
+
+const { titulo, descricao } = Astro.props;
+const { usuario, perfil } = Astro.locals;
+
+const abas = [
+  { href: "/conta", texto: "Painel" },
+  { href: "/conta/perfil", texto: "Meu perfil" },
+];
+
+const atual = Astro.url.pathname;
+const nome = perfil?.nome ?? usuario?.email ?? "jogador";
+const iniciais = nome.trim().charAt(0).toUpperCase();
+---
+
+<Base titulo={titulo} descricao={descricao} semIndexar={true}>
+  <div class="border-b border-borda bg-papel/40">
+    <div
+      class="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 px-5 py-5 md:px-12"
+    >
+      <div class="flex items-center gap-3">
+        {
+          perfil?.foto_url ? (
+            <img
+              src={perfil.foto_url}
+              alt=""
+              width="40"
+              height="40"
+              referrerpolicy="no-referrer"
+              class="h-10 w-10 border border-borda-forte object-cover"
+            />
+          ) : (
+            <span class="flex h-10 w-10 items-center justify-center border border-borda-forte bg-oliva-050 font-display text-lg font-bold text-oliva-300">
+              {iniciais}
+            </span>
+          )
+        }
+        <div>
+          <p class="rotulo">Área do jogador</p>
+          <p class="font-display text-lg font-bold uppercase tracking-[0.04em] leading-tight">
+            {nome}
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-6">
+        <nav aria-label="Minha conta">
+          <ul class="flex items-center gap-6">
+            {
+              abas.map((aba) => (
+                <li>
+                  <a
+                    href={aba.href}
+                    aria-current={atual === aba.href ? "page" : undefined}
+                    class:list={[
+                      "block border-b-2 pb-1 font-display text-base font-bold uppercase tracking-[0.08em] transition-colors",
+                      atual === aba.href
+                        ? "border-oliva-500 text-tinta"
+                        : "border-transparent text-tinta/70 hover:border-oliva-500 hover:text-tinta",
+                    ]}
+                  >
+                    {aba.texto}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+
+        <form method="POST" action="/auth/sair">
+          <button
+            type="submit"
+            class="cursor-pointer font-display text-base font-bold uppercase tracking-[0.08em] text-texto-2 transition-colors hover:text-alerta"
+          >
+            Sair
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <slot />
+</Base>

@@ -1,0 +1,84 @@
+---
+import Base from "../layouts/Base.astro";
+import { destinoSeguro } from "../lib/conta";
+
+export const prerender = false;
+
+// Quem ja esta logado nao tem o que fazer aqui.
+if (Astro.locals.usuario) {
+  return Astro.redirect(destinoSeguro(Astro.url.searchParams.get("destino")), 302);
+}
+
+const destino = destinoSeguro(Astro.url.searchParams.get("destino"));
+
+const MENSAGENS: Record<string, string> = {
+  cancelado: "Você cancelou a entrada no Google. Nenhum dado foi salvo.",
+  inicio: "Não conseguimos falar com o Google agora. Tente de novo em instantes.",
+  provedor: "O Google recusou a entrada. Tente de novo ou use outra conta.",
+  sem_codigo: "O retorno do Google veio incompleto. Comece a entrada de novo.",
+  troca: "A sessão expirou antes de terminar a entrada. Tente de novo.",
+};
+
+const erro = MENSAGENS[Astro.url.searchParams.get("erro") ?? ""];
+---
+
+<Base
+  titulo="Entrar"
+  descricao="Entre na Comunidade Airsoft com sua conta Google para cadastrar campos, lojas e operações."
+  semIndexar={true}
+>
+  <div class="mx-auto max-w-[52ch] px-5 py-20 md:px-12 md:py-28">
+    <p class="rotulo">Área do jogador</p>
+    <h1
+      class="mt-4 font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-5xl"
+    >
+      Entrar
+    </h1>
+    <p class="mt-5 text-lg leading-relaxed text-texto-2">
+      A entrada é pela sua conta Google. Não criamos senha e não guardamos
+      senha nenhuma.
+    </p>
+
+    {erro && <p class="mt-6 border border-alerta bg-alerta-bg px-4 py-3 text-alerta-texto">{erro}</p>}
+
+    <form method="POST" action="/auth/google" class="mt-8">
+      <input type="hidden" name="destino" value={destino} />
+      <button
+        type="submit"
+        class="chanfro flex w-full cursor-pointer items-center justify-center gap-3 border border-oliva-500 bg-oliva-500 px-6 py-4 font-display text-[17px] font-bold uppercase tracking-[0.06em] text-fundo transition-colors hover:border-oliva-400 hover:bg-oliva-400"
+      >
+        <svg aria-hidden="true" viewBox="0 0 48 48" class="h-6 w-6">
+          <path
+            fill="#4285F4"
+            d="M45.1 24.5c0-1.6-.1-3.2-.4-4.7H24v8.9h11.8c-.5 2.8-2 5.1-4.4 6.7v5.5h7.1c4.1-3.8 6.6-9.4 6.6-16.4z"
+          ></path>
+          <path
+            fill="#34A853"
+            d="M24 46c5.9 0 10.9-2 14.5-5.3l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.5-3.8-12.2-9H4.5v5.7C8.1 41.2 15.5 46 24 46z"
+          ></path>
+          <path
+            fill="#FBBC05"
+            d="M11.8 28.3c-.4-1.3-.7-2.7-.7-4.3s.2-2.9.7-4.3v-5.7H4.5A22 22 0 0 0 2 24c0 3.6.9 6.9 2.5 9.9l7.3-5.6z"
+          ></path>
+          <path
+            fill="#EA4335"
+            d="M24 10.7c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4.1 29.9 2 24 2 15.5 2 8.1 6.8 4.5 13.9l7.3 5.7c1.7-5.2 6.5-8.9 12.2-8.9z"
+          ></path>
+        </svg>
+        Entrar com Google
+      </button>
+    </form>
+
+    <p class="mt-6 text-sm leading-relaxed text-texto-2">
+      Ainda não tem conta? É o mesmo botão — a conta é criada na primeira
+      entrada. Depois pedimos WhatsApp e cidade, que são obrigatórios.
+    </p>
+
+    <p class="mt-8 border-t border-borda pt-6 text-sm leading-relaxed text-texto-2">
+      Ao entrar você concorda com os
+      <a href="/termos" class="text-oliva-300 underline">Termos de Uso</a> e com a
+      <a href="/privacidade" class="text-oliva-300 underline">Política de Privacidade</a>.
+      A plataforma é para maiores de 18 anos.
+    </p>
+  </div>
+</Base>

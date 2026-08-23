@@ -1,0 +1,139 @@
+---
+import Conta from "../../layouts/Conta.astro";
+import Botao from "../../components/Botao.astro";
+import { NOME_UF } from "../../lib/uf";
+
+export const prerender = false;
+
+const { perfil } = Astro.locals;
+const recemCadastrado = Astro.url.searchParams.get("novo") === "1";
+
+const local =
+  perfil?.cidade && perfil?.uf ? `${perfil.cidade} — ${NOME_UF[perfil.uf] ?? perfil.uf}` : null;
+
+/**
+ * O painel ainda nao tem feature nenhuma — de proposito. Cada item
+ * aqui e uma entrega do PLANO-DE-ACAO.md e vira link quando existir.
+ * Deixar o mapa visivel desde agora tambem serve de aviso do que a
+ * pessoa ganha ao terminar o perfil.
+ */
+const PROXIMAS = [
+  {
+    titulo: "Cadastrar operação",
+    texto: "Publique a data, o valor e as vagas da sua operação na agenda.",
+    entrega: "Entrega 3",
+  },
+  {
+    titulo: "Cadastrar campo ou loja",
+    texto: "Envie um campo, uma loja ou um técnico que ainda não está no diretório.",
+    entrega: "Entrega 3",
+  },
+  {
+    titulo: "Reivindicar uma página",
+    texto:
+      "Assuma a página do seu campo ou da sua loja. Toda reivindicação passa por confirmação nossa antes de valer.",
+    entrega: "Entrega 3",
+  },
+  {
+    titulo: "Minha equipe",
+    texto: "Cadastre seu pelotão e apareça para quem procura equipe na sua cidade.",
+    entrega: "Entrega 4",
+  },
+];
+---
+
+<Conta titulo="Painel" descricao="Sua área na Comunidade Airsoft.">
+  <div class="mx-auto max-w-[1240px] px-5 py-14 md:px-12 md:py-20">
+    {
+      recemCadastrado && (
+        <p class="mb-10 border border-ok bg-ok-bg px-5 py-4 text-ok-texto">
+          Cadastro criado. Bem-vindo à Comunidade Airsoft.
+        </p>
+      )
+    }
+
+    <h1
+      class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-5xl"
+    >
+      Seu painel
+    </h1>
+    <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+      Por enquanto a área serve para você manter seus dados em dia. As
+      ferramentas de cadastro entram nas próximas entregas — sua conta já
+      estará pronta quando elas chegarem.
+    </p>
+
+    <section class="mt-12 border border-borda bg-papel/40 p-6 md:p-8">
+      <p class="rotulo">Situação do cadastro</p>
+
+      {
+        perfil?.perfil_completo ? (
+          <>
+            <p class="mt-3 font-display text-2xl font-bold uppercase text-ok-texto">
+              Cadastro completo
+            </p>
+            <p class="mt-3 max-w-[62ch] leading-relaxed text-texto-2">
+              Você já pode cadastrar e reivindicar assim que essas ferramentas
+              forem liberadas.
+            </p>
+          </>
+        ) : (
+          <>
+            <p class="mt-3 font-display text-2xl font-bold uppercase text-latao">
+              Falta completar o perfil
+            </p>
+            <p class="mt-3 max-w-[62ch] leading-relaxed text-texto-2">
+              Para <strong class="text-tinta">cadastrar</strong> ou{" "}
+              <strong class="text-tinta">assumir</strong> um campo, uma loja ou
+              uma operação, o perfil precisa estar completo: nome, nível e
+              estilo de jogo, além do que você já informou.
+            </p>
+            <div class="mt-6">
+              <Botao href="/conta/perfil" seta={true}>
+                Completar perfil
+              </Botao>
+            </div>
+          </>
+        )
+      }
+
+      <dl class="mt-8 grid gap-6 border-t border-borda pt-6 sm:grid-cols-3">
+        <div>
+          <dt class="rotulo">Região</dt>
+          <dd class="mt-1 text-texto">{local ?? "—"}</dd>
+        </div>
+        <div>
+          <dt class="rotulo">WhatsApp</dt>
+          <dd class="mt-1 text-texto">
+            {perfil?.whatsapp_verificado ? "Confirmado" : "Não confirmado ainda"}
+          </dd>
+        </div>
+        <div>
+          <dt class="rotulo">Nível</dt>
+          <dd class="mt-1 text-texto">{perfil?.nivel ?? "—"}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="mt-14">
+      <h2 class="font-display text-2xl font-bold uppercase tracking-[0.04em]">
+        O que vem por aqui
+      </h2>
+      <ul class="mt-6 grid gap-4 md:grid-cols-2">
+        {
+          PROXIMAS.map((item) => (
+            <li class="border border-borda bg-papel/25 p-6">
+              <p class="font-display text-xl font-bold uppercase text-texto-2">
+                {item.titulo}
+              </p>
+              <p class="mt-2 leading-relaxed text-texto-2">{item.texto}</p>
+              <p class="mt-4 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+                Previsto para: {item.entrega}
+              </p>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+  </div>
+</Conta>

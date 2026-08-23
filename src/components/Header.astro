@@ -22,6 +22,17 @@ const links = [
 ];
 
 const atual = Astro.url.pathname;
+
+/**
+ * O link da conta é sempre o mesmo, logado ou não.
+ *
+ * O header aparece em páginas geradas no build, que não sabem quem
+ * está acessando. Se o rótulo dependesse da sessão, ou o HTML viraria
+ * dinâmico (adeus cache de CDN e Core Web Vitals) ou mostraria estado
+ * errado. Quem não tem sessão cai em /conta e é mandado para /entrar
+ * pelo middleware.
+ */
+const linkConta = { href: "/conta", texto: "Minha conta" };
 ---
 
 <header
@@ -62,6 +73,15 @@ const atual = Astro.url.pathname;
             );
           })
         }
+        <li>
+          <a
+            href={linkConta.href}
+            aria-current={atual.startsWith("/conta") ? "page" : undefined}
+            class="block border border-borda-forte px-4 py-2 font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-300 transition-colors hover:border-oliva-500 hover:bg-oliva-050 hover:text-oliva-100"
+          >
+            {linkConta.texto}
+          </a>
+        </li>
       </ul>
     </nav>
 
@@ -88,6 +108,14 @@ const atual = Astro.url.pathname;
               </li>
             ))
           }
+          <li class="border-t border-borda-forte">
+            <a
+              href={linkConta.href}
+              class="block px-5 py-3 font-display text-lg font-bold uppercase tracking-[0.08em] text-oliva-300 hover:bg-oliva-050 hover:text-oliva-100"
+            >
+              {linkConta.texto}
+            </a>
+          </li>
         </ul>
       </nav>
     </details>

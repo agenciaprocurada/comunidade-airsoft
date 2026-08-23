@@ -4,6 +4,7 @@ import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
+import vercel from '@astrojs/vercel';
 
 /**
  * Rotas que NÃO entram no sitemap.
@@ -26,6 +27,11 @@ const FORA_DO_SITEMAP = [
   // placeholders — remover conforme cada um vira página de verdade
   '/operacoes',
   '/grupos',
+  // área logada: já é noindex no HTML, não pode aparecer no sitemap
+  '/entrar',
+  '/conta',
+  '/conta/perfil',
+  '/conta/completar',
 ];
 
 // https://astro.build/config
@@ -35,6 +41,13 @@ export default defineConfig({
   site: 'https://comunidadeairsoft.com.br',
 
   trailingSlash: 'never',
+
+  // 'static' continua sendo o padrão: TODA página do diretório é gerada
+  // no build e servida como HTML puro. O adapter existe só para as
+  // rotas de conta, que declaram `prerender = false` uma a uma.
+  // Nenhuma página indexável passa a depender de servidor.
+  output: 'static',
+  adapter: vercel(),
 
   vite: {
     plugins: [tailwindcss()],

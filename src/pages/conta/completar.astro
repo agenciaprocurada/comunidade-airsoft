@@ -1,0 +1,256 @@
+---
+import Base from "../../layouts/Base.astro";
+import Botao from "../../components/Botao.astro";
+import { NOME_UF, slugificar } from "../../lib/uf";
+import {
+  CONSENTIMENTOS_OBRIGATORIOS,
+  CONSENTIMENTOS_OPCIONAIS,
+  VERSAO_TERMOS,
+  ipDaRequisicao,
+  normalizarWhatsapp,
+  formatarWhatsapp,
+} from "../../lib/conta";
+import {
+  AJUDA_CAMPO,
+  CAIXA,
+  ENTRADA,
+  ERRO_CAIXA,
+  LINHA_CAIXA,
+  ROTULO_CAMPO,
+  SELECAO,
+} from "../../lib/estilos-form";
+
+export const prerender = false;
+
+const { supabase, usuario, perfil } = Astro.locals;
+
+// O middleware ja garantiu sessao em /conta. Quem ja terminou o
+// cadastro minimo edita o resto na pagina de perfil.
+if (perfil?.onboarding_ok) return Astro.redirect("/conta/perfil", 302);
+
+const UFS = Object.entries(NOME_UF).sort(([a], [b]) => a.localeCompare(b));
+
+let erros: string[] = [];
+let enviado: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const dados = await Astro.request.formData();
+  const texto = (chave: string) => (dados.get(chave)?.toString() ?? "").trim();
+  const marcado = (chave: string) => dados.get(chave) === "on";
+
+  enviado = {
+    nome: texto("nome"),
+    whatsapp: texto("whatsapp"),
+    uf: texto("uf"),
+    cidade: texto("cidade"),
+  };
+
+  const nome = enviado.nome;
+  const whatsapp = normalizarWhatsapp(enviado.whatsapp);
+  const uf = enviado.uf.toUpperCase();
+  const cidade = enviado.cidade;
+  const maioridade = marcado("maioridade");
+
+  if (nome.length < 2) erros.push("Informe seu nome.");
+  if (!whatsapp) {
+    erros.push("WhatsApp inválido. Use DDD + número, ex.: (51) 99999-8888.");
+  }
+  if (!NOME_UF[uf]) erros.push("Escolha o estado.");
+  if (cidade.length < 2) erros.push("Informe sua cidade.");
+  if (!maioridade) erros.push("É obrigatório confirmar que você tem 18 anos ou mais.");
+
+  for (const item of CONSENTIMENTOS_OBRIGATORIOS) {
+    if (!marcado(item.tipo)) {
+      erros.push("É obrigatório aceitar os Termos de Uso e a Política de Privacidade.");
+      break;
+    }
+  }
+
+  if (erros.length === 0 && usuario) {
+    const { error: erroPerfil } = await supabase
+      .from("perfis")
+      .update({
+        nome,
+        whatsapp,
+        uf,
+        cidade,
+        cidade_slug: slugificar(cidade),
+        maioridade: true,
+      })
+      .eq("id", usuario.id);
+
+    if (erroPerfil) {
+      console.error("Falha ao salvar perfil:", erroPerfil);
+      erros.push("Não conseguimos salvar agora. Tente de novo em instantes.");
+    } else {
+      // Um registro por consentimento, inclusive os recusados: o "não"
+      // também precisa de prova de data (doc §7.2).
+      const ip = ipDaRequisicao(() => Astro.clientAddress);
+      const agente = Astro.request.headers.get("user-agent");
+
+      const registros = [
+        ...CONSENTIMENTOS_OBRIGATORIOS,
+        ...CONSENTIMENTOS_OPCIONAIS,
+      ].map((item) => ({
+        usuario_id: usuario.id,
+        tipo: item.tipo,
+        concedido: marcado(item.tipo),
+        versao_texto: VERSAO_TERMOS,
+        ip,
+        user_agent: agente,
+      }));
+
+      const { error: erroConsentimento } = await supabase
+        .from("consentimentos")
+        .insert(registros);
+
+      if (erroConsentimento) {
+        // O perfil ja foi salvo; sem o registro de consentimento a base
+        // fica juridicamente furada, entao isso e erro, nao aviso.
+        console.error("Falha ao registrar consentimentos:", erroConsentimento);
+        erros.push("Não conseguimos registrar seus consentimentos. Tente de novo.");
+      } else {
+        return Astro.redirect("/conta?novo=1", 303);
+      }
+    }
+  }
+}
+
+// No GET, o nome vem do Google; no POST com erro, o que a pessoa digitou.
+const valor = (chave: string, padrao: string | null | undefined) =>
+  Astro.request.method === "POST" ? (enviado[chave] ?? "") : (padrao ?? "");
+---
+
+<Base
+  titulo="Completar cadastro"
+  descricao="Últimos dados para liberar sua área na Comunidade Airsoft."
+  semIndexar={true}
+>
+  <div class="mx-auto max-w-[60ch] px-5 py-16 md:px-12 md:py-20">
+    <p class="rotulo">Passo final</p>
+    <h1
+      class="mt-4 font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-5xl"
+    >
+      Completar cadastro
+    </h1>
+    <p class="mt-5 text-lg leading-relaxed text-texto-2">
+      Três informações e sua área está liberada. Cidade e WhatsApp são o que
+      permite te avisar de operação perto de você.
+    </p>
+
+    {
+      erros.length > 0 && (
+        <div class={`mt-8 ${ERRO_CAIXA}`}>
+          <ul class="list-disc space-y-1 pl-5">
+            {erros.map((erro) => (
+              <li class="text-alerta-texto">{erro}</li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+
+    <form method="POST" class="mt-10 space-y-8">
+      <div>
+        <label for="nome" class={ROTULO_CAMPO}>Nome</label>
+        <input
+          id="nome"
+          name="nome"
+          type="text"
+          required
+          autocomplete="name"
+          maxlength="80"
+          value={valor("nome", perfil?.nome)}
+          class={ENTRADA}
+        />
+      </div>
+
+      <div>
+        <label for="whatsapp" class={ROTULO_CAMPO}>WhatsApp</label>
+        <p class={AJUDA_CAMPO}>
+          Com DDD. Não aparece no site — usamos para confirmar sua conta e para
+          o organizador te encontrar quando você se inscrever numa operação.
+        </p>
+        <input
+          id="whatsapp"
+          name="whatsapp"
+          type="tel"
+          required
+          inputmode="tel"
+          autocomplete="tel-national"
+          placeholder="(51) 99999-8888"
+          value={valor("whatsapp", formatarWhatsapp(perfil?.whatsapp ?? null))}
+          class={ENTRADA}
+        />
+      </div>
+
+      <div class="grid gap-6 sm:grid-cols-[9rem_1fr]">
+        <div>
+          <label for="uf" class={ROTULO_CAMPO}>Estado</label>
+          <select id="uf" name="uf" required class={SELECAO}>
+            <option value="">UF</option>
+            {
+              UFS.map(([sigla, nome]) => (
+                <option value={sigla} selected={valor("uf", perfil?.uf) === sigla}>
+                  {sigla} — {nome}
+                </option>
+              ))
+            }
+          </select>
+        </div>
+        <div>
+          <label for="cidade" class={ROTULO_CAMPO}>Cidade</label>
+          <input
+            id="cidade"
+            name="cidade"
+            type="text"
+            required
+            autocomplete="address-level2"
+            maxlength="60"
+            value={valor("cidade", perfil?.cidade)}
+            class={ENTRADA}
+          />
+        </div>
+      </div>
+
+      <div class="space-y-3 border-t border-borda pt-8">
+        <p class="rotulo">Obrigatório</p>
+
+        <label class={LINHA_CAIXA}>
+          <input type="checkbox" name="maioridade" class={CAIXA} required />
+          <span class="text-[15px] leading-snug text-texto">
+            Declaro que tenho 18 anos ou mais. O airsoft é uma atividade
+            restrita a maiores de idade.
+          </span>
+        </label>
+
+        {
+          CONSENTIMENTOS_OBRIGATORIOS.map((item) => (
+            <label class={LINHA_CAIXA}>
+              <input type="checkbox" name={item.tipo} class={CAIXA} required />
+              <span class="text-[15px] leading-snug text-texto" set:html={item.rotulo} />
+            </label>
+          ))
+        }
+      </div>
+
+      <div class="space-y-3 border-t border-borda pt-8">
+        <p class="rotulo">Opcional — você escolhe cada um</p>
+        <p class={AJUDA_CAMPO}>
+          Pode marcar ou desmarcar depois, a qualquer momento, na sua conta.
+        </p>
+
+        {
+          CONSENTIMENTOS_OPCIONAIS.map((item) => (
+            <label class={LINHA_CAIXA}>
+              <input type="checkbox" name={item.tipo} class={CAIXA} />
+              <span class="text-[15px] leading-snug text-texto">{item.rotulo}</span>
+            </label>
+          ))
+        }
+      </div>
+
+      <Botao tipo="submit" seta={true}>Liberar minha área</Botao>
+    </form>
+  </div>
+</Base>
