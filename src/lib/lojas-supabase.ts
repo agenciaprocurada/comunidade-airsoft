@@ -77,7 +77,10 @@ export async function carregarLojas() {
   if (!URL_BASE || !CHAVE) {
     throw new Error(
       "SUPABASE_URL e SUPABASE_ANON_KEY não estão definidas. " +
-        "Copie .env.example para .env e preencha antes de rodar o build.",
+        "Defina as duas antes de rodar o build: localmente, copie " +
+        ".env.example para .env e preencha; no deploy (Vercel, Cloudflare), " +
+        "cadastre-as nas variaveis de ambiente do projeto — o .env nao vai " +
+        "para o repositorio de proposito.",
     );
   }
 
