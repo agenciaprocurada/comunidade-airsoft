@@ -1,6 +1,8 @@
 import { defineCollection } from "astro:content";
 import { glob } from "astro/loaders";
 import { z } from "astro/zod";
+import { carregarCampos } from "./lib/campos-supabase";
+import { carregarLojas } from "./lib/lojas-supabase";
 
 /* ============================================================
    Estruturas compartilhadas
@@ -39,14 +41,42 @@ const localizacao = {
    ============================================================ */
 
 const campos = defineCollection({
-  loader: glob({ base: "./src/content/campos", pattern: "**/*.json" }),
+  /**
+   * Fonte: tabela `campos` no Supabase (ver src/lib/campos-supabase.ts).
+   * Os JSON em src/content/campos/ eram sementes de desenvolvimento e
+   * não são mais lidos.
+   */
+  loader: carregarCampos,
   schema: z.object({
     nome: z.string(),
     descricao: z.string(),
     ...localizacao,
     ...verificacao,
 
-    terreno: z.array(z.enum(["mata", "cqb", "urbano", "misto"])).min(1),
+    modalidade: z.enum(["airsoft", "paintball", "ambos"]),
+    /** "Campo comercial", "Campo de equipe"… texto livre do levantamento. */
+    tipo_operacao: z.string().optional(),
+    /** Texto original do status na planilha: "A confirmar", "Ativo (novo)"… */
+    status_original: z.string().optional(),
+    regiao: z.string().optional(),
+    bairro: z.string().optional(),
+
+    /** Preço é texto livre: a planilha traz "Consultar", pacotes, faixas. */
+    precos: z.string().optional(),
+    /** Descrição original do tipo de campo, antes de virar `terreno`. */
+    tipo_campo_original: z.string().optional(),
+
+    /** Reputação de terceiro (Google). Exibida como tal — nunca como nossa. */
+    google_nota: z.number().min(0).max(5).optional(),
+    google_avaliacoes: z.number().int().nonnegative().optional(),
+    confianca: z.enum(["alta", "media", "baixa"]).optional(),
+
+    /**
+     * O levantamento nem sempre traz o tipo de terreno, então isto
+     * deixou de ser obrigatório: campo sem terreno declarado ainda é
+     * um campo útil no diretório.
+     */
+    terreno: z.array(z.enum(["mata", "cqb", "urbano", "misto"])).default([]),
 
     estrutura: z
       .array(
@@ -88,6 +118,7 @@ const campos = defineCollection({
         email: z.string().email().optional(),
         instagram: z.string().optional(),
         site: z.string().url().optional(),
+        facebook: z.string().url().optional(),
       })
       .default({}),
 
@@ -102,18 +133,34 @@ const campos = defineCollection({
    ============================================================ */
 
 const lojas = defineCollection({
-  loader: glob({ base: "./src/content/lojas", pattern: "**/*.json" }),
+  /**
+   * Fonte: tabela `lojas` no Supabase (ver src/lib/lojas-supabase.ts).
+   * A carga inicial vive em db/lojas.json e é aplicada por
+   * db/carregar-lojas.mjs — o JSON é a semente, o banco é a verdade.
+   */
+  loader: carregarLojas,
   schema: z.object({
     nome: z.string(),
     descricao: z.string(),
     tipo: z.enum(["fisica", "online", "ambas"]),
     ...verificacao,
 
-    /** Loja exclusivamente online não tem localização. */
+    /**
+     * Razão social, CNPJ e situação cadastral vêm da Receita Federal.
+     * São o que separa loja séria de perfil que some com o dinheiro
+     * do jogador — por isso aparecem na ficha.
+     */
+    razao_social: z.string().optional(),
+    cnpj: z.string().optional(),
+    situacao_cadastral: z.string().optional(),
+
+    /** Loja exclusivamente online pode não ter endereço de atendimento. */
     uf: z.enum(UFS).optional(),
     cidade: z.string().optional(),
     cidade_slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
+    bairro: z.string().optional(),
     endereco: z.string().optional(),
+    cep: z.string().optional(),
     lat: z.number().optional(),
     lng: z.number().optional(),
 
@@ -127,12 +174,27 @@ const lojas = defineCollection({
     faz_manutencao: z.boolean().default(false),
     faz_customizacao: z.boolean().default(false),
 
+    /** Informação comercial: o que o jogador quer saber antes de comprar. */
+    entrega_nacional: z.boolean().optional(),
+    formas_pagamento: z.string().optional(),
+    desconto_avista: z.string().optional(),
+    horario: z.string().optional(),
+
+    google_nota: z.number().min(0).max(5).optional(),
+    google_avaliacoes: z.number().int().nonnegative().optional(),
+    confianca: z.enum(["alta", "media", "baixa"]).optional(),
+
+    /** Ressalvas do levantamento: divergência de endereço, dado ausente. */
+    observacoes: z.string().optional(),
+
     contato: z
       .object({
         whatsapp: z.string().optional(),
         telefone: z.string().optional(),
+        email: z.string().email().optional(),
         instagram: z.string().optional(),
         site: z.string().url().optional(),
+        facebook: z.string().url().optional(),
       })
       .default({}),
 
@@ -147,19 +209,55 @@ const lojas = defineCollection({
 
 const guias = defineCollection({
   loader: glob({ base: "./src/content/guias", pattern: "**/*.{md,mdx}" }),
-  schema: z.object({
-    titulo: z.string(),
-    /** Usado na meta description. Entre 120 e 160 caracteres. */
-    resumo: z.string().min(60).max(200),
-    publicado_em: z.coerce.date(),
-    atualizado_em: z.coerce.date().optional(),
-    autor: z.string().default("Comunidade Airsoft"),
-    rascunho: z.boolean().default(false),
-    /** Perguntas que viram FAQPage no schema.org. */
-    faq: z
-      .array(z.object({ pergunta: z.string(), resposta: z.string() }))
-      .default([]),
-  }),
+  schema: ({ image }) =>
+    z.object({
+      titulo: z.string(),
+      /** Usado na meta description. Entre 120 e 160 caracteres. */
+      resumo: z.string().min(60).max(200),
+      publicado_em: z.coerce.date(),
+      atualizado_em: z.coerce.date().optional(),
+      autor: z.string().default("Comunidade Airsoft"),
+      rascunho: z.boolean().default(false),
+
+      /**
+       * Capa do guia: vira hero no artigo e thumbnail na listagem. Passa pelo
+       * pipeline do Astro, entao o build gera webp em varias larguras e ja
+       * conhece width/height — o que evita salto de layout no carregamento.
+       * Opcional: guia sem capa continua publicavel.
+       */
+      imagem: image().optional(),
+      /** Texto alternativo da capa. Sem ele a imagem entra como decorativa. */
+      imagem_alt: z.string().optional(),
+
+      /**
+       * Nivel de conhecimento do leitor (doc 4.1: iniciante / intermediario /
+       * veterano). Organiza a trilha de leitura em /guias e e o eixo que
+       * transforma 20 artigos soltos em um percurso.
+       */
+      nivel: z
+        .enum(["iniciante", "intermediario", "avancado"])
+        .default("iniciante"),
+
+      /** Agrupamento tematico dentro do nivel. Ex.: "Legal", "Equipamento". */
+      categoria: z.string().default("Geral"),
+
+      /**
+       * Termo principal de busca que a pagina persegue. Nao vai para o HTML:
+       * serve de registro editorial para evitar canibalizacao entre guias.
+       */
+      palavra_chave: z.string().optional(),
+
+      /**
+       * Slugs de outros guias. Vira bloco de links internos no fim do artigo:
+       * distribui autoridade e segura o leitor dentro do site.
+       */
+      relacionados: z.array(z.string()).default([]),
+
+      /** Perguntas que viram FAQPage no schema.org. */
+      faq: z
+        .array(z.object({ pergunta: z.string(), resposta: z.string() }))
+        .default([]),
+    }),
 });
 
 export const collections = { campos, lojas, guias };
