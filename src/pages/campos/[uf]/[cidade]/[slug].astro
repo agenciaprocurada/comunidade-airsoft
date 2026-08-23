@@ -9,6 +9,8 @@ import {
   NOME_UF,
   ROTULO_TERRENO,
   ROTULO_ESTRUTURA,
+  ROTULO_MODALIDADE,
+  TERMO_MODALIDADE,
   faixaDeValor,
 } from "../../../../lib/uf";
 
@@ -29,8 +31,9 @@ const { campo } = Astro.props;
 const d = campo.data;
 
 const nomeUf = NOME_UF[d.uf] ?? d.uf;
-const titulo = `${d.nome} — campo de airsoft em ${d.cidade}, ${d.uf}`;
-const descricao = `${d.nome}: campo de airsoft em ${d.cidade} (${d.uf}). ${
+const termo = TERMO_MODALIDADE[d.modalidade] ?? "airsoft";
+const titulo = `${d.nome} — campo de ${termo} em ${d.cidade}, ${d.uf}`;
+const descricao = `${d.nome}: campo de ${termo} em ${d.cidade} (${d.uf}). ${
   d.terreno.map((t) => ROTULO_TERRENO[t]).join(", ")
 }. ${d.aceita_iniciante ? "Aceita iniciante." : ""} ${
   d.tem_aluguel ? "Tem aluguel de equipamento." : ""
@@ -60,8 +63,11 @@ const dadoEstruturado: Record<string, unknown> = {
     : {}),
   ...(d.contato.site ? { url: d.contato.site } : {}),
   ...(d.contato.telefone ? { telephone: d.contato.telefone } : {}),
+  ...(d.contato.whatsapp ? { telephone: `+55${d.contato.whatsapp}` } : {}),
   ...(d.funcionamento ? { openingHours: d.funcionamento } : {}),
-  sport: "Airsoft",
+  // A nota do Google NAO entra aqui de proposito: emitir aggregateRating
+  // de terceiro como se fosse nosso e violacao de politica do Google.
+  sport: ROTULO_MODALIDADE[d.modalidade] ?? "Airsoft",
 };
 
 const temContato = Object.values(d.contato).some(Boolean);
@@ -103,6 +109,9 @@ const temContato = Object.values(d.contato).some(Boolean);
           </div>
 
           <div class="mt-6 flex flex-wrap gap-2">
+            <Etiqueta tom={d.modalidade === "airsoft" ? "neutro" : "info"}>
+              {ROTULO_MODALIDADE[d.modalidade] ?? d.modalidade}
+            </Etiqueta>
             {d.terreno.map((t) => <Etiqueta>{ROTULO_TERRENO[t] ?? t}</Etiqueta>)}
             {d.aceita_iniciante && <Etiqueta tom="info">Aceita iniciante</Etiqueta>}
             {d.tem_aluguel && <Etiqueta tom="info">Tem aluguel</Etiqueta>}
@@ -112,6 +121,46 @@ const temContato = Object.values(d.contato).some(Boolean);
         <section class="py-8">
           <p class="max-w-[65ch] leading-relaxed text-texto">{d.descricao}</p>
         </section>
+
+        {/* Enquanto não houver conferência com o responsável, o que temos
+            é o que o levantamento registrou. Melhor mostrar isso do que
+            deixar a ficha vazia fingindo que não sabemos nada. */}
+        {
+          (d.tipo_campo_original || d.tipo_operacao || d.status_original) && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                O que sabemos
+              </h2>
+              <dl class="grid max-w-2xl gap-px border border-borda bg-borda sm:grid-cols-2">
+                {d.tipo_campo_original && (
+                  <div class="bg-papel p-4 sm:col-span-2">
+                    <dt class="rotulo mb-1">Tipo de campo</dt>
+                    <dd class="text-base">{d.tipo_campo_original}</dd>
+                  </div>
+                )}
+                {d.tipo_operacao && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Operação</dt>
+                    <dd class="text-base">{d.tipo_operacao}</dd>
+                  </div>
+                )}
+                {d.status_original && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Situação</dt>
+                    <dd class="text-base">{d.status_original}</dd>
+                  </div>
+                )}
+              </dl>
+
+              {d.confianca && d.confianca !== "alta" && (
+                <p class="mt-4 max-w-[60ch] border-l-2 border-alerta bg-alerta-bg p-4 text-sm leading-relaxed text-alerta-texto">
+                  Dado de confiança {d.confianca}: confirme por telefone antes
+                  de viajar.
+                </p>
+              )}
+            </section>
+          )
+        }
 
         {
           d.fps.length > 0 && (
@@ -175,8 +224,8 @@ const temContato = Object.values(d.contato).some(Boolean);
         <div class="border border-borda bg-papel">
           <div class="border-b border-borda p-5">
             <div class="rotulo mb-2">Valor</div>
-            <div class="font-display text-3xl font-bold uppercase">
-              {faixaDeValor(d.valor_min, d.valor_max)}
+            <div class="font-display text-2xl font-bold uppercase leading-tight">
+              {faixaDeValor(d.valor_min, d.valor_max, d.precos)}
             </div>
           </div>
 
@@ -194,13 +243,43 @@ const temContato = Object.values(d.contato).some(Boolean);
               <div class="border-b border-borda p-5">
                 <div class="rotulo mb-2">Endereço</div>
                 <p class="text-base">{d.endereco}</p>
-                <p class="text-base text-texto-2">{d.cidade} — {d.uf}</p>
+                <p class="text-base text-texto-2">
+                  {d.bairro && <>{d.bairro} · </>}
+                  {d.cidade} — {d.uf}
+                </p>
+                {d.regiao && (
+                  <p class="mt-1 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+                    {d.regiao}
+                  </p>
+                )}
               </div>
             )
           }
 
           <div class="p-5">
-            <div class="rotulo mb-3">Contato</div>
+            {
+            d.google_nota != null && (
+              <div class="mb-5 border-b border-borda pb-5">
+                <div class="rotulo mb-2">Avaliação no Google</div>
+                <div class="flex items-baseline gap-2">
+                  <span class="font-display text-2xl font-bold text-latao">
+                    {d.google_nota.toFixed(1).replace(".", ",")}
+                  </span>
+                  {d.google_avaliacoes != null && (
+                    <span class="font-dado text-[11px] tracking-[0.14em] text-texto-2">
+                      {d.google_avaliacoes} avaliações
+                    </span>
+                  )}
+                </div>
+                <p class="mt-2 text-sm leading-relaxed text-texto-2">
+                  Nota pública do Google, coletada no levantamento. Não é uma
+                  avaliação da Comunidade Airsoft.
+                </p>
+              </div>
+            )
+          }
+
+          <div class="rotulo mb-3">Contato</div>
             {
               temContato ? (
                 <ul class="flex flex-col gap-2">
@@ -224,6 +303,24 @@ const temContato = Object.values(d.contato).some(Boolean);
                         rel="nofollow noopener"
                       >
                         {d.contato.instagram}
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.facebook && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        href={d.contato.facebook}
+                        rel="nofollow noopener"
+                      >
+                        Facebook
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.email && (
+                    <li>
+                      <a class="text-oliva-500 underline" href={`mailto:${d.contato.email}`}>
+                        {d.contato.email}
                       </a>
                     </li>
                   )}
@@ -274,6 +371,36 @@ const temContato = Object.values(d.contato).some(Boolean);
         >
           Reportar informação desatualizada
         </a>
+
+        {
+          d.fonte && (
+            <div class="mt-6 border-t border-borda pt-4">
+              <div class="rotulo mb-2">Origem do dado</div>
+              <p class="text-sm leading-relaxed text-texto-2">
+                Levantamento de agosto/2026, ainda sem confirmação do
+                responsável pelo campo.
+                {d.tipo_operacao && ` Tipo: ${d.tipo_operacao.toLowerCase()}.`}
+              </p>
+              <ul class="mt-2 flex flex-col gap-1">
+                {d.fonte
+                  .split("|")
+                  .map((f) => f.trim())
+                  .filter((f) => f.startsWith("http"))
+                  .map((f) => (
+                    <li class="truncate">
+                      <a
+                        href={f}
+                        rel="nofollow noopener"
+                        class="font-dado text-[11px] tracking-[0.1em] text-oliva-400 underline hover:text-oliva-300"
+                      >
+                        {new URL(f).hostname.replace(/^www\./, "")}
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )
+        }
       </aside>
     </div>
   </div>

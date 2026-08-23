@@ -1,9 +1,10 @@
 ---
 import { getCollection } from "astro:content";
+import { Image } from "astro:assets";
 import { getImage } from "astro:assets";
 import fundoHero from "../assets/fundo.png";
 import Base from "../layouts/Base.astro";
-import CardCampo from "../components/CardCampo.astro";
+import BuscaCampos from "../components/BuscaCampos.astro";
 import Botao from "../components/Botao.astro";
 import { NOME_UF } from "../lib/uf";
 
@@ -13,8 +14,6 @@ const guias = await getCollection("guias", ({ data }) => !data.rascunho);
 const estados = [...new Set(campos.map((c) => c.data.uf))]
   .map((uf) => ({ sigla: uf, nome: NOME_UF[uf] ?? uf }))
   .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-
-const destaques = campos.slice(0, 6);
 
 const organizacao = {
   "@context": "https://schema.org",
@@ -208,7 +207,7 @@ const heroEstreito = await getImage({
         <path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke-linecap="square" />
       </svg>
       <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
-        Campos cadastrados
+        Encontre um campo
       </h2>
       <div class="h-px flex-1 bg-borda"></div>
       <a
@@ -220,9 +219,7 @@ const heroEstreito = await getImage({
       </a>
     </div>
 
-    <div class="mt-9 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {destaques.map((campo) => <CardCampo campo={campo} />)}
-    </div>
+    <BuscaCampos campos={campos} quantidade={6} />
   </section>
 
   <!-- ==========================================================
@@ -250,13 +247,27 @@ const heroEstreito = await getImage({
 
         <ul class="mt-9 grid gap-6 md:grid-cols-2">
           {guias.slice(0, 4).map((guia) => (
-            <li class="moldura-tatica border border-borda bg-papel p-6 transition-colors hover:border-oliva-500">
-              <h3 class="font-display text-xl font-bold uppercase leading-tight tracking-[0.02em]">
-                <a href={`/guias/${guia.id}`} class="transition-colors hover:text-oliva-300">
-                  {guia.data.titulo}
+            <li class="moldura-tatica flex flex-col border border-borda bg-papel transition-colors hover:border-oliva-500">
+              {guia.data.imagem && (
+                <a href={`/guias/${guia.id}`} class="block">
+                  <Image
+                    src={guia.data.imagem}
+                    alt=""
+                    widths={[320, 640]}
+                    sizes="(min-width: 768px) 600px, 100vw"
+                    class="aspect-[16/9] w-full border-b border-borda object-cover"
+                    loading="lazy"
+                  />
                 </a>
-              </h3>
-              <p class="mt-2 leading-relaxed text-texto-2">{guia.data.resumo}</p>
+              )}
+              <div class="flex flex-1 flex-col p-6">
+                <h3 class="font-display text-xl font-bold uppercase leading-tight tracking-[0.02em]">
+                  <a href={`/guias/${guia.id}`} class="transition-colors hover:text-oliva-300">
+                    {guia.data.titulo}
+                  </a>
+                </h3>
+                <p class="mt-2 leading-relaxed text-texto-2">{guia.data.resumo}</p>
+              </div>
             </li>
           ))}
         </ul>

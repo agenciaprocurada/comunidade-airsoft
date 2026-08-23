@@ -1,22 +1,18 @@
 ---
 import { getCollection } from "astro:content";
 import Base from "../../layouts/Base.astro";
-import CardCampo from "../../components/CardCampo.astro";
+import BuscaCampos from "../../components/BuscaCampos.astro";
 import Trilha from "../../components/Trilha.astro";
-import { NOME_UF } from "../../lib/uf";
 
 const campos = await getCollection("campos", ({ data }) => data.status === "publicado");
 
-const estados = [...new Set(campos.map((c) => c.data.uf))]
-  .map((uf) => ({
-    sigla: uf,
-    nome: NOME_UF[uf] ?? uf,
-    total: campos.filter((c) => c.data.uf === uf).length,
-  }))
-  .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+// Usado apenas na contagem da meta description. A navegacao por estado
+// saiu daqui: virou o filtro de Estado da busca, e os hubs /campos/[uf]
+// continuam recebendo link das fichas e da home.
+const estados = [...new Set(campos.map((c) => c.data.uf))];
 
-const titulo = "Campos de airsoft no Brasil";
-const descricao = `Diretório de campos de airsoft no Brasil: ${campos.length} campos em ${estados.length} estados, com endereço, valores, limite de FPS, estrutura e contato.`;
+const titulo = "Campos de airsoft e paintball no Brasil";
+const descricao = `Diretório de campos de airsoft e paintball no Brasil: ${campos.length} ${campos.length === 1 ? "campo" : "campos"} em ${estados.length} ${estados.length === 1 ? "estado" : "estados"}, com endereço, valores, estrutura, avaliação e contato.`;
 ---
 
 <Base titulo={titulo} descricao={descricao}>
@@ -27,36 +23,14 @@ const descricao = `Diretório de campos de airsoft no Brasil: ${campos.length} c
       <h1
         class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"
       >
-        Campos de airsoft<br />no Brasil
+        Campos de airsoft<br />e paintball<br />no Brasil
       </h1>
       <p class="mt-4 max-w-[60ch] text-lg leading-relaxed text-texto-2">
         {descricao}
       </p>
     </header>
 
-    <nav aria-label="Estados" class="mt-8">
-      <h2 class="rotulo mb-3">Escolha o estado</h2>
-      <ul class="flex flex-wrap gap-2">
-        {
-          estados.map((estado) => (
-            <li>
-              <a
-                href={`/campos/${estado.sigla.toLowerCase()}`}
-                class="inline-block border border-borda bg-papel px-4 py-2 text-base transition-colors hover:border-oliva-500 hover:text-oliva-500"
-              >
-                {estado.nome}
-                <span class="ml-2 font-dado text-[11px] text-oliva-400">
-                  {estado.total}
-                </span>
-              </a>
-            </li>
-          ))
-        }
-      </ul>
-    </nav>
 
-    <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {campos.map((campo) => <CardCampo campo={campo} />)}
-    </div>
+    <BuscaCampos campos={campos} vitrine={false} quantidade={12} incremento={12} />
   </div>
 </Base>

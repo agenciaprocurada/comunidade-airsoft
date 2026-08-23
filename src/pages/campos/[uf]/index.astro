@@ -33,9 +33,9 @@ const cidades = [...new Set(campos.map((c) => c.data.cidade_slug))].map((slug) =
   };
 }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
-const titulo = `Campos de airsoft em ${nomeUf} (${sigla})`;
+const titulo = `Campos de airsoft e paintball em ${nomeUf} (${sigla})`;
 const descricao = `${campos.length} ${
-  campos.length === 1 ? "campo de airsoft" : "campos de airsoft"
+  campos.length === 1 ? "campo de airsoft" : "campos de airsoft e paintball"
 } em ${nomeUf}, em ${cidades.length} ${
   cidades.length === 1 ? "cidade" : "cidades"
 }. Endereço, valores, limite de FPS e estrutura de cada campo.`;
@@ -49,7 +49,7 @@ const descricao = `${campos.length} ${
       <h1
         class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"
       >
-        Campos de airsoft<br />em {nomeUf}
+        Campos de airsoft<br />e paintball<br />em {nomeUf}
       </h1>
       <p class="mt-4 max-w-[60ch] text-lg leading-relaxed text-texto-2">
         {descricao}

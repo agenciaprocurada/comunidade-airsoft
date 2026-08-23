@@ -31,10 +31,10 @@ const { campos, nomeCidade, sigla } = Astro.props;
 const nomeUf = NOME_UF[sigla] ?? sigla;
 
 const quantidade = campos.length;
-const titulo = `Campos de airsoft em ${nomeCidade}, ${sigla}`;
+const titulo = `Campos de airsoft e paintball em ${nomeCidade}, ${sigla}`;
 const descricao = `${quantidade} ${
-  quantidade === 1 ? "campo de airsoft cadastrado" : "campos de airsoft cadastrados"
-} em ${nomeCidade} (${sigla}): endereço, valores, limite de FPS, estrutura e contato.`;
+  quantidade === 1 ? "campo cadastrado" : "campos cadastrados"
+} em ${nomeCidade} (${sigla}): endereço, valores, estrutura, avaliação e contato.`;
 ---
 
 <Base titulo={titulo} descricao={descricao}>
@@ -51,7 +51,7 @@ const descricao = `${quantidade} ${
       <h1
         class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"
       >
-        Campos de airsoft<br />em {nomeCidade}
+        Campos de airsoft<br />e paintball<br />em {nomeCidade}
       </h1>
       <p class="mt-4 max-w-[60ch] text-lg leading-relaxed text-texto-2">
         {descricao}

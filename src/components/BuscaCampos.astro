@@ -1,0 +1,435 @@
+---
+/**
+ * Busca de campos + vitrine aleatória.
+ *
+ * Duas restrições do projeto moldam este componente:
+ *
+ * 1. O site é estático. Sortear no build daria os MESMOS seis campos para
+ *    todo visitante até o próximo deploy. Por isso o sorteio acontece duas
+ *    vezes: no build (para o HTML indexável não sair sempre igual) e no
+ *    navegador (para o visitante ver variação de verdade).
+ *
+ * 2. "Nenhuma página depende de JavaScript para exibir conteúdo" (README).
+ *    Então TODOS os campos são renderizados no HTML e o script apenas
+ *    mostra e oculta. Sem JS, o visitante vê a vitrine e os links dos hubs;
+ *    o formulário nem aparece, em vez de aparecer quebrado.
+ *
+ * Efeito colateral desejado: os links de todas as fichas ficam no HTML da
+ * home, o que distribui autoridade interna para elas.
+ */
+import CardCampo from "./CardCampo.astro";
+import { NOME_UF, ROTULO_TERRENO, ROTULO_MODALIDADE, slugificar } from "../lib/uf";
+
+interface Props {
+  campos: any[];
+  /** Tamanho do primeiro lote, antes de qualquer filtro. */
+  quantidade?: number;
+  /**
+   * Quantos revelar a cada rolagem. 0 desliga o carregamento incremental.
+   * Nao ha requisicao: os cartoes ja estao no HTML, o script so revela.
+   */
+  incremento?: number;
+  /**
+   * Vitrine (home): sorteia e mostra so `quantidade`.
+   * Listagem (/campos): mostra todos, na ordem do diretorio. Sortear uma
+   * listagem completa so atrapalharia quem procura um campo especifico.
+   */
+  vitrine?: boolean;
+}
+
+const {
+  campos,
+  quantidade = 6,
+  vitrine = true,
+  incremento = 0,
+} = Astro.props;
+
+/** Fisher-Yates. Roda no build; o script repete no cliente. */
+function embaralhar<T>(lista: T[]): T[] {
+  const copia = [...lista];
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia;
+}
+
+const listados = vitrine ? embaralhar(campos) : campos;
+
+/**
+ * As opções dos filtros saem dos dados, nunca de uma lista fixa: estado sem
+ * campo cadastrado não pode aparecer no select e devolver zero resultado.
+ */
+const estados = [...new Set(campos.map((c) => c.data.uf))]
+  .map((uf) => ({ sigla: uf, nome: NOME_UF[uf] ?? uf }))
+  .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+const cidades = [
+  ...new Map(
+    campos.map((c) => [
+      `${c.data.uf}:${c.data.cidade_slug}`,
+      { uf: c.data.uf, slug: c.data.cidade_slug, nome: c.data.cidade },
+    ]),
+  ).values(),
+].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+const terrenos = [...new Set(campos.flatMap((c) => c.data.terreno ?? []))].sort();
+
+const modalidades = [...new Set(campos.map((c) => c.data.modalidade))].sort();
+
+/**
+ * Filtro que sempre devolve zero e um filtro quebrado. Hoje nenhum campo
+ * passou por conferencia humana, entao o checkbox nao e renderizado — e
+ * passa a existir sozinho assim que o primeiro campo for marcado como
+ * verificado, sem precisar mexer aqui de novo.
+ */
+const temVerificados = campos.some((c) => c.data.verificado);
+
+/** Texto normalizado uma vez no build — o cliente só normaliza a consulta. */
+function textoBusca(d: any): string {
+  return slugificar(
+    [d.nome, d.cidade, d.bairro, d.regiao, NOME_UF[d.uf] ?? d.uf, d.uf]
+      .filter(Boolean)
+      .join(" "),
+  ).replace(/-/g, " ");
+}
+
+const classeCampo =
+  "w-full border border-borda-forte bg-fundo px-3 py-2.5 font-display text-base uppercase tracking-[0.03em] text-tinta outline-none transition-colors focus:border-oliva-500";
+const classeRotulo =
+  "mb-1.5 block font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400";
+---
+
+<form
+  hidden
+  data-busca
+  class="moldura-tatica mt-9 border border-borda bg-papel p-5 md:p-6"
+  aria-label="Buscar campos"
+>
+  <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div class="lg:col-span-2">
+      <label class={classeRotulo} for="busca-texto">Campo ou cidade</label>
+      <input
+        id="busca-texto"
+        type="search"
+        name="texto"
+        autocomplete="off"
+        placeholder="Nome do campo, cidade..."
+        class={`${classeCampo} placeholder:normal-case placeholder:tracking-normal placeholder:text-texto-2/60`}
+      />
+    </div>
+
+    <div>
+      <label class={classeRotulo} for="busca-uf">Estado</label>
+      <select id="busca-uf" name="uf" class={classeCampo}>
+        <option value="">Todos</option>
+        {estados.map((e) => <option value={e.sigla}>{e.nome}</option>)}
+      </select>
+    </div>
+
+    <div>
+      <label class={classeRotulo} for="busca-cidade">Cidade</label>
+      <select id="busca-cidade" name="cidade" class={classeCampo}>
+        <option value="">Todas</option>
+        {
+          cidades.map((c) => (
+            <option value={c.slug} data-uf={c.uf}>
+              {c.nome}
+            </option>
+          ))
+        }
+      </select>
+    </div>
+
+    <div>
+      <label class={classeRotulo} for="busca-terreno">Terreno</label>
+      <select id="busca-terreno" name="terreno" class={classeCampo}>
+        <option value="">Qualquer</option>
+        {
+          terrenos.map((t) => (
+            <option value={t}>{ROTULO_TERRENO[t] ?? t}</option>
+          ))
+        }
+      </select>
+    </div>
+
+    <div>
+      <label class={classeRotulo} for="busca-modalidade">Modalidade</label>
+      <select id="busca-modalidade" name="modalidade" class={classeCampo}>
+        <option value="">Qualquer</option>
+        {
+          modalidades.map((m) => (
+            <option value={m}>{ROTULO_MODALIDADE[m] ?? m}</option>
+          ))
+        }
+      </select>
+    </div>
+
+    {
+      temVerificados && (
+        <div class="flex items-end">
+          <label class="flex w-full cursor-pointer items-center gap-2.5 border border-borda-forte bg-fundo px-3 py-2.5 transition-colors hover:border-oliva-500">
+            <input
+              type="checkbox"
+              name="verificado"
+              class="h-4 w-4 shrink-0 accent-oliva-500"
+            />
+            <span class="font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-300">
+              Só verificados
+            </span>
+          </label>
+        </div>
+      )
+    }
+
+    <div class="flex items-end">
+      <button
+        type="reset"
+        class="w-full border border-borda-forte px-3 py-2.5 font-display text-base font-bold uppercase tracking-[0.06em] text-oliva-400 transition-colors hover:border-oliva-500 hover:text-oliva-300"
+      >
+        Limpar
+      </button>
+    </div>
+  </div>
+
+  <p
+    data-contagem
+    aria-live="polite"
+    class="mt-4 border-t border-borda pt-4 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400"
+  >
+  </p>
+</form>
+
+<div
+  data-resultados
+  data-quantidade={quantidade}
+  data-vitrine={vitrine ? "1" : "0"}
+  data-incremento={incremento}
+  class="mt-9 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+>
+  {
+    listados.map((campo, i) => (
+      <div
+        data-campo
+        data-uf={campo.data.uf}
+        data-cidade={campo.data.cidade_slug}
+        data-terreno={(campo.data.terreno ?? []).join(" ")}
+        data-modalidade={campo.data.modalidade}
+        data-verificado={campo.data.verificado ? "1" : "0"}
+        data-texto={textoBusca(campo.data)}
+        class={!vitrine || i < quantidade ? "contents" : "hidden"}
+        data-indice={i}
+      >
+        <CardCampo campo={campo} />
+      </div>
+    ))
+  }
+</div>
+
+<div class="mt-9 flex justify-center">
+  <button
+    type="button"
+    data-mais
+    hidden
+    class="border border-borda-forte bg-papel px-8 py-3.5 font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:border-oliva-500 hover:bg-oliva-050 hover:text-oliva-300"
+  >
+    Carregar mais campos
+  </button>
+</div>
+
+<p
+  data-vazio
+  hidden
+  class="mt-9 border border-borda bg-papel p-8 text-center leading-relaxed text-texto-2"
+>
+  Nenhum campo bate com esses filtros. Tente ampliar a busca ou
+  <a href="/campos" class="text-oliva-500 underline">veja todos os campos</a>.
+</p>
+
+<script>
+  // Progressive enhancement: se este script não rodar, a vitrine sorteada no
+  // build continua na tela e o formulário permanece oculto.
+  const form = document.querySelector<HTMLFormElement>("[data-busca]");
+  const grade = document.querySelector<HTMLElement>("[data-resultados]");
+  const vazio = document.querySelector<HTMLElement>("[data-vazio]");
+  const botaoMais = document.querySelector<HTMLButtonElement>("[data-mais]");
+  const contagem = form?.querySelector<HTMLElement>("[data-contagem]");
+
+  if (form && grade && vazio && contagem) {
+    // Copias nao-nulas: o TypeScript nao mantem o estreitamento do if
+    // dentro de aplicar(), que so roda depois, em resposta a evento.
+    const elVazio: HTMLElement = vazio;
+    const elContagem: HTMLElement = contagem;
+    const botao = botaoMais;
+
+    const cartoes = Array.from(
+      grade.querySelectorAll<HTMLElement>("[data-campo]"),
+    );
+    const VITRINE = grade.dataset.vitrine === "1";
+    const LOTE = Number(grade.dataset.quantidade ?? 6);
+    const INCREMENTO = Number(grade.dataset.incremento ?? 0);
+
+    /**
+     * Quantos cartoes cabem na tela agora. A vitrine e fixa; a listagem
+     * comeca no primeiro lote e cresce com a rolagem. Sem incremento
+     * configurado, a listagem mostra tudo de uma vez.
+     */
+    const LIMITE_INICIAL =
+      VITRINE || INCREMENTO > 0 ? LOTE : Number.POSITIVE_INFINITY;
+    let limite = LIMITE_INICIAL;
+
+    const campoTexto = form.elements.namedItem("texto") as HTMLInputElement;
+    const campoUf = form.elements.namedItem("uf") as HTMLSelectElement;
+    const campoCidade = form.elements.namedItem("cidade") as HTMLSelectElement;
+    const campoTerreno = form.elements.namedItem("terreno") as HTMLSelectElement;
+    const campoModalidade = form.elements.namedItem(
+      "modalidade",
+    ) as HTMLSelectElement;
+    // Pode nao existir: so e renderizado quando ha campo verificado.
+    const campoVerificado = form.elements.namedItem(
+      "verificado",
+    ) as HTMLInputElement | null;
+
+    const opcoesCidade = Array.from(campoCidade.options);
+
+    /** Mesma normalização de slugificar(), sem os hífens. */
+    const normalizar = (texto: string) =>
+      texto
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
+    function embaralhar(lista: HTMLElement[]) {
+      const copia = [...lista];
+      for (let i = copia.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copia[i], copia[j]] = [copia[j], copia[i]];
+      }
+      return copia;
+    }
+
+    // Reembaralha a ordem real no DOM: assim o corte de seis muda a cada
+    // visita, e nao so a ordem visual. Na listagem a ordem e preservada.
+    let ordem = cartoes;
+    if (VITRINE) {
+      ordem = embaralhar(cartoes);
+      grade.append(...ordem);
+    }
+
+    function mostrar(elemento: HTMLElement, visivel: boolean) {
+      // `contents` porque a grade é do container: um wrapper com display
+      // próprio quebraria o alinhamento das colunas.
+      elemento.classList.toggle("contents", visivel);
+      elemento.classList.toggle("hidden", !visivel);
+    }
+
+    function aplicar() {
+      const texto = normalizar(campoTexto.value);
+      const uf = campoUf.value;
+      const cidade = campoCidade.value;
+      const terreno = campoTerreno.value;
+      const modalidade = campoModalidade.value;
+      const soVerificados = campoVerificado?.checked ?? false;
+
+      const filtrando = Boolean(
+        texto || uf || cidade || terreno || modalidade || soVerificados,
+      );
+
+      // Cidade só lista o que existe no estado escolhido.
+      for (const opcao of opcoesCidade) {
+        const visivel = !uf || !opcao.value || opcao.dataset.uf === uf;
+        opcao.hidden = !visivel;
+        if (!visivel && campoCidade.value === opcao.value) campoCidade.value = "";
+      }
+
+      let exibidos = 0;
+
+      for (const cartao of ordem) {
+        const d = cartao.dataset;
+        const casa =
+          (!texto || (d.texto ?? "").includes(texto)) &&
+          (!uf || d.uf === uf) &&
+          (!cidade || d.cidade === cidade) &&
+          (!terreno || (d.terreno ?? "").split(" ").includes(terreno)) &&
+          (!modalidade || d.modalidade === modalidade) &&
+          (!soVerificados || d.verificado === "1");
+
+        // Filtrando, mostra TUDO que casa: resultado cortado mente sobre
+        // quantos campos existem. Sem filtro, respeita o lote atual.
+        const visivel = casa && (filtrando || exibidos < limite);
+        if (casa) exibidos++;
+        mostrar(cartao, visivel);
+      }
+
+      elVazio.hidden = exibidos > 0;
+
+      // O botao so aparece onde ele de fato faz algo: precisa de incremento
+      // configurado, nenhum filtro ativo e cartao escondido pelo lote.
+      // Na vitrine da home nao ha incremento, entao ele nunca aparece.
+      const podeCarregar = INCREMENTO > 0 && !filtrando && exibidos > limite;
+      if (botao) botao.hidden = !podeCarregar;
+
+      if (!filtrando) {
+        const naTela = Math.min(limite, cartoes.length);
+        elContagem.textContent = VITRINE
+          ? `${cartoes.length} campos cadastrados · mostrando ${naTela} ao acaso`
+          : naTela < cartoes.length
+            ? `Mostrando ${naTela} de ${cartoes.length} campos`
+            : `${cartoes.length} campos cadastrados`;
+      } else if (exibidos === 0) {
+        elContagem.textContent = "Nenhum campo encontrado";
+      } else {
+        elContagem.textContent = `${exibidos} ${exibidos === 1 ? "campo encontrado" : "campos encontrados"} de ${cartoes.length}`;
+      }
+    }
+
+    form.addEventListener("input", aplicar);
+    form.addEventListener("change", aplicar);
+    form.addEventListener("submit", (evento) => evento.preventDefault());
+    form.addEventListener("reset", () => {
+      // O reset limpa os campos depois do evento; reembaralha para a vitrine
+      // voltar diferente, como na chegada.
+      requestAnimationFrame(() => {
+        if (VITRINE) {
+          ordem = embaralhar(ordem);
+          grade.append(...ordem);
+        }
+        limite = LIMITE_INICIAL;
+        aplicar();
+      });
+    });
+
+    function carregarMais() {
+      limite += INCREMENTO;
+      aplicar();
+    }
+
+    if (botao && INCREMENTO > 0) {
+      // O botao e o alvo do observador E continua clicavel: rolagem
+      // infinita sem botao deixa quem navega por teclado sem saida.
+      botao.addEventListener("click", carregarMais);
+
+      if ("IntersectionObserver" in window) {
+        const observador = new IntersectionObserver(
+          (entradas) => {
+            if (!entradas[0]?.isIntersecting || botao.hidden) return;
+            carregarMais();
+            // Reobservar forca uma nova avaliacao: se a tela e alta e o
+            // botao continua visivel, o proximo lote entra em seguida.
+            observador.unobserve(botao);
+            requestAnimationFrame(() => {
+              if (!botao.hidden) observador.observe(botao);
+            });
+          },
+          { rootMargin: "300px 0px" },
+        );
+        observador.observe(botao);
+      }
+    }
+
+    form.hidden = false;
+    aplicar();
+  }
+</script>
