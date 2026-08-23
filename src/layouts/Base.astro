@@ -17,13 +17,22 @@ interface Props {
   headerSobreposto?: boolean;
 }
 
+/**
+ * Imagem de compartilhamento padrao: 1200x630, JPG.
+ *
+ * JPG e nao PNG porque a arte tem fotografia — em PNG ela passava de 500 KB, e
+ * acima de ~300 KB o WhatsApp desiste do preview grande. WebP nao serve: varios
+ * scrapers de rede social nao leem o formato.
+ */
+const OG_PADRAO = "/og-padrao.jpg";
+
 const {
   titulo,
   descricao,
   canonica,
   semIndexar = false,
   dadosEstruturados = [],
-  imagem = "/og-padrao.png",
+  imagem = OG_PADRAO,
   headerSobreposto = false,
 } = Astro.props;
 
@@ -56,7 +65,25 @@ const tituloCompleto =
     <meta property="og:description" content={descricao} />
     <meta property="og:url" content={urlCanonica} />
     <meta property="og:image" content={urlImagem} />
+    {/*
+      Largura e altura declaradas: sem elas o WhatsApp precisa baixar a imagem
+      para descobrir o tamanho e, no meio disso, costuma cair no preview
+      pequeno. Com elas, ele ja monta o cartao grande.
+
+      So valem para a imagem padrao — anunciar 1200x630 para uma capa de outro
+      tamanho e pior do que nao anunciar nada, porque o scraper acredita.
+    */}
+    {
+      imagem === OG_PADRAO && (
+        <>
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+        </>
+      )
+    }
+    <meta property="og:image:alt" content={tituloCompleto} />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={urlImagem} />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
