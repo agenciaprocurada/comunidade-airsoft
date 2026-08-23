@@ -122,11 +122,22 @@ ativo de SEO do projeto — capturam "campo de airsoft em [cidade]".
 
 ### Entrega 3 — Conta e conversão (semanas 7–9)
 **Aqui o muro sobe.** A partir daqui, contato direto exige login.
-- Login (Google + e-mail) e onboarding: cidade, nível, estilo
-- Consentimento LGPD granular e registrado, com canal de exclusão
+- [x] Login com Google, sessão em cookie e painel do usuário (`/entrar`, `/conta`)
+  — e-mail/senha fica para quando houver serviço de envio configurado
+- [x] Onboarding obrigatório: nome, **WhatsApp**, cidade/UF e maioridade
+- [x] Consentimento LGPD granular e registrado (tabela `consentimentos`,
+  append-only, com data/hora, IP e versão do texto)
+- [x] Edição de perfil, com nível e estilo — `perfil_completo` é o que vai
+  liberar cadastrar/reivindicar
+- Confirmação do número por WhatsApp (a coluna `whatsapp_verificado` já existe)
 - Muro leve: contato do campo, entrada no grupo oficial, favoritar
 - Submissão de campo/loja/evento pela comunidade + painel de moderação
+- Reivindicação de página (tabela própria, sempre com aprovação manual)
 - Convite automático para o grupo da região no onboarding
+
+> **Renderização:** o adapter da Vercel entrou nesta entrega, mas `output`
+> continua `'static'`. Só as rotas de `/conta`, `/entrar` e `/auth` declaram
+> `prerender = false`. Nenhuma página indexável passou a depender de servidor.
 
 ### Entrega 4 — Expansão (semanas 10–14)
 - Mapa com camadas filtráveis (Leaflet/MapLibre), montado sobre a busca já existente

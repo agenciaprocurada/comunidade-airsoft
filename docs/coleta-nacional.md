@@ -1,42 +1,66 @@
 # Coleta nacional de campos — como rodar um lote
 
 O diretório saiu do RS (79 campos coletados à mão) para o Brasil inteiro.
-Fazer isso à mão 26 vezes não termina. Este documento é o processo que
-substitui a planilha: **Google Places descobre e preenche, gente confirma
-e publica.**
+Fazer isso à mão 26 vezes não termina.
 
-Decidido em 23/08/2026.
+O método é **híbrido**, decidido em 23/08/2026:
+
+> **Busca aberta descobre. Places verifica. Gente publica.**
 
 ---
 
-## Por que Places e não planilha
+## Por que híbrido
 
-A Places devolve, em uma chamada, quase todas as colunas que o schema já
-tem: nome, endereço completo, coordenada, telefone, site, nota do Google,
-número de avaliações e — o mais importante — `businessStatus`, que diz se
-o lugar fechou. Isso é justamente o que faltava para tirar os 44 rascunhos
-do RS do limbo.
+### A busca aberta descobre bem — e verifica mal
 
-O que a Places **não** sabe e continua sendo trabalho humano: tipo de
-terreno, limite de FPS, preço, se aceita iniciante, se tem aluguel. Esses
-campos vêm do Instagram e do WhatsApp do campo, na etapa de revisão.
+Teste real em 4 rascunhos do RS, feito em 23/08/2026:
+
+| Campo | O que a busca aberta trouxe |
+|---|---|
+| Airsoft Garage (Bento Gonçalves) | Um evento de 2022. Sem endereço, telefone ou status |
+| Airsoft Factory Field (Arroio do Meio) | Nada — resultados vieram de SP |
+| 3 Fronteiras Paintball (Passo Fundo) | Nada |
+| Adrenalina Paintball (Viamão) | Só o bairro e uma nota do Google revendida pelo Buser |
+
+**0 de 4 confirmados.** A razão é estrutural: busca aberta acha *páginas
+sobre* o campo, não o *estado atual* dele. Um post de 2022 não prova que
+abre no sábado que vem. E campo de airsoft raramente tem site — vive no
+Instagram e no WhatsApp, que não indexam bem.
+
+Detalhe revelador: **23 dos 79 registros do RS vieram de agregadores**
+(Buser, Solutudo, ListaAmarela, TripAdvisor). Esses sites revendem dado
+do Google Maps. A coleta manual já consumia dado do Google — só que de
+segunda mão, velho e sem o único campo que resolve rascunho.
+
+### A Places verifica bem — e descobre caro
+
+A varredura por grade sobre o estado (que existiu aqui e foi removida)
+custava ~108 chamadas por UF e trazia loja, restaurante e academia junto.
+Descoberta a busca aberta faz de graça.
+
+O que só a Places entrega:
+
+- `businessStatus` — **se o lugar fechou**. É o que destrava os 44
+  rascunhos do RS
+- `lat` / `lng` — necessários para o mapa da Entrega 4
+- telefone, site e nota **de agora**, não a cópia de 2022
 
 ### Custo
 
-O `FieldMask` decide o SKU, e a cobrança é sempre a do campo mais caro
-pedido. Conferido em 22/08/2026 — confirmar antes de um lote grande:
+**1 chamada por campo.** O RS são 73 chamadas; o Brasil inteiro com ~800
+campos são ~800. Conferido na página de preços do Google em 23/08/2026:
 
-| SKU | O que inclui | Preço | Grátis por mês |
-|---|---|---|---|
-| **Pro** (padrão daqui) | nome, endereço, coordenada, status, nota, site, tipos | US$ 32/1.000 | 5.000 |
-| **Enterprise** (`--completo`) | + telefone, horário, nº de avaliações | US$ 35/1.000 | 1.000 |
+| SKU | Text Search | Grátis por mês |
+|---|---|---|
+| **Pro** (padrão daqui) | US$ 32/1.000 | **5.000 chamadas** |
+| **Enterprise** (`--completo`) | US$ 35/1.000 | 1.000 chamadas |
 
-Telefone é opt-in de propósito: numa varredura nacional ele derruba a
-franquia gratuita de 5.000 para 1.000 chamadas.
+A franquia é **por SKU**, e não existe mais o crédito de US$ 200/mês do
+modelo antigo. O `FieldMask` decide o SKU: telefone e horário são opt-in
+porque derrubam a franquia de 5.000 para 1.000.
 
-Ordem de grandeza real: o RS inteiro (conciliar + varrer) são **187
-chamadas**. O Brasil todo, espalhado pelas ondas abaixo, cabe na franquia
-gratuita se não concentrar tudo no mesmo mês.
+Ainda assim é preciso ativar faturamento no projeto do Google Cloud,
+mesmo usando só a parte gratuita. **Definir teto de orçamento com alerta.**
 
 ---
 
@@ -48,7 +72,7 @@ cedo adianta o relógio de indexação do Google, que leva de 2 a 4 meses.
 
 | Onda | Alvo | Situação |
 |---|---|---|
-| **0** | **RS — fechar o que já existe** | em andamento |
+| **0** | **RS — verificar os 73 que já existem** | tooling pronto, falta a chave |
 | 1 | Grande São Paulo | |
 | 2 | Interior de SP + RJ | |
 | 3 | MG + ES | |
@@ -68,112 +92,156 @@ cada registro.
 
 ## O ciclo de um lote
 
-Sempre os mesmos cinco passos. Os dois primeiros são máquina, os três
-últimos são gente.
+### 1. Descobrir — busca aberta, grátis
 
-### 1. Conciliar o que já existe
+Varrer portais regionais, blogs de airsoft, perfis de Instagram, grupos
+de Facebook e listas de eventos da região. O resultado vai para
+`db/campos-descobertos.json`, um objeto por campo:
 
-Busca cada campo já cadastrado do estado pelo nome, para pegar
-`place_id`, coordenada e status atual.
-
-```
-node db/coletar-places.mjs --uf=RS --lote=rs-2026-08 --modo=conciliar --seco
-node db/coletar-places.mjs --uf=RS --lote=rs-2026-08 --modo=conciliar
-```
-
-Sempre rodar `--seco` antes: ele imprime quantas chamadas fará e o custo
-máximo, sem gastar nada.
-
-### 2. Varrer para descobrir
-
-Divide o estado numa grade e busca dentro de cada célula. Pega campo em
-zona rural, que não aparece em busca por nome de cidade.
-
-```
-node db/coletar-places.mjs --uf=RS --lote=rs-2026-08 --modo=varrer --grade=6 --seco
-node db/coletar-places.mjs --uf=RS --lote=rs-2026-08 --modo=varrer --grade=6
+```json
+{
+  "nome": "Arena Exemplo Airsoft",
+  "uf": "SP", "cidade": "Guarulhos", "bairro": "Cumbica",
+  "endereco": "Estrada do Exemplo, km 3",
+  "tipo_campo": "mata com área de CQB",
+  "precos": "R$ 70 o day use",
+  "whatsapp": "11988887777",
+  "instagram": "@arenaexemplo",
+  "site": "https://arenaexemplo.com.br",
+  "observacoes": "Texto que vira a descrição da ficha.",
+  "confianca": "media",
+  "fonte": "https://portal-regional.com.br/campos | https://instagram.com/arenaexemplo"
+}
 ```
 
-`--grade=6` são 36 células. Estado grande e denso (SP) pede 8 ou 10;
-estado pequeno, 4. Cada busca devolve no máximo 60 resultados — se uma
-célula vier cheia, aumente a grade nela.
+`fonte` é obrigatória. Sem ela não dá para auditar de onde veio o dado —
+é o que separa diretório de boato.
 
-`--max=250` é o teto de chamadas e existe para não haver surpresa na
-fatura. O script para ao atingir.
-
-### 3. Conciliar staging → campos
+### 2. Carregar o descoberto
 
 ```
-node db/conciliar-places.mjs --lote=rs-2026-08
-node db/conciliar-places.mjs --lote=rs-2026-08 --aplicar
+node db/carregar-descobertos.mjs
+node db/carregar-descobertos.mjs --aplicar
+```
+
+Tudo entra como **rascunho**, teto de confiança `media`. Campo que já
+existe só tem buraco preenchido. Campo já revisado por humano
+(`verificado = true` ou `confianca = 'alta'`) é **pulado** — coleta
+automática não apaga trabalho de gente.
+
+### 3. Verificar na Places
+
+```
+node db/coletar-places.mjs --lote=sp-grande-2026-09 --uf=SP --seco
+node db/coletar-places.mjs --lote=sp-grande-2026-09 --uf=SP
+```
+
+Uma chamada por campo sem `place_id`. Sempre rodar `--seco` antes: ele
+imprime quantas chamadas fará e o custo máximo, sem gastar nada.
+`--max=250` é o teto e existe para não haver surpresa na fatura.
+
+`--refazer` inclui quem já tem `place_id` — é a revisita anual, para
+pegar quem fechou depois.
+
+### 4. Conciliar staging → campos
+
+```
+node db/conciliar-places.mjs --lote=sp-grande-2026-09
+node db/conciliar-places.mjs --lote=sp-grande-2026-09 --aplicar
 ```
 
 Sem `--aplicar` ele só relata. Com `--aplicar`:
 
-- campo novo entra como **rascunho**, confiança **média**, nunca publicado;
-- campo que já existe só tem **buraco preenchido** — telefone e endereço
+- campo que já existe tem **buraco preenchido** — telefone e endereço
   conferidos à mão não são sobrescritos;
-- nota e nº de avaliações do Google sempre atualizam (são dado dele);
-- `CLOSED_PERMANENTLY` vira `status = 'inativo'` na hora.
+- nota e nº de avaliações do Google sempre atualizam (é dado dele);
+- `CLOSED_PERMANENTLY` vira `status = 'inativo'` na hora;
+- resultado que não bate com nada conhecido entra como rascunho novo
+  (a Places às vezes devolve o vizinho certo quando o alvo não existe).
 
-### 4. Revisão humana
+### 5. Revisão humana
 
 No painel do Supabase, filtrar `status = 'rascunho'` e `uf = <estado>`.
-Por registro, em 2 a 5 minutos:
+Por registro, 2 a 5 minutos:
 
-- [ ] É campo de airsoft/paintball mesmo? (a varredura traz loja, clube
-      de tiro e restaurante — vêm marcados com `motivo = 'tipo suspeito'`)
-- [ ] Perfil ou site com sinal de vida nos últimos 6 meses?
-- [ ] `descricao` escrita (a Places não dá; sem ela a ficha fica muda)
+- [ ] É campo de airsoft/paintball mesmo? (vem marcado com
+      `motivo = 'tipo suspeito'` quando o Google classifica como loja,
+      restaurante ou academia)
+- [ ] Sinal de vida nos últimos 6 meses?
+- [ ] `descricao` escrita — a Places não dá; sem ela a ficha fica muda
 - [ ] `terreno`, `precos`, `aceita_iniciante`, `tem_aluguel` quando der
 - [ ] `confianca` ajustada: `alta` só com sinal recente de operação
 
-### 5. Publicar e buildar
+### 6. Publicar e buildar
 
-Só vira `publicado` o que for **ativo + confiança alta**. É a mesma regra
-dos campos do RS, e ela existe porque campo fechado exibido como aberto
-manda o jogador dirigir 80 km para um portão trancado — risco §9 do
-documento de projeto.
+Só vira `publicado` o que for **ativo + confiança alta**. Campo fechado
+exibido como aberto manda o jogador dirigir 80 km para um portão
+trancado — risco §9 do documento de projeto.
 
 ```
 npx astro build
 ```
 
-**Meta por lote: publicar ao menos 50% do que foi coletado.** No RS deram
-37% (29 de 79); o resto ficou em rascunho por falta de confirmação.
+**Meta por lote: publicar ao menos 50% do coletado.** No RS deram 37%
+(29 de 79); o resto ficou em rascunho por falta de confirmação — que é
+exatamente o que o passo 3 resolve.
 
 ---
 
-## O que muda no schema (já aplicado)
+## O que mudou no schema (já aplicado)
 
-`db/migracao-campos-places.sql` adicionou:
+`db/migracao-campos-places.sql`:
 
 - `lat` / `lng` — a Places dá de graça; sem gravar agora, seria varrer
   tudo de novo quando o mapa da Entrega 4 entrar;
-- `place_id` (único) — chave de deduplicação global. Antes a chave era o
-  slug do nome, que colide entre estados: "Arena Airsoft" existe em SP,
-  PR e BA, e o upsert antigo faria um sobrescrever o outro em silêncio;
-- `place_status` / `place_visto_em` — quando foi a última vez que o
-  Google confirmou que o lugar existe;
+- `place_id` (único) — chave de deduplicação global;
+- `place_status` / `place_visto_em` — quando o Google confirmou pela
+  última vez que o lugar existe;
 - tabela `campos_bruto` — staging. Dado bruto de API não cai direto na
   tabela que alimenta o site.
 
-> **Atenção ao id:** `db/carregar-planilha.mjs` (a carga da planilha do
-> RS) ainda gera id só com o slug do nome. Enquanto ela existir, não
-> rodar aquela planilha depois que outro estado entrar — ou corrigir o
-> gerador para usar o mesmo `idLivre()` de `conciliar-places.mjs`.
+### A armadilha do id
+
+O id vira URL e nunca muda depois de publicado (PLANO-DE-ACAO §3). O
+gerador antigo usava só o slug do nome, o que funciona com um estado só
+— mas "Arena Airsoft" existe em SP, PR e BA, e um upsert por id faria um
+**sobrescrever o outro em silêncio**.
+
+`idLivre()` em `db/lib-campos.mjs` resolve: nome puro se estiver livre,
+senão nome+cidade, senão nome+UF, senão numerado. Os dois carregadores
+novos usam essa função.
+
+> ⚠️ **`db/carregar-planilha.mjs` (a planilha do RS) ainda usa a regra
+> velha.** Não rodar aquela planilha depois que outro estado entrar — ou
+> trocar o gerador dela por `idLivre()` antes.
 
 ---
 
 ## Chave da API
 
-O coletor lê `GOOGLE_MAPS_API_KEY` do ambiente. Para criar:
+Tem que ser **chave de API** (formato `AIza...`), não OAuth client ID.
+A Places aceita OAuth, mas por conta de serviço — para script em lote é
+complexidade sem ganho. O client ID + secret de aplicativo web, que serve
+para "login com Google", **não funciona aqui**.
 
-1. Google Cloud Console → novo projeto
-2. Ativar **Places API (New)**
-3. Credenciais → criar chave de API
-4. Restringir a chave: API Restriction → só Places API (New)
-5. **Definir um teto de orçamento** no Billing, com alerta por e-mail
+1. Google Cloud Console → projeto
+2. APIs e serviços → Biblioteca → ativar **Places API (New)**
+3. Ativar **faturamento** no projeto (obrigatório mesmo para usar só a
+   franquia gratuita)
+4. APIs e serviços → Credenciais → Criar credenciais → **Chave de API**
+5. Editar a chave → Restrições de API → só Places API (New)
+6. Faturamento → Orçamentos e alertas → **teto com alerta por e-mail**
 
-A chave não vai para o repositório. Local: `.env`. No deploy: variável de
-ambiente do projeto.
+A chave vai no `.env`, que não vai para o repositório:
+
+```
+GOOGLE_MAPS_API_KEY=AIza...
+```
+
+E os scripts leem de lá com a flag nativa do Node:
+
+```
+node --env-file=.env db/coletar-places.mjs --lote=rs-2026-08 --uf=RS --seco
+```
+
+Assim a chave não aparece na linha de comando nem no histórico do shell.

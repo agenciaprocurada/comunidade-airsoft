@@ -27,6 +27,7 @@
  */
 
 import pg from "pg";
+import { slug, chaveNome, idLivre, modalidadeDe, configPg } from "./lib-campos.mjs";
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -44,30 +45,6 @@ if (!LOTE) {
 
 /* -------------------------------------------------- normalizacao */
 
-const slug = (s) =>
-  (s ?? "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-/** Nome comparavel: sem acento, sem pontuacao, sem ruido de sufixo. */
-const chaveNome = (s) =>
-  slug(s)
-    .replace(/-(ltda|me|epp|oficial|brasil)$/g, "")
-    .replace(/-/g, " ")
-    .trim();
-
-function modalidadeDe(nome, consulta) {
-  const t = `${nome} ${consulta}`.toLowerCase();
-  const temPaintball = /paintball/.test(t);
-  const temAirsoft = /airsoft/.test(t);
-  if (temPaintball && temAirsoft) return "ambos";
-  if (temPaintball) return "paintball";
-  return "airsoft";
-}
-
 /**
  * Ruido previsivel da varredura: loja, clube de tiro, loja de esporte.
  * Nao descarta — so marca, porque a linha entre "loja com campo" e
@@ -80,14 +57,7 @@ const TIPOS_SUSPEITOS = [
 
 /* ------------------------------------------------------------ banco */
 
-const cliente = new pg.Client({
-  host: process.env.PGHOST,
-  port: Number(process.env.PGPORT ?? 5432),
-  user: process.env.PGUSER ?? "postgres",
-  password: process.env.PGPASSWORD,
-  database: process.env.PGDATABASE ?? "postgres",
-  ssl: { rejectUnauthorized: false },
-});
+const cliente = new pg.Client(configPg());
 await cliente.connect();
 
 const { rows: brutos } = await cliente.query(
@@ -113,21 +83,6 @@ const porNomeLocal = new Map(
   existentes.map((c) => [`${c.uf}|${slug(c.cidade)}|${chaveNome(c.nome)}`, c]),
 );
 const idsUsados = new Set(existentes.map((c) => c.id));
-
-/**
- * O id vira URL e nunca muda depois de publicado (PLANO-DE-ACAO §3).
- * O gerador antigo usava so o slug do nome, o que fazia "Arena Airsoft"
- * de SP sobrescrever "Arena Airsoft" do RS no upsert. Aqui o nome so e
- * usado puro se estiver livre; senao entra cidade, depois UF.
- */
-function idLivre(nome, cidade, uf) {
-  const base = slug(nome);
-  const candidatos = [base, `${base}-${slug(cidade)}`, `${base}-${slug(uf)}`];
-  for (const c of candidatos) if (c && !idsUsados.has(c)) return c;
-  let n = 2;
-  while (idsUsados.has(`${base}-${n}`)) n++;
-  return `${base}-${n}`;
-}
 
 /* --------------------------------------------------------- decisao */
 
@@ -155,7 +110,7 @@ for (const b of brutos) {
     continue;
   }
 
-  const id = idLivre(b.nome, b.cidade ?? "", b.uf ?? "");
+  const id = idLivre(b.nome, b.cidade ?? "", b.uf ?? "", idsUsados);
   idsUsados.add(id);
   plano.novos.push({ bruto: b, id, suspeito });
 }
