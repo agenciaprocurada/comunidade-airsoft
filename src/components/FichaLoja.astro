@@ -1,0 +1,388 @@
+---
+/**
+ * Ficha da loja — doc §4.4.
+ *
+ * Vive em componente (e não direto na página) porque /lojas/[slug]
+ * gera duas coisas na mesma rota: a ficha da loja e o hub estadual.
+ * Ver src/pages/lojas/[slug].astro.
+ */
+import Base from "../layouts/Base.astro";
+import Etiqueta from "./Etiqueta.astro";
+import Botao from "./Botao.astro";
+import SeloVerificacao from "./SeloVerificacao.astro";
+import Trilha from "./Trilha.astro";
+import {
+  NOME_UF,
+  ROTULO_CATEGORIA_LOJA,
+  ROTULO_TIPO_LOJA,
+  linkWhatsapp,
+} from "../lib/uf";
+
+interface Props {
+  loja: any;
+}
+
+const { loja } = Astro.props;
+const d = loja.data;
+
+const nomeUf = d.uf ? (NOME_UF[d.uf] ?? d.uf) : null;
+const online = d.tipo === "online";
+
+const titulo = d.cidade
+  ? `${d.nome} — loja de airsoft em ${d.cidade}, ${d.uf}`
+  : `${d.nome} — loja de airsoft online`;
+
+const descricao = `${d.nome}: ${
+  ROTULO_TIPO_LOJA[d.tipo]?.toLowerCase() ?? "loja"
+} de airsoft${d.cidade ? ` em ${d.cidade} (${d.uf})` : ""}. ${d.categorias
+  .map((c: string) => ROTULO_CATEGORIA_LOJA[c] ?? c)
+  .join(", ")}. ${d.faz_manutencao ? "Faz manutenção." : ""}`
+  .trim()
+  .slice(0, 160);
+
+/**
+ * schema.org: loja com endereço é LocalBusiness (aparece com endereço no
+ * Google); loja só online é OnlineStore. Emitir endereço de e-commerce
+ * como se fosse ponto de venda seria mentira estruturada.
+ */
+const dadoEstruturado: Record<string, unknown> = {
+  "@context": "https://schema.org",
+  "@type": online ? "OnlineStore" : "Store",
+  name: d.nome,
+  description: d.descricao,
+  ...(d.razao_social ? { legalName: d.razao_social } : {}),
+  ...(d.cnpj ? { taxID: d.cnpj } : {}),
+  ...(d.cidade
+    ? {
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: d.cidade,
+          addressRegion: d.uf,
+          addressCountry: "BR",
+          ...(d.endereco ? { streetAddress: d.endereco } : {}),
+          ...(d.cep ? { postalCode: d.cep } : {}),
+        },
+      }
+    : {}),
+  ...(d.contato.site ? { url: d.contato.site } : {}),
+  ...(d.contato.telefone ? { telephone: d.contato.telefone } : {}),
+  ...(d.horario ? { openingHours: d.horario } : {}),
+  ...(d.entrega_nacional
+    ? { areaServed: { "@type": "Country", name: "Brasil" } }
+    : {}),
+};
+
+const temContato = Object.values(d.contato).some(Boolean);
+---
+
+<Base titulo={titulo} descricao={descricao} dadosEstruturados={[dadoEstruturado]}>
+  <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
+    <Trilha
+      itens={[
+        { href: "/lojas", texto: "Onde comprar" },
+        ...(d.uf
+          ? [{ href: `/lojas/${d.uf.toLowerCase()}`, texto: nomeUf as string }]
+          : []),
+        { texto: d.nome },
+      ]}
+    />
+
+    <div class="mt-8 grid gap-12 lg:grid-cols-[1fr_360px]">
+      <div>
+        <header class="border-b border-borda pb-8">
+          <h1
+            class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"
+          >
+            {d.nome}
+          </h1>
+          <p class="mt-3 font-dado text-xs uppercase tracking-[0.18em] text-oliva-400">
+            {d.cidade ? `${d.cidade} · ${nomeUf}` : "Envia para todo o Brasil"}
+          </p>
+
+          <div class="mt-6">
+            <SeloVerificacao
+              verificado={d.verificado}
+              verificadoEm={d.verificado_em}
+            />
+          </div>
+
+          <div class="mt-6 flex flex-wrap gap-2">
+            <Etiqueta tom="info">{ROTULO_TIPO_LOJA[d.tipo] ?? d.tipo}</Etiqueta>
+            {
+              d.categorias.map((c: string) => (
+                <Etiqueta>{ROTULO_CATEGORIA_LOJA[c] ?? c}</Etiqueta>
+              ))
+            }
+            {d.faz_manutencao && <Etiqueta tom="ok">Faz manutenção</Etiqueta>}
+            {d.faz_customizacao && <Etiqueta tom="ok">Faz customização</Etiqueta>}
+          </div>
+        </header>
+
+        <section class="py-8">
+          <p class="max-w-[65ch] leading-relaxed text-texto">{d.descricao}</p>
+        </section>
+
+        {
+          d.marcas.length > 0 && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                Marcas que trabalha
+              </h2>
+              <div class="flex flex-wrap gap-2">
+                {d.marcas.map((m: string) => (
+                  <Etiqueta>{m}</Etiqueta>
+                ))}
+              </div>
+              <p class="mt-4 max-w-[60ch] text-sm text-texto-2">
+                Levantamento feito no catálogo do site. A loja pode trabalhar
+                outras marcas — e pode deixar de trabalhar alguma destas.
+              </p>
+            </section>
+          )
+        }
+
+        {
+          (d.desconto_avista || d.formas_pagamento || d.cupom || d.entrega_nacional) && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                Compra e entrega
+              </h2>
+              <dl class="grid max-w-2xl gap-px border border-borda bg-borda sm:grid-cols-2">
+                {d.entrega_nacional && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Entrega</dt>
+                    <dd class="text-base">Envia para todo o Brasil</dd>
+                  </div>
+                )}
+                {d.desconto_avista && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Desconto à vista</dt>
+                    <dd class="text-base">{d.desconto_avista}</dd>
+                  </div>
+                )}
+                {d.formas_pagamento && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Pagamento</dt>
+                    <dd class="text-base">{d.formas_pagamento}</dd>
+                  </div>
+                )}
+                {d.cupom && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Cupom</dt>
+                    <dd class="text-base">{d.cupom}</dd>
+                  </div>
+                )}
+              </dl>
+              <p class="mt-4 max-w-[60ch] text-sm text-texto-2">
+                Condições anunciadas pela loja no dia do levantamento. Confirme
+                no site antes de fechar a compra — a Comunidade Airsoft não
+                vende nada e não participa da transação.
+              </p>
+            </section>
+          )
+        }
+
+        {
+          (d.razao_social || d.cnpj) && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                Quem é a empresa
+              </h2>
+              <dl class="grid max-w-2xl gap-px border border-borda bg-borda sm:grid-cols-2">
+                {d.razao_social && (
+                  <div class="bg-papel p-4 sm:col-span-2">
+                    <dt class="rotulo mb-1">Razão social</dt>
+                    <dd class="text-base">{d.razao_social}</dd>
+                  </div>
+                )}
+                {d.cnpj && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">CNPJ</dt>
+                    <dd class="font-dado text-base tracking-[0.06em]">{d.cnpj}</dd>
+                  </div>
+                )}
+                {d.situacao_cadastral && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Situação na Receita</dt>
+                    <dd class="text-base">{d.situacao_cadastral}</dd>
+                  </div>
+                )}
+              </dl>
+              <p class="mt-4 max-w-[60ch] text-sm text-texto-2">
+                Dados públicos da Receita Federal, consultados em agosto de
+                2026. Comprar réplica de loja com CNPJ ativo e nota fiscal é o
+                que garante o transporte legal do equipamento.
+              </p>
+            </section>
+          )
+        }
+
+        {
+          d.observacoes && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                Ressalvas do levantamento
+              </h2>
+              <p class="max-w-[60ch] border-l-2 border-alerta bg-alerta-bg p-4 text-sm leading-relaxed text-alerta-texto">
+                {d.observacoes}
+              </p>
+            </section>
+          )
+        }
+      </div>
+
+      <aside class="lg:sticky lg:top-8 lg:self-start">
+        <div class="border border-borda bg-papel">
+          {
+            d.endereco && (
+              <div class="border-b border-borda p-5">
+                <div class="rotulo mb-2">Endereço</div>
+                <p class="text-base">{d.endereco}</p>
+                <p class="text-base text-texto-2">
+                  {d.bairro && <>{d.bairro} · </>}
+                  {d.cidade} — {d.uf}
+                </p>
+                {d.cep && (
+                  <p class="mt-1 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+                    CEP {d.cep}
+                  </p>
+                )}
+              </div>
+            )
+          }
+
+          {
+            d.horario && (
+              <div class="border-b border-borda p-5">
+                <div class="rotulo mb-2">Atendimento</div>
+                <p class="text-base">{d.horario}</p>
+              </div>
+            )
+          }
+
+          <div class="p-5">
+            <div class="rotulo mb-3">Contato</div>
+            {
+              temContato ? (
+                <ul class="flex flex-col gap-2">
+                  {d.contato.site && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        href={d.contato.site}
+                        rel="nofollow noopener"
+                      >
+                        Site oficial
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.whatsapp && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        href={linkWhatsapp(d.contato.whatsapp)}
+                        rel="nofollow noopener"
+                      >
+                        WhatsApp
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.telefone && <li>{d.contato.telefone}</li>}
+                  {d.contato.instagram && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        href={`https://instagram.com/${d.contato.instagram.replace("@", "")}`}
+                        rel="nofollow noopener"
+                      >
+                        {d.contato.instagram}
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.facebook && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        href={d.contato.facebook}
+                        rel="nofollow noopener"
+                      >
+                        Facebook
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.email && (
+                    <li class="truncate">
+                      <a
+                        class="text-oliva-500 underline"
+                        href={`mailto:${d.contato.email}`}
+                      >
+                        {d.contato.email}
+                      </a>
+                    </li>
+                  )}
+                </ul>
+              ) : (
+                <p class="text-base text-texto-2">
+                  Ainda não temos contato confirmado desta loja.
+                </p>
+              )
+            }
+          </div>
+        </div>
+
+        {
+          !d.verificado && (
+            <div class="mt-5 border border-oliva-300 bg-oliva-050 p-5">
+              <h2 class="font-display text-xl font-bold uppercase">
+                É sua esta loja?
+              </h2>
+              <p class="mt-2 text-base leading-relaxed text-texto-2">
+                Esta página já existe e já recebe visitas. Assuma o controle
+                para corrigir os dados, publicar marcas e divulgar cupom.
+              </p>
+              <Botao href={`/reivindicar?tipo=loja&id=${loja.id}`} class="mt-4 w-full">
+                Reivindicar esta página
+              </Botao>
+            </div>
+          )
+        }
+
+        <a
+          href={`/reportar?tipo=loja&id=${loja.id}`}
+          class="mt-4 block text-center text-sm text-texto-2 underline hover:text-tinta"
+        >
+          Reportar informação desatualizada
+        </a>
+
+        {
+          d.fonte && (
+            <div class="mt-6 border-t border-borda pt-4">
+              <div class="rotulo mb-2">Origem do dado</div>
+              <p class="text-sm leading-relaxed text-texto-2">
+                Levantamento de agosto/2026 a partir do site oficial da loja,
+                ainda sem confirmação com o lojista.
+              </p>
+              <ul class="mt-2 flex flex-col gap-1">
+                {d.fonte
+                  .split("|")
+                  .map((f: string) => f.trim())
+                  .filter((f: string) => f.startsWith("http"))
+                  .map((f: string) => (
+                    <li class="truncate">
+                      <a
+                        href={f}
+                        rel="nofollow noopener"
+                        class="font-dado text-[11px] tracking-[0.1em] text-oliva-400 underline hover:text-oliva-300"
+                      >
+                        {new URL(f).hostname.replace(/^www\./, "")}
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )
+        }
+      </aside>
+    </div>
+  </div>
+</Base>

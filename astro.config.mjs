@@ -24,7 +24,6 @@ const FORA_DO_SITEMAP = [
   '/reportar',
   '/enviar-campo',
   // placeholders — remover conforme cada um vira página de verdade
-  '/lojas',
   '/operacoes',
   '/grupos',
 ];

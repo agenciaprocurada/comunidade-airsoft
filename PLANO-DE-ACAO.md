@@ -105,7 +105,8 @@ ativo de SEO do projeto — capturam "campo de airsoft em [cidade]".
 ### Entrega 1 — Núcleo público e indexável (semanas 2–4)
 **Meta: o Google tem o que indexar.** Nenhuma tela exige login.
 - [x] Ficha de campo completa, com contato **visível** nesta fase
-- Ficha de loja, página de evento, listagem de influencers
+- [x] Ficha de loja (`/lojas`, `/lojas/[uf]`, `/lojas/[slug]`) — 20 lojas no Supabase, coletadas dos sites oficiais + CNPJ na Receita. No menu o rótulo é "Onde comprar"; a URL segue `/lojas`.
+- Página de evento, listagem de influencers
 - **Dados reais** substituindo os campos de exemplo
 - [x] Hubs `/campos/[uf]` e `/campos/[uf]/[cidade]`
 - 6 guias (1 rascunho pronto, faltam 5)

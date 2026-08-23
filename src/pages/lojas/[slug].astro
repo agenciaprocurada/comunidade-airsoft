@@ -1,0 +1,49 @@
+---
+/**
+ * /lojas/[slug] serve DUAS coisas:
+ *   /lojas/az-sports  → ficha da loja
+ *   /lojas/sp         → hub estadual
+ *
+ * As duas URLs estão congeladas no PLANO-DE-ACAO.md §3 e vivem no mesmo
+ * nível. Dois arquivos de rota dinâmica no mesmo segmento colidiriam, então
+ * o `getStaticPaths` gera os dois tipos e o corpo escolhe o componente.
+ * A sigla de UF tem duas letras e o slug de loja tem no mínimo três, então
+ * não há como uma loja roubar a URL de um estado.
+ */
+import { getCollection } from "astro:content";
+import FichaLoja from "../../components/FichaLoja.astro";
+import HubLojasUf from "../../components/HubLojasUf.astro";
+
+export async function getStaticPaths() {
+  const lojas = await getCollection("lojas", ({ data }) => data.status === "publicado");
+
+  const fichas = lojas.map((loja) => ({
+    params: { slug: loja.id },
+    props: { loja, sigla: null, lojasDoEstado: [] },
+  }));
+
+  const porUf = new Map<string, typeof lojas>();
+  for (const loja of lojas) {
+    const uf = loja.data.uf;
+    if (!uf) continue;
+    porUf.set(uf, [...(porUf.get(uf) ?? []), loja]);
+  }
+
+  const hubs = [...porUf].map(([uf, lista]) => ({
+    params: { slug: uf.toLowerCase() },
+    props: { loja: null, sigla: uf, lojasDoEstado: lista },
+  }));
+
+  return [...fichas, ...hubs];
+}
+
+const { loja, sigla, lojasDoEstado } = Astro.props;
+---
+
+{
+  loja ? (
+    <FichaLoja loja={loja} />
+  ) : (
+    <HubLojasUf sigla={sigla} lojas={lojasDoEstado} />
+  )
+}

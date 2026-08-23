@@ -1,0 +1,229 @@
+---
+/**
+ * Busca de lojas — mesma regra do BuscaCampos: TODOS os cartões saem no
+ * HTML e o script só mostra e oculta. Sem JavaScript o visitante vê a
+ * lista completa e o formulário nem aparece, em vez de aparecer quebrado.
+ */
+import CardLoja from "./CardLoja.astro";
+import {
+  NOME_UF,
+  ROTULO_CATEGORIA_LOJA,
+  ROTULO_TIPO_LOJA,
+  slugificar,
+} from "../lib/uf";
+
+interface Props {
+  lojas: any[];
+}
+
+const { lojas } = Astro.props;
+
+/** As opções saem dos dados: filtro que sempre devolve zero é filtro quebrado. */
+const estados = [...new Set(lojas.map((l) => l.data.uf).filter(Boolean))]
+  .map((uf) => ({ sigla: uf, nome: NOME_UF[uf] ?? uf }))
+  .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+const tipos = [...new Set(lojas.map((l) => l.data.tipo))].sort();
+const categorias = [...new Set(lojas.flatMap((l) => l.data.categorias ?? []))].sort();
+const temOficina = lojas.some((l) => l.data.faz_manutencao || l.data.faz_customizacao);
+
+/** Texto normalizado no build — o cliente só normaliza a consulta. */
+function textoBusca(d: any): string {
+  return slugificar(
+    [d.nome, d.cidade, NOME_UF[d.uf] ?? d.uf, d.uf, d.razao_social, ...(d.marcas ?? [])]
+      .filter(Boolean)
+      .join(" "),
+  ).replace(/-/g, " ");
+}
+
+const classeCampo =
+  "w-full border border-borda-forte bg-fundo px-3 py-2.5 font-display text-base uppercase tracking-[0.03em] text-tinta outline-none transition-colors focus:border-oliva-500";
+const classeRotulo =
+  "mb-1.5 block font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400";
+---
+
+<form
+  hidden
+  data-busca-lojas
+  class="moldura-tatica mt-9 border border-borda bg-papel p-5 md:p-6"
+  aria-label="Buscar lojas"
+>
+  <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div class="lg:col-span-2">
+      <label class={classeRotulo} for="loja-texto">Loja, marca ou cidade</label>
+      <input
+        id="loja-texto"
+        type="search"
+        name="texto"
+        autocomplete="off"
+        placeholder="Nome da loja, marca, cidade..."
+        class={`${classeCampo} placeholder:normal-case placeholder:tracking-normal placeholder:text-texto-2/60`}
+      />
+    </div>
+
+    <div>
+      <label class={classeRotulo} for="loja-categoria">O que você procura</label>
+      <select id="loja-categoria" name="categoria" class={classeCampo}>
+        <option value="">Qualquer</option>
+        {
+          categorias.map((c) => (
+            <option value={c}>{ROTULO_CATEGORIA_LOJA[c] ?? c}</option>
+          ))
+        }
+      </select>
+    </div>
+
+    <div>
+      <label class={classeRotulo} for="loja-tipo">Tipo</label>
+      <select id="loja-tipo" name="tipo" class={classeCampo}>
+        <option value="">Qualquer</option>
+        {tipos.map((t) => <option value={t}>{ROTULO_TIPO_LOJA[t] ?? t}</option>)}
+      </select>
+    </div>
+
+    <div>
+      <label class={classeRotulo} for="loja-uf">Estado</label>
+      <select id="loja-uf" name="uf" class={classeCampo}>
+        <option value="">Todos</option>
+        {estados.map((e) => <option value={e.sigla}>{e.nome}</option>)}
+      </select>
+    </div>
+
+    {
+      temOficina && (
+        <div class="flex items-end">
+          <label class="flex w-full cursor-pointer items-center gap-2.5 border border-borda-forte bg-fundo px-3 py-2.5 transition-colors hover:border-oliva-500">
+            <input
+              type="checkbox"
+              name="oficina"
+              class="h-4 w-4 shrink-0 accent-oliva-500"
+            />
+            <span class="font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-300">
+              Faz manutenção
+            </span>
+          </label>
+        </div>
+      )
+    }
+
+    <div class="flex items-end">
+      <button
+        type="reset"
+        class="w-full border border-borda-forte px-3 py-2.5 font-display text-base font-bold uppercase tracking-[0.06em] text-oliva-400 transition-colors hover:border-oliva-500 hover:text-oliva-300"
+      >
+        Limpar
+      </button>
+    </div>
+  </div>
+
+  <p
+    data-contagem-lojas
+    aria-live="polite"
+    class="mt-4 border-t border-borda pt-4 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400"
+  >
+  </p>
+</form>
+
+<div data-resultados-lojas class="mt-9 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+  {
+    lojas.map((loja) => (
+      <div
+        data-loja
+        data-uf={loja.data.uf ?? ""}
+        data-tipo={loja.data.tipo}
+        data-categorias={(loja.data.categorias ?? []).join(" ")}
+        data-oficina={loja.data.faz_manutencao || loja.data.faz_customizacao ? "1" : "0"}
+        data-texto={textoBusca(loja.data)}
+        class="contents"
+      >
+        <CardLoja loja={loja} />
+      </div>
+    ))
+  }
+</div>
+
+<p
+  data-vazio-lojas
+  hidden
+  class="mt-9 border border-borda bg-papel p-8 text-center leading-relaxed text-texto-2"
+>
+  Nenhuma loja bate com esses filtros. Tente ampliar a busca ou
+  <a href="/lojas" class="text-oliva-500 underline">veja todas as lojas</a>.
+</p>
+
+<script>
+  // Progressive enhancement: sem este script a lista completa continua
+  // na tela e o formulário permanece oculto.
+  const form = document.querySelector<HTMLFormElement>("[data-busca-lojas]");
+  const grade = document.querySelector<HTMLElement>("[data-resultados-lojas]");
+  const vazio = document.querySelector<HTMLElement>("[data-vazio-lojas]");
+  const contagem = form?.querySelector<HTMLElement>("[data-contagem-lojas]");
+
+  if (form && grade && vazio && contagem) {
+    const elVazio: HTMLElement = vazio;
+    const elContagem: HTMLElement = contagem;
+    const cartoes = Array.from(grade.querySelectorAll<HTMLElement>("[data-loja]"));
+
+    const campoTexto = form.elements.namedItem("texto") as HTMLInputElement;
+    const campoCategoria = form.elements.namedItem("categoria") as HTMLSelectElement;
+    const campoTipo = form.elements.namedItem("tipo") as HTMLSelectElement;
+    const campoUf = form.elements.namedItem("uf") as HTMLSelectElement;
+    const campoOficina = form.elements.namedItem("oficina") as HTMLInputElement | null;
+
+    /** Mesma normalização de slugificar(), sem os hífens. */
+    const normalizar = (texto: string) =>
+      texto
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
+    function aplicar() {
+      const texto = normalizar(campoTexto.value);
+      const categoria = campoCategoria.value;
+      const tipo = campoTipo.value;
+      const uf = campoUf.value;
+      const soOficina = campoOficina?.checked ?? false;
+      const filtrando = Boolean(texto || categoria || tipo || uf || soOficina);
+
+      let exibidos = 0;
+
+      for (const cartao of cartoes) {
+        const d = cartao.dataset;
+        const casa =
+          (!texto || (d.texto ?? "").includes(texto)) &&
+          (!categoria || (d.categorias ?? "").split(" ").includes(categoria)) &&
+          (!tipo || d.tipo === tipo) &&
+          (!uf || d.uf === uf) &&
+          (!soOficina || d.oficina === "1");
+
+        if (casa) exibidos++;
+        // `contents` porque a grade é do container: um wrapper com display
+        // próprio quebraria o alinhamento das colunas.
+        cartao.classList.toggle("contents", casa);
+        cartao.classList.toggle("hidden", !casa);
+      }
+
+      elVazio.hidden = exibidos > 0;
+
+      if (!filtrando) {
+        elContagem.textContent = `${cartoes.length} lojas cadastradas`;
+      } else if (exibidos === 0) {
+        elContagem.textContent = "Nenhuma loja encontrada";
+      } else {
+        elContagem.textContent = `${exibidos} ${
+          exibidos === 1 ? "loja encontrada" : "lojas encontradas"
+        } de ${cartoes.length}`;
+      }
+    }
+
+    form.addEventListener("input", aplicar);
+    form.addEventListener("change", aplicar);
+    form.addEventListener("submit", (evento) => evento.preventDefault());
+    form.addEventListener("reset", () => requestAnimationFrame(aplicar));
+
+    form.hidden = false;
+    aplicar();
+  }
+</script>

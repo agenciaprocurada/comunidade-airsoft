@@ -1,0 +1,134 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import BuscaLojas from "../../components/BuscaLojas.astro";
+import Trilha from "../../components/Trilha.astro";
+import { NOME_UF } from "../../lib/uf";
+
+const lojas = await getCollection("lojas", ({ data }) => data.status === "publicado");
+
+const estados = [...new Set(lojas.map((l) => l.data.uf).filter(Boolean))]
+  .map((uf) => ({
+    sigla: uf as string,
+    nome: NOME_UF[uf as string] ?? (uf as string),
+    total: lojas.filter((l) => l.data.uf === uf).length,
+  }))
+  .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+const comOficina = lojas.filter(
+  (l) => l.data.faz_manutencao || l.data.faz_customizacao,
+).length;
+
+/** Nem toda loja publica CNPJ. A contagem tem que ser a real, não a redonda. */
+const comCnpj = lojas.filter((l) => l.data.cnpj).length;
+
+const titulo = "Onde comprar airsoft: lojas online e físicas no Brasil";
+const descricao = `Diretório de lojas de airsoft no Brasil: ${lojas.length} lojas com marcas trabalhadas, formas de pagamento, entrega e contato — ${comCnpj} delas com CNPJ conferido na Receita Federal.`;
+
+/** ItemList ajuda o Google a entender a página como diretório, não como artigo. */
+const dadoEstruturado = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: titulo,
+  numberOfItems: lojas.length,
+  itemListElement: lojas.map((loja, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    name: loja.data.nome,
+    url: new URL(`/lojas/${loja.id}`, Astro.site).href,
+  })),
+};
+---
+
+<Base titulo={titulo} descricao={descricao} dadosEstruturados={[dadoEstruturado]}>
+  <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
+    <Trilha itens={[{ texto: "Onde comprar" }]} />
+
+    <header class="mt-8 border-b border-borda pb-8">
+      <h1
+        class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"
+      >
+        Onde comprar<br />airsoft no Brasil
+      </h1>
+      <p class="mt-4 max-w-[60ch] text-lg leading-relaxed text-texto-2">
+        {descricao}
+      </p>
+      <p class="mt-4 max-w-[60ch] text-base leading-relaxed text-texto-2">
+        Não vendemos nada e não recebemos por indicação. A lista é aberta: cada
+        ficha mostra de onde veio o dado e quando foi conferido.
+        {
+          comOficina > 0 && (
+            <> {comOficina} destas lojas também fazem manutenção ou customização.</>
+          )
+        }
+      </p>
+    </header>
+
+    <BuscaLojas lojas={lojas} />
+
+    {
+      estados.length > 0 && (
+        <nav aria-label="Estados" class="mt-12 border-t border-borda pt-8">
+          <h2 class="rotulo mb-3">Lojas por estado</h2>
+          <ul class="flex flex-wrap gap-2">
+            {estados.map((estado) => (
+              <li>
+                <a
+                  href={`/lojas/${estado.sigla.toLowerCase()}`}
+                  class="inline-block border border-borda bg-papel px-4 py-2 text-base transition-colors hover:border-oliva-500 hover:text-oliva-500"
+                >
+                  {estado.nome}
+                  <span class="ml-2 font-dado text-[11px] text-oliva-400">
+                    {estado.total}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p class="mt-4 max-w-[60ch] text-sm leading-relaxed text-texto-2">
+            O estado é o da sede da empresa. Quase todas enviam para o país
+            inteiro — o hub estadual serve para quem prefere comprar perto,
+            retirar na loja ou levar a réplica para manutenção.
+          </p>
+        </nav>
+      )
+    }
+
+    <section class="mt-12 border-t border-borda pt-8">
+      <h2 class="mb-4 font-display text-2xl font-bold uppercase">
+        Antes de comprar a primeira réplica
+      </h2>
+      <p class="max-w-[65ch] leading-relaxed text-texto-2">
+        Réplica de airsoft é produto controlado pelo Exército. Comprar de loja
+        com CNPJ ativo e exigir nota fiscal é o que permite transportar o
+        equipamento sem dor de cabeça — a nota é o documento que prova a origem.
+      </p>
+      <ul class="mt-5 flex flex-wrap gap-3">
+        <li>
+          <a
+            href="/guias/como-escolher-a-primeira-replica-de-airsoft"
+            class="inline-block border border-borda bg-papel px-4 py-2 text-base transition-colors hover:border-oliva-500 hover:text-oliva-500"
+          >
+            Como escolher a primeira réplica
+          </a>
+        </li>
+        <li>
+          <a
+            href="/guias/quanto-custa-comecar-no-airsoft"
+            class="inline-block border border-borda bg-papel px-4 py-2 text-base transition-colors hover:border-oliva-500 hover:text-oliva-500"
+          >
+            Quanto custa começar
+          </a>
+        </li>
+        <li>
+          <a
+            href="/guias/como-transportar-replica-de-airsoft"
+            class="inline-block border border-borda bg-papel px-4 py-2 text-base transition-colors hover:border-oliva-500 hover:text-oliva-500"
+          >
+            Como transportar réplica
+          </a>
+        </li>
+      </ul>
+    </section>
+  </div>
+</Base>
