@@ -32,12 +32,21 @@ const url = `/campos/${d.uf.toLowerCase()}/${d.cidade_slug}/${campo.id}`;
 const capa = d.fotos?.[0];
 ---
 
+<!--
+  O card inteiro e clicavel por "stretched link": o link do titulo estica um
+  ::after por cima de todo o article. E a unica forma valida, porque <a> dentro
+  de <a> nao existe em HTML, e de quebra deixa UM link por card no lugar dos
+  tres que apontavam para a mesma ficha.
+-->
 <article
-  class="moldura-tatica group flex flex-col border border-borda bg-papel transition-colors hover:border-oliva-500"
+  class="moldura-tatica group relative isolate flex flex-col border border-borda bg-papel transition-colors focus-within:border-oliva-500 hover:border-oliva-500"
 >
   <div class="flex items-start justify-between gap-3 p-5 pb-3">
     <h3 class="font-display text-xl font-bold uppercase leading-tight tracking-[0.02em]">
-      <a href={url} class="transition-colors hover:text-oliva-300">
+      <a
+        href={url}
+        class="transition-colors after:absolute after:inset-0 after:content-[''] hover:text-oliva-300"
+      >
         {d.nome}
       </a>
     </h3>
@@ -87,7 +96,7 @@ const capa = d.fotos?.[0];
     }
   </p>
 
-  <a href={url} class="block overflow-hidden border-y border-borda" tabindex="-1" aria-hidden="true">
+  <div class="block overflow-hidden border-y border-borda" aria-hidden="true">
     {
       capa ? (
         <img
@@ -119,7 +128,7 @@ const capa = d.fotos?.[0];
         </div>
       )
     }
-  </a>
+  </div>
 
   <div class="flex flex-1 flex-col gap-3 p-5">
     <p class="line-clamp-3 text-base leading-relaxed text-texto-2">
@@ -143,11 +152,11 @@ const capa = d.fotos?.[0];
     >
       {faixaDeValor(d.valor_min, d.valor_max, d.precos)}
     </span>
-    <a
-      href={url}
-      class="shrink-0 font-display text-base font-bold uppercase tracking-wide text-oliva-500 transition-colors hover:text-oliva-300"
+    <span
+      aria-hidden="true"
+      class="shrink-0 font-display text-base font-bold uppercase tracking-wide text-oliva-500 transition-colors group-hover:text-oliva-300"
     >
       Ver campo
-    </a>
+    </span>
   </div>
 </article>

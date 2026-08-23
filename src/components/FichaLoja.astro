@@ -11,6 +11,7 @@ import Etiqueta from "./Etiqueta.astro";
 import Botao from "./Botao.astro";
 import SeloVerificacao from "./SeloVerificacao.astro";
 import Trilha from "./Trilha.astro";
+import { linkExterno } from "../lib/link-externo";
 import {
   NOME_UF,
   ROTULO_CATEGORIA_LOJA,
@@ -269,8 +270,7 @@ const temContato = Object.values(d.contato).some(Boolean);
                     <li>
                       <a
                         class="text-oliva-500 underline"
-                        href={d.contato.site}
-                        rel="nofollow noopener"
+                        {...linkExterno(d.contato.site, "loja")}
                       >
                         Site oficial
                       </a>
@@ -280,8 +280,7 @@ const temContato = Object.values(d.contato).some(Boolean);
                     <li>
                       <a
                         class="text-oliva-500 underline"
-                        href={linkWhatsapp(d.contato.whatsapp)}
-                        rel="nofollow noopener"
+                        {...linkExterno(linkWhatsapp(d.contato.whatsapp), "loja")}
                       >
                         WhatsApp
                       </a>
@@ -292,8 +291,7 @@ const temContato = Object.values(d.contato).some(Boolean);
                     <li>
                       <a
                         class="text-oliva-500 underline"
-                        href={`https://instagram.com/${d.contato.instagram.replace("@", "")}`}
-                        rel="nofollow noopener"
+                        {...linkExterno(`https://instagram.com/${d.contato.instagram.replace("@", "")}`, "loja")}
                       >
                         {d.contato.instagram}
                       </a>
@@ -303,8 +301,7 @@ const temContato = Object.values(d.contato).some(Boolean);
                     <li>
                       <a
                         class="text-oliva-500 underline"
-                        href={d.contato.facebook}
-                        rel="nofollow noopener"
+                        {...linkExterno(d.contato.facebook, "loja")}
                       >
                         Facebook
                       </a>
@@ -370,8 +367,7 @@ const temContato = Object.values(d.contato).some(Boolean);
                   .map((f: string) => (
                     <li class="truncate">
                       <a
-                        href={f}
-                        rel="nofollow noopener"
+                        {...linkExterno(f, "loja-fonte")}
                         class="font-dado text-[11px] tracking-[0.1em] text-oliva-400 underline hover:text-oliva-300"
                       >
                         {new URL(f).hostname.replace(/^www\./, "")}

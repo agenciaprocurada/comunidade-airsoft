@@ -5,6 +5,8 @@ import Etiqueta from "../../../../components/Etiqueta.astro";
 import Botao from "../../../../components/Botao.astro";
 import SeloVerificacao from "../../../../components/SeloVerificacao.astro";
 import Trilha from "../../../../components/Trilha.astro";
+import { linkExterno } from "../../../../lib/link-externo";
+import MapaLocal from "../../../../components/MapaLocal.astro";
 import {
   NOME_UF,
   ROTULO_TERRENO,
@@ -256,6 +258,16 @@ const temContato = Object.values(d.contato).some(Boolean);
             )
           }
 
+          <MapaLocal
+            nome={d.nome}
+            endereco={d.endereco}
+            bairro={d.bairro}
+            cidade={d.cidade}
+            uf={d.uf}
+            lat={d.lat}
+            lng={d.lng}
+          />
+
           <div class="p-5">
             {
             d.google_nota != null && (
@@ -287,8 +299,10 @@ const temContato = Object.values(d.contato).some(Boolean);
                     <li>
                       <a
                         class="text-oliva-500 underline"
-                        href={`https://wa.me/${d.contato.whatsapp.replace(/\D/g, "")}`}
-                        rel="nofollow noopener"
+                        {...linkExterno(
+                          `https://wa.me/${d.contato.whatsapp.replace(/\D/g, "")}`,
+                          "campo",
+                        )}
                       >
                         WhatsApp
                       </a>
@@ -299,8 +313,10 @@ const temContato = Object.values(d.contato).some(Boolean);
                     <li>
                       <a
                         class="text-oliva-500 underline"
-                        href={`https://instagram.com/${d.contato.instagram.replace("@", "")}`}
-                        rel="nofollow noopener"
+                        {...linkExterno(
+                          `https://instagram.com/${d.contato.instagram.replace("@", "")}`,
+                          "campo",
+                        )}
                       >
                         {d.contato.instagram}
                       </a>
@@ -310,8 +326,7 @@ const temContato = Object.values(d.contato).some(Boolean);
                     <li>
                       <a
                         class="text-oliva-500 underline"
-                        href={d.contato.facebook}
-                        rel="nofollow noopener"
+                        {...linkExterno(d.contato.facebook, "campo")}
                       >
                         Facebook
                       </a>
@@ -328,8 +343,7 @@ const temContato = Object.values(d.contato).some(Boolean);
                     <li>
                       <a
                         class="text-oliva-500 underline"
-                        href={d.contato.site}
-                        rel="nofollow noopener"
+                        {...linkExterno(d.contato.site, "campo")}
                       >
                         Site oficial
                       </a>
@@ -389,8 +403,7 @@ const temContato = Object.values(d.contato).some(Boolean);
                   .map((f) => (
                     <li class="truncate">
                       <a
-                        href={f}
-                        rel="nofollow noopener"
+                        {...linkExterno(f, "campo-fonte")}
                         class="font-dado text-[11px] tracking-[0.1em] text-oliva-400 underline hover:text-oliva-300"
                       >
                         {new URL(f).hostname.replace(/^www\./, "")}
