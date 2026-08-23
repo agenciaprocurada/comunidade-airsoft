@@ -7,6 +7,8 @@ nivel: avancado
 categoria: "Comunidade"
 palavra_chave: "como organizar operação de airsoft"
 rascunho: false
+imagem: "../../assets/guias/como-organizar-operacao-de-airsoft-briefing.webp"
+imagem_alt: "Organizador conduz o briefing de segurança ao amanhecer, em pé sobre um caixote, com cerca de quinze jogadores equipados em semicírculo diante da tenda da safe zone"
 relacionados:
   - tipos-de-jogo-no-airsoft
   - como-entrar-em-uma-equipe-de-airsoft

@@ -7,6 +7,8 @@ nivel: avancado
 categoria: "Técnico"
 palavra_chave: "HPA airsoft vale a pena"
 rascunho: false
+imagem: "../../assets/guias/hpa-ou-aeg-airsoft-cilindro-e-gearbox.webp"
+imagem_alt: "Cilindro de ar comprimido com regulador e macroline ao lado de uma gearbox de AEG aberta e de uma bateria LiPo, sobre bancada de manutenção"
 relacionados:
   - upgrade-de-aeg-por-onde-comecar
   - gearbox-de-airsoft-versoes-e-diferencas
