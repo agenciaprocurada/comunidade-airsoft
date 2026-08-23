@@ -1,17 +1,31 @@
 ---
 import { getCollection, render } from "astro:content";
+import { Image } from "astro:assets";
 import Base from "../../layouts/Base.astro";
 import Trilha from "../../components/Trilha.astro";
 
 export async function getStaticPaths() {
   const guias = await getCollection("guias", ({ data }) => !data.rascunho);
+
+  // Os relacionados sao resolvidos aqui, no build: slug apontando para guia
+  // inexistente some, em vez de virar link quebrado publicado.
+  const porId = new Map(guias.map((g) => [g.id, g]));
+
   return guias.map((guia) => ({
     params: { slug: guia.id },
-    props: { guia },
+    props: {
+      guia,
+      relacionados: guia.data.relacionados
+        .map((id) => porId.get(id))
+        // O predicado de tipo e o que permite ler g.data logo abaixo:
+        // um filter comum nao remove o undefined da assinatura.
+        .filter((g): g is NonNullable<typeof g> => !!g && g.id !== guia.id)
+        .map((g) => ({ id: g.id, titulo: g.data.titulo, resumo: g.data.resumo })),
+    },
   }));
 }
 
-const { guia } = Astro.props;
+const { guia, relacionados } = Astro.props;
 const { Content } = await render(guia);
 const d = guia.data;
 
@@ -22,6 +36,7 @@ const artigo = {
   "@type": "Article",
   headline: d.titulo,
   description: d.resumo,
+  ...(d.imagem ? { image: new URL(d.imagem.src, Astro.site).href } : {}),
   datePublished: d.publicado_em.toISOString(),
   ...(d.atualizado_em ? { dateModified: d.atualizado_em.toISOString() } : {}),
   author: { "@type": "Organization", name: d.autor },
@@ -43,7 +58,15 @@ const faq =
       }
     : null;
 
+// O BreadcrumbList e emitido pelo componente Trilha, nao aqui.
 const estruturados = faq ? [artigo, faq] : [artigo];
+
+const ROTULO_NIVEL = {
+  iniciante: "Nível 1 · Iniciante",
+  intermediario: "Nível 2 · Intermediário",
+  avancado: "Nível 3 · Avançado",
+};
+const rotuloNivel = ROTULO_NIVEL[d.nivel];
 ---
 
 <Base
@@ -62,10 +85,26 @@ const estruturados = faq ? [artigo, faq] : [artigo];
       </h1>
       <p class="mt-4 text-lg leading-relaxed text-texto-2">{d.resumo}</p>
       <p class="mt-5 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
-        Publicado em {formatador.format(d.publicado_em)}
+        {rotuloNivel} · {d.categoria} · Publicado em {formatador.format(d.publicado_em)}
         {d.atualizado_em && ` · Atualizado em ${formatador.format(d.atualizado_em)}`}
       </p>
     </header>
+
+    {
+      d.imagem && (
+        <figure class="mx-auto mt-8 max-w-[68ch]">
+          <Image
+            src={d.imagem}
+            alt={d.imagem_alt ?? ""}
+            widths={[420, 680, 1360]}
+            sizes="(min-width: 768px) 68ch, 100vw"
+            class="w-full border border-borda"
+            loading="eager"
+            fetchpriority="high"
+          />
+        </figure>
+      )
+    }
 
     <div class="conteudo mx-auto mt-8 max-w-[68ch]">
       <Content />
@@ -87,6 +126,34 @@ const estruturados = faq ? [artigo, faq] : [artigo];
               </div>
             ))}
           </dl>
+        </section>
+      )
+    }
+
+    {
+      relacionados.length > 0 && (
+        <section class="mx-auto mt-12 max-w-[68ch] border-t border-borda pt-8">
+          <h2 class="font-display text-2xl font-bold uppercase">
+            Continue a leitura
+          </h2>
+          <ul class="mt-6 grid gap-4">
+            {relacionados.map((outro) => (
+              <li class="border border-borda bg-papel p-5 transition-colors hover:border-oliva-300">
+                <h3 class="font-display text-lg font-bold uppercase leading-tight">
+                  <a href={`/guias/${outro.id}`} class="hover:text-oliva-500">
+                    {outro.titulo}
+                  </a>
+                </h3>
+                <p class="mt-2 text-sm leading-relaxed text-texto-2">
+                  {outro.resumo}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <p class="mt-6 leading-relaxed text-texto-2">
+            Ou volte para <a href="/guias" class="text-oliva-500 underline">todos os guias</a>,
+            organizados por nível de conhecimento.
+          </p>
         </section>
       )
     }

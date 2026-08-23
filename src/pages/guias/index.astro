@@ -1,16 +1,72 @@
 ---
 import { getCollection } from "astro:content";
+import { Image } from "astro:assets";
 import Base from "../../layouts/Base.astro";
 import Trilha from "../../components/Trilha.astro";
+import Etiqueta from "../../components/Etiqueta.astro";
 
-const guias = (await getCollection("guias", ({ data }) => !data.rascunho)).sort(
-  (a, b) => b.data.publicado_em.getTime() - a.data.publicado_em.getTime(),
-);
+const guias = await getCollection("guias", ({ data }) => !data.rascunho);
+
+/**
+ * A trilha é o produto desta página: o leitor entra por um guia solto vindo do
+ * Google e precisa enxergar o percurso inteiro. Por isso a ordenação dentro de
+ * cada nível é editorial (ordem de leitura), não cronológica.
+ */
+const NIVEIS = [
+  {
+    chave: "iniciante" as const,
+    titulo: "Nível 1 — Iniciante",
+    descricao:
+      "Você nunca jogou ou jogou uma ou duas vezes. Comece pelas dúvidas legais e pelo primeiro dia no campo.",
+  },
+  {
+    chave: "intermediario" as const,
+    titulo: "Nível 2 — Intermediário",
+    descricao:
+      "Você já joga com frequência e tem equipamento próprio. Aqui entram munição, bateria, hop-up e vida em equipe.",
+  },
+  {
+    chave: "avancado" as const,
+    titulo: "Nível 3 — Avançado",
+    descricao:
+      "Você abre a própria réplica, escolhe peça por especificação e organiza jogo para os outros.",
+  },
+];
+
+const porNivel = NIVEIS.map((nivel) => ({
+  ...nivel,
+  itens: guias
+    .filter((guia) => guia.data.nivel === nivel.chave)
+    .sort((a, b) => a.data.titulo.localeCompare(b.data.titulo, "pt-BR")),
+}));
+
+const total = guias.length;
+
+// ItemList ajuda o Google a entender /guias como hub, e não como página solta.
+const listaEstruturada = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  name: "Guias de airsoft",
+  description:
+    "Guias gratuitos sobre airsoft no Brasil, organizados por nível de conhecimento.",
+  inLanguage: "pt-BR",
+  mainEntity: {
+    "@type": "ItemList",
+    numberOfItems: total,
+    itemListElement: guias.map((guia, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: guia.data.titulo,
+      url: new URL(`/guias/${guia.id}`, Astro.site).href,
+    })),
+  },
+};
 ---
 
 <Base
-  titulo="Guias de airsoft para iniciantes"
-  descricao="Guias sobre como começar no airsoft: regras, equipamento, custo real, primeiro dia no campo e dúvidas legais. Conteúdo gratuito da Comunidade Airsoft."
+  titulo="Guias de airsoft: do primeiro dia ao upgrade de réplica"
+  descricao="Guias gratuitos de airsoft organizados por nível: legislação, custo, primeiro dia no campo, equipamento, manutenção e upgrade. Conteúdo da Comunidade Airsoft."
+  dadosEstruturados={[listaEstruturada]}
 >
   <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
     <Trilha itens={[{ texto: "Guias" }]} />
@@ -22,30 +78,77 @@ const guias = (await getCollection("guias", ({ data }) => !data.rascunho)).sort(
         Guias
       </h1>
       <p class="mt-4 max-w-[60ch] text-lg leading-relaxed text-texto-2">
-        O que ninguém explica direito para quem está começando: quanto custa,
-        o que é obrigatório, como funciona o primeiro dia no campo.
+        O que ninguém explica direito para quem está começando: quanto custa, o
+        que é obrigatório, como funciona o primeiro dia no campo. Depois, o que
+        ninguém explica para quem já joga.
+      </p>
+      <p class="mt-5 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+        {total} guias · três níveis · leitura livre, sem cadastro
       </p>
     </header>
 
     {
-      guias.length === 0 ? (
+      total === 0 ? (
         <p class="mt-10 text-lg text-texto-2">
           Os primeiros guias estão em produção.
         </p>
       ) : (
-        <ul class="mt-10 grid gap-6 md:grid-cols-2">
-          {guias.map((guia) => (
-            <li class="border border-borda bg-papel p-6 transition-colors hover:border-oliva-300">
-              <h2 class="font-display text-2xl font-bold uppercase leading-tight">
-                <a href={`/guias/${guia.id}`} class="hover:text-oliva-500">
-                  {guia.data.titulo}
-                </a>
+        porNivel
+          .filter((nivel) => nivel.itens.length > 0)
+          .map((nivel) => (
+            <section class="mt-14">
+              <h2 class="font-display text-2xl font-bold uppercase md:text-3xl">
+                {nivel.titulo}
               </h2>
-              <p class="mt-3 leading-relaxed text-texto-2">{guia.data.resumo}</p>
-            </li>
-          ))}
-        </ul>
+              <p class="mt-2 max-w-[60ch] leading-relaxed text-texto-2">
+                {nivel.descricao}
+              </p>
+
+              <ul class="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {nivel.itens.map((guia) => (
+                  <li class="flex flex-col border border-borda bg-papel transition-colors hover:border-oliva-300">
+                    {guia.data.imagem && (
+                      <a href={`/guias/${guia.id}`} class="block">
+                        <Image
+                          src={guia.data.imagem}
+                          alt=""
+                          widths={[400, 800]}
+                          sizes="(min-width: 1024px) 380px, (min-width: 768px) 50vw, 100vw"
+                          class="aspect-[16/9] w-full border-b border-borda object-cover"
+                          loading="lazy"
+                        />
+                      </a>
+                    )}
+                    <div class="flex flex-1 flex-col p-6">
+                      <Etiqueta tom="neutro">{guia.data.categoria}</Etiqueta>
+                      <h3 class="mt-4 font-display text-xl font-bold uppercase leading-tight">
+                        <a href={`/guias/${guia.id}`} class="hover:text-oliva-500">
+                          {guia.data.titulo}
+                        </a>
+                      </h3>
+                      <p class="mt-3 leading-relaxed text-texto-2">
+                        {guia.data.resumo}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))
       )
     }
+
+    <section class="mt-16 border-t border-borda pt-8">
+      <h2 class="font-display text-2xl font-bold uppercase">
+        Já sabe o básico?
+      </h2>
+      <p class="mt-3 max-w-[60ch] leading-relaxed text-texto-2">
+        O próximo passo é achar onde jogar. Veja os
+        <a href="/campos" class="text-oliva-500 underline">
+          campos de airsoft por estado e cidade
+        </a>
+        — com terreno, estrutura, limite de FPS e quem aceita iniciante.
+      </p>
+    </section>
   </div>
 </Base>

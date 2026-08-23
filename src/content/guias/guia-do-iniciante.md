@@ -3,7 +3,16 @@ titulo: "Guia do iniciante: como é o primeiro dia no campo de airsoft"
 resumo: "O que levar, o que esperar e como se comportar no seu primeiro dia de airsoft. Um roteiro simples para quem nunca jogou e não quer passar vergonha."
 publicado_em: 2026-08-21
 autor: "Comunidade Airsoft"
+nivel: iniciante
+categoria: "Primeiros passos"
+palavra_chave: "primeiro dia de airsoft"
 rascunho: false
+imagem: "../../assets/guias/guia-do-iniciante.webp"
+imagem_alt: "Instrutor de campo orientando um jogador iniciante de camiseta branca que segura a máscara na mão, na safe zone"
+relacionados:
+  - como-encontrar-campo-de-airsoft-perto-de-voce
+  - equipamento-de-protecao-no-airsoft
+  - quanto-custa-comecar-no-airsoft
 faq:
   - pergunta: "Preciso ter réplica própria para jogar pela primeira vez?"
     resposta: "Não. Vários campos alugam réplica, máscara e carregam a bateria para você. Procure na ficha do campo se ele tem aluguel de equipamento — é o caminho mais barato para experimentar antes de comprar."
@@ -13,9 +22,9 @@ faq:
     resposta: "Não. A proteção ocular precisa ser própria para impacto. Óculos comum estilhaça e vira o próprio acidente. Esse é o único item em que não existe economia possível."
 ---
 
-Este guia é um rascunho da estrutura de conteúdo. Antes de publicar,
-revisar com alguém que organize operações e conferir todas as regras
-citadas — cada campo tem as suas.
+Ninguém explica direito como funciona o primeiro dia de airsoft, e é por isso
+que tanta gente chega ao campo insegura. Este é o roteiro completo: o que
+fazer antes, o que levar, como é a chegada e o que ninguém pode errar.
 
 ## Antes de ir
 
