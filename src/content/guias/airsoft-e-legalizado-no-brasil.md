@@ -11,6 +11,7 @@ imagem: "../../assets/guias/airsoft-e-legalizado-no-brasil.webp"
 imagem_alt: "Réplica de airsoft com ponta laranja sobre mesa de madeira, ao lado de documentos de registro impressos"
 relacionados:
   - como-transportar-replica-de-airsoft
+  - portaria-02-colog-airsoft
   - guia-do-iniciante
   - quanto-custa-comecar-no-airsoft
 faq:

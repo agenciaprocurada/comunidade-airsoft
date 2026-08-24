@@ -409,6 +409,45 @@ no real firearms, no people.
 
 ---
 
+## 23. portaria-02-colog-airsoft
+
+> Portaria 02-COLOG explicada: o que a lei diz sobre airsoft
+
+```
+Photorealistic macro photograph, shallow angle across a worn dark wooden desk:
+extreme close-up of the muzzle end of an airsoft AEG replica barrel, the bright
+fluorescent orange tip filling the left third of the frame in razor-sharp focus,
+fine machining marks and anodised metal texture visible on the flash hider.
+Behind it, softly out of focus, a small stack of printed white paper documents
+and a pair of reading glasses resting on top. Hard directional window light
+from the right, long defined shadows, dust motes in the light beam. Shot on a
+full-frame DSLR, 100mm macro f/2.8, very shallow depth of field, creamy
+background separation, fine film grain, high resolution. Color grade:
+desaturated olive green and warm brown, deep near-black shadows, cinematic
+contrast. The orange tip is the only saturated colour in the frame. Generic and
+unbranded, no readable text on the paper, no logos, no watermark, no real
+firearms, no people.
+```
+
+**Alternativa** (se preferir a mesma linguagem de flat-lay dos outros guias
+legais, com o documento como protagonista):
+
+```
+Photorealistic overhead flat-lay photograph on a dark grey slate surface: a
+stack of printed white A4 paper documents slightly fanned out, a black ballpoint
+pen resting diagonally across them, and at the edge of the frame the muzzle end
+of an airsoft replica barrel entering from the right with a clearly visible
+bright fluorescent orange tip. Negative space in the upper left. Generic and
+unbranded, no readable text on the pages, no letterhead, no seals. Soft large
+diffused light from above with a gentle gradient falloff and soft defined
+shadows. Shot on a full-frame DSLR, 50mm f/8, perfectly top-down, tack sharp,
+visible paper fibre and slate texture, fine film grain, high resolution. Color
+grade: desaturated olive green and warm brown, deep near-black shadows,
+cinematic contrast. No logos, no watermark, no real firearms, no people.
+```
+
+---
+
 ## Antes de gerar as 21
 
 O schema dos guias **não tem campo de imagem** (`src/content.config.ts`, a
