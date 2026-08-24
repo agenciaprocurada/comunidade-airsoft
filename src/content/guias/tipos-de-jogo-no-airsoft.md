@@ -10,6 +10,7 @@ rascunho: false
 imagem: "../../assets/guias/tipos-de-jogo-no-airsoft.webp"
 imagem_alt: "Equipe de airsoft avançando em formação dentro de um galpão abandonado, em jogo de CQB"
 relacionados:
+  - milsim-ou-for-fun-qual-a-diferenca
   - como-montar-o-loadout-de-airsoft
   - como-organizar-uma-operacao-de-airsoft
   - dicionario-do-airsoft-termos-e-girias

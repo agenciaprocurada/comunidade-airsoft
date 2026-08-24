@@ -386,6 +386,27 @@ extreme micro-detail, high resolution. Color grade: desaturated olive and cool
 steel grey, deep near-black shadows. No text, no logos, no watermark.
 ```
 
+## 22. assalto-dmr-sniper-e-suporte-no-airsoft
+
+> Assalto, DMR, sniper e suporte: as quatro funções no airsoft
+
+```
+Photorealistic overhead flat-lay photograph on a dark grey concrete surface:
+four airsoft replicas laid parallel with even spacing, arranged from top to
+bottom by size — a compact assault rifle with a red dot sight, a longer
+marksman rifle with a low-magnification scope, a bolt-action sniper rifle with
+a large scope and bipod, and a bulky support machine gun with a box magazine
+attached. Each replica has a clearly visible bright orange muzzle tip. Generic,
+unbranded, no markings, no readable text. A small pile of white 6mm plastic BBs
+in one corner for scale. Soft large diffused light from above with subtle
+gradient falloff and gentle defined shadows. Shot on a full-frame DSLR, 35mm
+f/9, perfectly top-down, tack sharp corner to corner, visible polymer texture,
+anodised metal grain and scope lens coating, fine film grain, high resolution.
+Color grade: desaturated olive green and cool grey, warm earth undertones,
+deep near-black shadows, cinematic contrast. No text, no logos, no watermark,
+no real firearms, no people.
+```
+
 ---
 
 ## Antes de gerar as 21

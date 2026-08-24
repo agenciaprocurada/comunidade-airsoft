@@ -198,6 +198,18 @@ const rotuloNivel = ROTULO_NIVEL[d.nivel];
   .conteudo strong {
     font-weight: 600;
   }
+  /*
+    Imagem no corpo do artigo. O Astro ja entrega webp responsivo com
+    width/height embutidos; aqui so falta a caixa — borda igual a do hero e
+    respiro maior que o de paragrafo, para a figura nao colar no texto.
+  */
+  .conteudo img {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 2rem 0;
+    border: 1px solid var(--color-borda);
+  }
   .conteudo blockquote {
     border-left: 2px solid var(--color-oliva-300);
     padding-left: 1rem;

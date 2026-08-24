@@ -10,6 +10,7 @@ rascunho: false
 imagem: "../../assets/guias/como-escolher-a-primeira-replica-de-airsoft.webp"
 imagem_alt: "Quatro réplicas de airsoft com ponta laranja alinhadas lado a lado, vistas de cima: fuzil, submetralhadora e duas pistolas"
 relacionados:
+  - assalto-dmr-sniper-e-suporte-no-airsoft
   - quanto-custa-comecar-no-airsoft
   - o-que-e-fps-no-airsoft
   - baterias-para-airsoft-lipo-e-nimh
