@@ -24,21 +24,31 @@ const FORA_DO_SITEMAP = [
   '/reivindicar',
   '/reportar',
   '/enviar-campo',
+  '/entrar',
   // placeholders — remover conforme cada um vira página de verdade
   '/operacoes',
   '/grupos',
-  // área logada: já é noindex no HTML, não pode aparecer no sitemap
-  '/entrar',
-  '/conta',
-  '/conta/perfil',
-  '/conta/completar',
 ];
+
+/**
+ * Ramos inteiros de fora, por prefixo.
+ *
+ * A área logada entra por prefixo e não item a item porque ela cresce: quando
+ * /conta/equipes e /conta/operacoes nasceram, vazaram para o sitemap justamente
+ * por não constarem na lista fixa. Prefixo cobre a próxima tela sem depender de
+ * alguém lembrar de vir aqui.
+ */
+const RAMOS_FORA_DO_SITEMAP = ['/conta'];
 
 // https://astro.build/config
 export default defineConfig({
   // Obrigatório para sitemap, URLs canônicas e JSON-LD.
-  // Trocar quando o domínio definitivo estiver apontado.
-  site: 'https://comunidadeairsoft.com.br',
+  //
+  // COM www: o dominio sem www responde 308 e joga para o www. Anunciar a
+  // versao sem www em canonical e sitemap era apontar tudo para enderecos
+  // que redirecionam. Aqui a config passa a dizer o mesmo que o servidor
+  // ja faz.
+  site: 'https://www.comunidadeairsoft.com.br',
 
   trailingSlash: 'never',
 
@@ -58,7 +68,10 @@ export default defineConfig({
     sitemap({
       filter: (pagina) => {
         const caminho = new URL(pagina).pathname.replace(/\/$/, '');
-        return !FORA_DO_SITEMAP.includes(caminho);
+        if (FORA_DO_SITEMAP.includes(caminho)) return false;
+        return !RAMOS_FORA_DO_SITEMAP.some(
+          (ramo) => caminho === ramo || caminho.startsWith(ramo + '/')
+        );
       },
     }),
   ],

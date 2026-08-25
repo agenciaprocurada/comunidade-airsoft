@@ -5,4 +5,4 @@ Disallow: /reivindicar
 Disallow: /reportar
 Disallow: /enviar-campo
 
-Sitemap: https://comunidadeairsoft.com.br/sitemap-index.xml
+Sitemap: https://www.comunidadeairsoft.com.br/sitemap.xml
