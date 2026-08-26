@@ -10,6 +10,7 @@ rascunho: false
 imagem: "../../assets/guias/baterias-para-airsoft-lipo-e-nimh.webp"
 imagem_alt: "Duas baterias LiPo, um bastão NiMH, um testador digital de células e uma bolsa de carga sobre superfície escura"
 relacionados:
+  - bateria-lipo-airsoft-c-rating-e-mah
   - upgrade-de-aeg-por-onde-comecar
   - manutencao-de-replica-de-airsoft
   - como-escolher-a-primeira-replica-de-airsoft
@@ -67,7 +68,9 @@ se cabe no espaço da sua réplica antes de comprar.
 ### C-rate (25C, 30C…)
 
 Capacidade de entregar corrente. 20C a 30C atende qualquer AEG comum. C-rate
-altíssimo só faz sentido em setups de alto consumo.
+altíssimo só faz sentido em setups de alto consumo. A conta completa, com
+tabela de amperes e o que muda entre 900, 1000 e 1100 mAh, está no
+[guia de C-Rating e mAh](/guias/bateria-lipo-airsoft-c-rating-e-mah).
 
 ### Conector
 
