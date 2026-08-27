@@ -223,7 +223,7 @@ export const FORMATOS = {
 
 export type Formato = keyof typeof FORMATOS;
 
-export const FORMATO_PADRAO: Formato = "paisagem";
+export const FORMATO_PADRAO: Formato = "largo";
 
 export function ehFormato(valor: unknown): valor is Formato {
   return typeof valor === "string" && valor in FORMATOS;
@@ -281,6 +281,8 @@ export interface CamadasMapa {
    * células é a imagem, nunca o contrário.
    */
   base?: { escala: number; dx: number; dy: number };
+  /** Trava do mapa: nada desloca a foto enquanto ligada. */
+  travado?: boolean;
   /**
    * Dimensões exatas do documento quando o formato é `livre` — a
    * proporção era a da tela de quem salvou, e reabrir noutra tela não
@@ -447,8 +449,12 @@ export function lerEnquadramento(params: URLSearchParams): Enquadramento | null 
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
 
   const zoomCru = Math.round(Number(params.get("z")));
+  // O piso do PROXY fica dois níveis abaixo do piso da interface: o
+  // cliente busca a base do Google em zoom−nível para manter 1 px =
+  // 1 px global (ver obterBase). Grampear aqui em ZOOM_MIN devolveria
+  // silenciosamente outro zoom e reintroduziria o desvio geométrico.
   const zoom = Number.isFinite(zoomCru)
-    ? Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomCru))
+    ? Math.min(ZOOM_MAX, Math.max(ZOOM_MIN - 2, zoomCru))
     : ZOOM_PADRAO;
 
   const rotacaoCrua = Math.round(Number(params.get("r")));

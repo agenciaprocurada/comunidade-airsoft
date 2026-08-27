@@ -10,8 +10,11 @@ import { COLUNAS_PERFIL, type Perfil } from "./lib/conta";
  * `/armeiros/cadastrar` pelo mesmo motivo, mais um: o cadastro grava
  * com `criado_por = auth.uid()`, entao sem sessao nao ha o que gravar.
  * O resto de /armeiros e publico e gerado no build.
+ *
+ * `/mapa`: o editor inteiro e so para quem esta logado — decisao de
+ * produto, nao tecnica (salvar ja exigia sessao).
  */
-const PROTEGIDAS = ["/conta", "/reivindicar", "/armeiros/cadastrar"];
+const PROTEGIDAS = ["/conta", "/reivindicar", "/armeiros/cadastrar", "/mapa"];
 
 /** Dentro de /conta, o que so administrador abre. */
 const SO_ADMIN = ["/conta/admin"];

@@ -151,13 +151,17 @@ export async function iniciarEditor() {
     },
     // Selecionar só realça no painel de camadas: não suja o rascunho.
     aoSelecionar: () => desenharCamadas(),
-    // O encaixe mudou (roda ou dobra de zoom): o slider de Aproximação
-    // acompanha o zoom real e o rascunho passa a valer a pena guardar.
-    aoEncaixar: ({ zoom }) => {
+    // O encaixe mudou (roda, dobra ou recentragem do arrasto): zoom E
+    // coordenada acompanham — o recentro muda o centro geográfico, e o
+    // salvamento usa o `estado`, que não pode ficar para trás.
+    aoEncaixar: ({ zoom, lat, lng }) => {
       sujo = true;
       estado.zoom = zoom;
+      estado.lat = lat;
+      estado.lng = lng;
       fatiaZoom.value = String(zoom);
       $("[data-zoom-valor]").textContent = String(zoom);
+      atualizarResumo();
     },
   });
 
@@ -312,6 +316,28 @@ export async function iniciarEditor() {
   function sairDoEncaixe() {
     if (editor?.emModoEncaixe()) definirEncaixe(false);
   }
+
+  /**
+   * Reflexo da trava do mapa na tela: rótulo e estado do botão, e o
+   * interruptor de encaixe desabilitado — travado, nenhum gesto pode
+   * deslocar a foto, então oferecer o encaixe seria botão mentiroso.
+   */
+  function refletirTrava() {
+    const travado = Boolean(editor?.estaTravado());
+    $("[data-travar]").setAttribute("aria-pressed", String(travado));
+    $("[data-travar-rotulo]").textContent = travado ? "Mapa travado" : "Travar mapa";
+    ($("[data-encaixe-toggle]") as HTMLInputElement).disabled = travado;
+    if (travado && editor?.emModoEncaixe()) definirEncaixe(false);
+  }
+
+  $("[data-travar]").addEventListener("click", () => {
+    if (!editor) return;
+    editor.definirTravaMapa(!editor.estaTravado());
+    refletirTrava();
+    $("[data-dica]").textContent = editor.estaTravado()
+      ? "Mapa travado: a foto não se desloca mais. Clique de novo para destravar."
+      : DICAS[ferramentaAtual];
+  });
 
   let ferramentaAtual: Ferramenta = "selecionar";
 
@@ -602,7 +628,9 @@ export async function iniciarEditor() {
       await editor.usarImagemPropria(tela);
       $("[data-info-imagem]").textContent = `Imagem: ${arquivo.name}`;
       refletirFundo();
-      // Fundo novo começa pelo encaixe, igual ao satélite.
+      // Fundo novo pede enquadramento do zero: destrava e entra no encaixe.
+      editor.definirTravaMapa(false);
+      refletirTrava();
       definirEncaixe(true);
       avisar("");
     } catch (erro) {
@@ -750,10 +778,9 @@ export async function iniciarEditor() {
       return;
     }
 
-    const botao = formBusca.querySelector<HTMLButtonElement>('button[type="submit"]')!;
-    const rotulo = botao.textContent;
-    botao.disabled = true;
-    botao.textContent = "Buscando…";
+    // O formulário não tem mais botão de enviar (a lupa + Enter são a
+    // interface); o estado de "buscando" vai no próprio campo.
+    campo.readOnly = true;
 
     try {
       const perto = `${estado.lat},${estado.lng}`;
@@ -780,8 +807,7 @@ export async function iniciarEditor() {
     } catch {
       avisar("A busca não respondeu. Verifique a conexão e tente de novo.");
     } finally {
-      botao.disabled = false;
-      botao.textContent = rotulo;
+      campo.readOnly = false;
     }
   });
 
@@ -1327,6 +1353,7 @@ export async function iniciarEditor() {
   escolherFerramenta("selecionar");
   dimensionarPalco();
   refletirFundo();
+  refletirTrava();
   desenharCamadas();
   atualizarAcoes();
   atualizarResumo();

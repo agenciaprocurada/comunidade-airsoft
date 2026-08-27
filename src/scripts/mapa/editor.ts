@@ -43,6 +43,8 @@ import {
   camadasIniciais,
   ladoDaBase,
   letraDaColuna,
+  paraPixelGlobal,
+  LADO_TILE,
   padraoDoTraco,
   tamanhoDoDocumento,
   type CamadasMapa,
@@ -151,8 +153,8 @@ export interface OpcoesEditor {
   aoNavegar?: (zoom: number) => void;
   /** Seleção mudou — o painel de camadas destaca o item ativo. */
   aoSelecionar?: () => void;
-  /** O encaixe mudou (roda ou dobra de zoom) — a tela sincroniza. */
-  aoEncaixar?: (info: { zoom: number }) => void;
+  /** O encaixe mudou (roda, dobra ou recentragem) — a tela sincroniza. */
+  aoEncaixar?: (info: { zoom: number; lat: number; lng: number }) => void;
   /** Proporção da área de trabalho, usada quando o formato é `livre`. */
   proporcaoLivre?: number;
   /**
@@ -197,7 +199,7 @@ export class EditorMapa {
   private aoTerminarFerramenta?: () => void;
   private aoNavegar?: (zoom: number) => void;
   private aoSelecionar?: () => void;
-  private aoEncaixar?: (info: { zoom: number }) => void;
+  private aoEncaixar?: (info: { zoom: number; lat: number; lng: number }) => void;
 
   /** Tamanho do documento — o que sai no PNG. Não muda com a janela. */
   private largura: number;
@@ -251,7 +253,10 @@ export class EditorMapa {
       backgroundColor: "#070a06",
       preserveObjectStacking: true,
       enableRetinaScaling: false,
-      selection: true,
+      // Caixa azul de selecao multipla DESLIGADA: arrastar no vazio move
+      // a foto (regra do produto), entao a caixa so piscava sem funcao.
+      // Multi-selecao continua por shift+clique e pela lista de camadas.
+      selection: false,
     });
 
     this.palco = opcoes.palco ?? null;
@@ -327,6 +332,26 @@ export class EditorMapa {
   /** O espaço só vira "mão" quando o ponteiro está sobre o palco. */
   private ponteiroNoPalco = false;
 
+  /**
+   * Trava do mapa: com ela ligada, NENHUM gesto desloca a foto — nem o
+   * arrasto no vazio, nem o modo de encaixe. Existe porque, achado o
+   * enquadramento, o resto da sessão é desenhar por cima, e um arrasto
+   * distraído no vazio arruinaria o alinhamento. Persiste no registro:
+   * mapa salvo travado reabre travado.
+   */
+  private mapaTravado = false;
+
+  estaTravado(): boolean {
+    return this.mapaTravado;
+  }
+
+  definirTravaMapa(travado: boolean) {
+    this.mapaTravado = travado;
+    this.camadas.travado = travado;
+    if (travado) this.definirArrasteBase(false);
+    this.aoMudar?.();
+  }
+
   private configurarNavegacao() {
     /**
      * Roda do mouse dá zoom no ponto sob o cursor.
@@ -360,8 +385,34 @@ export class EditorMapa {
 
       // Modo de encaixe: o arrasto move a FOTO sob a grade. Vem antes
       // do pan para o botão esquerdo ser dele enquanto o modo durar.
-      if (this.modoArrasteBase && evento.button === 0 && !this.espacoPressionado) {
+      if (this.modoArrasteBase && !this.mapaTravado && evento.button === 0 && !this.espacoPressionado) {
         evento.preventDefault();
+        this.arrastandoBase = true;
+        this.ultimoPonteiro = { x: evento.clientX, y: evento.clientY };
+        this.canvas.setCursor("grabbing");
+        return;
+      }
+
+      /**
+       * Arrasto livre da foto no VAZIO — regra definida pelo dono do
+       * produto: posicionar o mapa no canvas é o gesto principal e não
+       * pode depender de interruptor. Com a ferramenta de seleção,
+       * clicar numa forma continua movendo a forma; clicar no vazio
+       * agarra a foto. O retângulo de seleção múltipla fica suprimido
+       * nesse gesto (quem precisa dele seleciona pela lista de
+       * camadas), e o clique-no-vazio segue desmarcando, porque o
+       * arrasto de zero pixels não move nada.
+       */
+      if (
+        this.ferramenta === "selecionar" &&
+        !this.mapaTravado &&
+        evento.button === 0 &&
+        !this.espacoPressionado &&
+        !opcoes.target
+      ) {
+        evento.preventDefault();
+        this.canvas.discardActiveObject();
+        this.canvas.selection = false;
         this.arrastandoBase = true;
         this.ultimoPonteiro = { x: evento.clientX, y: evento.clientY };
         this.canvas.setCursor("grabbing");
@@ -408,15 +459,20 @@ export class EditorMapa {
     const soltar = () => {
       if (this.arrastandoBase) {
         this.arrastandoBase = false;
-        this.canvas.setCursor("grab");
+        // No arrasto-no-vazio a seleção múltipla foi suprimida; devolve.
+        // selecao por caixa permanece desligada — ver o construtor.
+        this.canvas.setCursor(this.modoArrasteBase ? "grab" : this.cursorDaFerramenta());
         // Uma marca de mudança por arrasto INTEIRO, não por movimento:
         // o histórico não guarda o encaixe, mas o rascunho sim.
         this.aoMudar?.();
+        // E o traço encerrado vira novo centro geográfico — é o que
+        // torna o arrasto ilimitado. Ver `recentrarBase`.
+        void this.recentrarBase();
         return;
       }
       if (!this.arrastandoVista) return;
       this.arrastandoVista = false;
-      this.canvas.selection = this.ferramenta === "selecionar";
+      // selecao por caixa permanece desligada — ver o construtor.
       this.canvas.setCursor(this.cursorDaFerramenta());
     };
 
@@ -717,34 +773,56 @@ export class EditorMapa {
     // Imagem propria nao tem obrigacao de cobrir: ela pode ter as
     // proprias margens, e a mesa aparecendo em volta e informacao.
     if (this.temImagemPropria()) return;
-    const meiaDiagonal = Math.hypot(this.largura, this.altura) / 2;
-    const escalaMinima = (2 * meiaDiagonal) / this.ladoBitmap;
+
+    /**
+     * O vínculo é o RETÂNGULO do documento projetado nos eixos da
+     * foto — nunca mais o círculo inscrito.
+     *
+     * O círculo foi medido ao vivo (docs/bugarrastemapa.md): jogava
+     * fora ~21% da foto, deixava só 63 px de folga de arraste num
+     * documento de 1020, zerava a folga no estado inicial ("a foto não
+     * move nada") e, na borda, projetava o movimento radialmente — o
+     * mouse ia para a direita e a foto escorregava de lado.
+     *
+     * A foto é um QUADRADO de lado `ladoBitmap·escala`, girado por
+     * `rotacao` em torno do próprio centro. Ela cobre o documento se,
+     * e somente se, cada canto do documento cai dentro do quadrado —
+     * o que, nos eixos da foto, vira duas desigualdades de eixo
+     * independentes: |u| ≤ lado/2 − hx e |v| ≤ lado/2 − hy, onde
+     * (hx, hy) são as meias-extensões do documento GIRADO para o
+     * referencial da foto e (u, v) é o centro da foto nesse mesmo
+     * referencial. É exato (os extremos acontecem nos cantos), X e Y
+     * ficam independentes, e com rotação 0° a conta se reduz ao clamp
+     * retangular puro da seção 5 do diagnóstico.
+     */
+    const radianos = (this.enquadramento.rotacao * Math.PI) / 180;
+    const cos = Math.cos(radianos);
+    const sen = Math.sin(radianos);
+
+    // Meias-extensões do documento no referencial (girado) da foto.
+    const meioX = (this.largura * Math.abs(cos) + this.altura * Math.abs(sen)) / 2;
+    const meioY = (this.largura * Math.abs(sen) + this.altura * Math.abs(cos)) / 2;
+
+    // Piso de escala: o quadrado precisa engolir a MAIOR das duas
+    // extensões. Em 0° isso é max(largura, altura)/ladoBitmap — no caso
+    // medido, 0,625 em vez dos 0,717 do círculo: menos zoom forçado.
+    const escalaMinima = (2 * Math.max(meioX, meioY)) / this.ladoBitmap;
     if (this.ajusteBase.escala < escalaMinima) this.ajusteBase.escala = escalaMinima;
 
-    const raio = (this.ladoBitmap * this.ajusteBase.escala) / 2;
-    const cantos: [number, number][] = [
-      [0, 0],
-      [this.largura, 0],
-      [0, this.altura],
-      [this.largura, this.altura],
-    ];
+    const meioLado = (this.ladoBitmap * this.ajusteBase.escala) / 2;
+    const limiteU = meioLado - meioX;
+    const limiteV = meioLado - meioY;
 
-    let cx = this.largura / 2 + this.ajusteBase.dx;
-    let cy = this.altura / 2 + this.ajusteBase.dy;
+    // Deslocamento do centro da foto, levado para o referencial dela
+    // (rotação por −θ), grampeado eixo a eixo, e trazido de volta.
+    const u = cos * this.ajusteBase.dx + sen * this.ajusteBase.dy;
+    const v = -sen * this.ajusteBase.dx + cos * this.ajusteBase.dy;
 
-    for (let passada = 0; passada < 3; passada++) {
-      for (const [px, py] of cantos) {
-        const distancia = Math.hypot(cx - px, cy - py);
-        if (distancia > raio) {
-          const fator = (distancia - raio) / distancia;
-          cx -= (cx - px) * fator;
-          cy -= (cy - py) * fator;
-        }
-      }
-    }
+    const uTravado = Math.min(limiteU, Math.max(-limiteU, u));
+    const vTravado = Math.min(limiteV, Math.max(-limiteV, v));
 
-    this.ajusteBase.dx = cx - this.largura / 2;
-    this.ajusteBase.dy = cy - this.altura / 2;
+    this.ajusteBase.dx = cos * uTravado - sen * vTravado;
+    this.ajusteBase.dy = sen * uTravado + cos * vTravado;
   }
 
   // ----------------------------------------------------------
@@ -807,7 +885,7 @@ export class EditorMapa {
       this.aplicarEncaixeBase();
       this.canvas.requestRenderAll();
       this.agendarEnfeites();
-      this.aoEncaixar?.({ zoom: this.enquadramento.zoom });
+      this.aoEncaixar?.({ zoom: this.enquadramento.zoom, lat: this.enquadramento.lat, lng: this.enquadramento.lng });
     }
 
     /**
@@ -850,7 +928,7 @@ export class EditorMapa {
       // foto nova é renderizada com o dobro (ou metade) da escala.
       await this.carregarBase();
       this.agendarEnfeites();
-      this.aoEncaixar?.({ zoom: this.enquadramento.zoom });
+      this.aoEncaixar?.({ zoom: this.enquadramento.zoom, lat: this.enquadramento.lat, lng: this.enquadramento.lng });
     } catch (erro) {
       console.error("Falha na dobra de zoom:", erro);
     } finally {
@@ -860,6 +938,81 @@ export class EditorMapa {
 
   emModoEncaixe(): boolean {
     return this.modoArrasteBase;
+  }
+
+  /**
+   * O que torna o arrasto ILIMITADO: ao fim de cada traço, o
+   * deslocamento acumulado vira um novo centro geográfico, tiles novos
+   * são buscados em volta dele e dx/dy voltam a zero — o próximo traço
+   * nasce com a folga inteira outra vez.
+   *
+   * A troca é invisível de propósito: o bitmap antigo permanece na
+   * tela até o novo estar pronto, e o novo — centrado no ponto novo,
+   * com deslocamento zero — desenha o MESMO terreno no MESMO lugar (a
+   * menos do arredondamento de 6 casas, ~11 cm, subpixel em qualquer
+   * zoom). Sem isto a trava de cobertura vira parede: o usuário
+   * arrasta, chega na borda do bitmap e "trava do nada".
+   */
+  private recentrando = false;
+  private recentrarPendente = false;
+
+  private async recentrarBase(): Promise<void> {
+    // Imagem própria não tem geografia para recentrar.
+    if (this.temImagemPropria()) return;
+    if (this.recentrando || this.dobrando) {
+      // Um traço terminou no meio da recentragem anterior (a busca dos
+      // tiles leva algumas centenas de ms): fica anotado e roda assim
+      // que ela terminar. Sem a fila, o deslocamento desse traço
+      // morava no clamp e o traço seguinte nascia já na parede.
+      this.recentrarPendente = true;
+      return;
+    }
+
+    const { dx, dy, escala } = this.ajusteBase;
+    // Traço minúsculo (clique de desmarcar, tremida) não paga reload.
+    if (Math.hypot(dx, dy) < 12) return;
+
+    const { lat, lng, zoom, rotacao } = this.enquadramento;
+    const radianos = (rotacao * Math.PI) / 180;
+    const cos = Math.cos(radianos);
+    const sen = Math.sin(radianos);
+
+    // Pixels de documento → pixels do bitmap (desfaz rotação e escala)
+    // → pixels globais de Mercator, a malha dos tiles. Foto arrastada
+    // para +x mostra terreno que estava a −x do centro: sinal negativo.
+    const bitX = (cos * dx + sen * dy) / escala;
+    const bitY = (-sen * dx + cos * dy) / escala;
+
+    const centro = paraPixelGlobal(lat, lng, zoom);
+    const mundo = LADO_TILE * 2 ** zoom;
+    const novaLng = ((centro.x - bitX) / mundo) * 360 - 180;
+    const novaLat =
+      (Math.atan(Math.sinh(Math.PI * (1 - (2 * (centro.y - bitY)) / mundo))) * 180) / Math.PI;
+
+    this.recentrando = true;
+    try {
+      this.enquadramento.lat = Number(novaLat.toFixed(6));
+      this.enquadramento.lng = Number(novaLng.toFixed(6));
+      this.ajusteBase.dx = 0;
+      this.ajusteBase.dy = 0;
+      await this.carregarBase();
+      this.aoEncaixar?.({
+        zoom,
+        lat: this.enquadramento.lat,
+        lng: this.enquadramento.lng,
+      });
+    } catch (erro) {
+      // Falhou a busca dos tiles novos: desfazer o recentro deixaria o
+      // estado inconsistente; o bitmap antigo continua na tela e o
+      // próximo traço tenta de novo.
+      console.error("Falha ao recentralizar a base:", erro);
+    } finally {
+      this.recentrando = false;
+      if (this.recentrarPendente) {
+        this.recentrarPendente = false;
+        void this.recentrarBase();
+      }
+    }
   }
 
   ajustarBase(mudanca: Partial<{ escala: number; dx: number; dy: number }>) {
@@ -879,6 +1032,8 @@ export class EditorMapa {
   }
 
   definirArrasteBase(ligado: boolean) {
+    // Mapa travado nao entra em modo de encaixe — destrave primeiro.
+    if (ligado && this.mapaTravado) return;
     this.modoArrasteBase = ligado;
     this.canvas.skipTargetFind = ligado || this.ferramenta === "mover";
     this.canvas.defaultCursor = ligado ? "grab" : this.cursorDaFerramenta();
@@ -1250,7 +1405,7 @@ export class EditorMapa {
     this.ferramenta = qual;
 
     const selecionando = qual === "selecionar";
-    this.canvas.selection = selecionando;
+    // (selecao por caixa fica sempre desligada; ver o construtor)
     // A mão nunca deve agarrar uma forma — ver o comentário no handler
     // de espaço.
     this.canvas.skipTargetFind = qual === "mover";
@@ -1991,8 +2146,14 @@ export class EditorMapa {
 
   async restaurar(camadas: CamadasMapa): Promise<void> {
     this.camadas = { ...camadasIniciais(), ...camadas };
+    this.mapaTravado = camadas.travado ?? false;
     if (camadas.base) {
       this.ajusteBase = { ...camadas.base };
+      // O clamp de cobertura TAMBÉM na restauração: um registro antigo
+      // (ou corrompido) com escala abaixo do piso ou deslocamento fora
+      // dos limites entraria vivo na tela e só seria corrigido no
+      // primeiro arrasto — cantos descobertos até lá.
+      this.travarCobertura();
       this.aplicarEncaixeBase();
     }
 

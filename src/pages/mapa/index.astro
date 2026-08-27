@@ -1,4 +1,7 @@
 ---
+// Renderizada no servidor: o middleware exige sessao para abrir o editor.
+export const prerender = false;
+
 import Base from "../../layouts/Base.astro";
 import Logo from "../../components/Logo.astro";
 import { ENTRADA } from "../../lib/estilos-form";
@@ -177,9 +180,20 @@ const VALOR_CONTROLE = "font-dado text-[0.8125rem] text-oliva-300";
         </ul>
       </form>
 
-      <button type="button" class="botao-barra shrink-0" data-abrir-local title="Arrastar o satélite até o terreno">
-        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><path d="M12 2v3.4M12 18.6V22M2 12h3.4M18.6 12H22" stroke-linecap="square"/></svg>
-        Reposicionar
+      <!--
+        Travar mapa: achou o enquadramento, trava — e nenhum gesto
+        desloca mais a foto enquanto se desenha por cima. O antigo
+        "Reposicionar" (mapa arrastável em painel) vive no menu ⋮.
+      -->
+      <button
+        type="button"
+        class="botao-barra shrink-0"
+        data-travar
+        aria-pressed="false"
+        title="Impede que a foto de satélite se desloque"
+      >
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><rect x="5" y="11" width="14" height="9"/><path d="M8 11V7a4 4 0 0 1 8 0v4M12 14.5v2.5"/></svg>
+        <span data-travar-rotulo>Travar mapa</span>
       </button>
 
       <button type="button" class="botao-salvar shrink-0" data-salvar>
@@ -198,6 +212,9 @@ const VALOR_CONTROLE = "font-dado text-[0.8125rem] text-oliva-300";
         >
           <button type="button" class="item-menu" data-novo role="menuitem">Novo mapa</button>
           <button type="button" class="item-menu" data-duplicar role="menuitem">Duplicar mapa</button>
+          <button type="button" class="item-menu" data-abrir-local role="menuitem">
+            Reposicionar satélite
+          </button>
           <a href="/conta/mapas" class="item-menu" role="menuitem">Meus mapas</a>
           <span class="my-1 block h-px bg-borda"></span>
           <button type="button" class="item-menu" data-baixar role="menuitem">Exportar PNG</button>
@@ -494,14 +511,14 @@ const VALOR_CONTROLE = "font-dado text-[0.8125rem] text-oliva-300";
 
           <!--
             Canvas de tamanho FIXO, pedido explícito: quadrado ou
-            retangular, e nada de acompanhar a tela. Retangular = 4:3,
-            que imprime bem e cabe em projetor; o valor gravado é o
-            `paisagem` do enum existente, sem mexer no banco.
+            retangular, e nada de acompanhar a tela. Retangular = 16:9 (pedido dele),
+            proporcao de tela e projetor; o valor gravado e o `largo`
+            do enum existente, sem mexer no banco.
           -->
           <div class="space-y-2">
             <span class="block text-[0.8125rem] font-semibold text-tinta">Formato do mapa</span>
             <div class="grid grid-cols-2 gap-1">
-              <button type="button" class="botao-hud" data-formato="paisagem" aria-pressed="true">
+              <button type="button" class="botao-hud" data-formato="largo" aria-pressed="true">
                 Retangular
               </button>
               <button type="button" class="botao-hud" data-formato="quadrado" aria-pressed="false">
@@ -878,6 +895,13 @@ const VALOR_CONTROLE = "font-dado text-[0.8125rem] text-oliva-300";
 
   .botao-barra:hover {
     border-color: var(--color-oliva-500);
+    background: var(--color-oliva-050);
+    color: var(--color-oliva-300);
+  }
+
+  /* Estado "apertado" (Travar mapa ativo): mesmo vocabulário das abas. */
+  .botao-barra[aria-pressed="true"] {
+    border-color: var(--color-oliva-700);
     background: var(--color-oliva-050);
     color: var(--color-oliva-300);
   }

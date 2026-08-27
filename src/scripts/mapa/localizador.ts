@@ -111,7 +111,18 @@ async function comGoogle(opcoes: OpcoesLocalizador): Promise<Localizador | null>
   const maps = await carregarScriptGoogle(opcoes.chaveGoogle);
   if (!maps) return null;
 
-  const mapa = new maps.Map(opcoes.alvo, {
+  /**
+   * `loading=async` muda o contrato da API: o script carrega só o
+   * núcleo, e cada biblioteca precisa ser pedida por `importLibrary`
+   * antes do uso. Sem esta linha, `maps.Map` nem existe — o construtor
+   * estourava, o fallback engolia o erro e o painel mostrava "o mapa
+   * arrastável não carregou" com as chaves perfeitamente válidas.
+   */
+  const { Map: MapaGoogle } = (await maps.importLibrary(
+    "maps",
+  )) as google.maps.MapsLibrary;
+
+  const mapa = new MapaGoogle(opcoes.alvo, {
     center: { lat: opcoes.inicial.lat, lng: opcoes.inicial.lng },
     zoom: opcoes.inicial.zoom,
     minZoom: ZOOM_MIN,
@@ -156,16 +167,28 @@ async function comGoogle(opcoes: OpcoesLocalizador): Promise<Localizador | null>
 export async function criarLocalizador(
   opcoes: OpcoesLocalizador,
 ): Promise<Localizador | null> {
-  try {
-    if (opcoes.provedor === "google" && opcoes.chaveGoogle) {
+  if (opcoes.provedor === "google" && opcoes.chaveGoogle) {
+    /**
+     * Cada tentativa tem o próprio try: quando o Google falhava com
+     * exceção (e não com null), o catch único devolvia null direto e o
+     * fallback de Leaflet NUNCA rodava — o painel ficava sem mapa
+     * mesmo com a Esri disponível de graça.
+     */
+    try {
       const google = await comGoogle(opcoes);
       if (google) return google;
-      // Chave presente mas o script não subiu (bloqueador, rede, chave
-      // inválida): cair no Leaflet é melhor que ficar sem mapa. Os
-      // tiles da Esri não pedem chave nenhuma.
-      console.warn("Maps JS não carregou; usando Leaflet.");
-      return await comLeaflet({ ...opcoes, provedor: "esri" });
+    } catch (erro) {
+      console.warn("Maps JS falhou; caindo para o Leaflet:", erro);
     }
+    try {
+      return await comLeaflet({ ...opcoes, provedor: "esri" });
+    } catch (erro) {
+      console.error("Nenhum mapa arrastável disponível:", erro);
+      return null;
+    }
+  }
+
+  try {
     return await comLeaflet(opcoes);
   } catch (erro) {
     console.error("Nenhum mapa arrastável disponível:", erro);

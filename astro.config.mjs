@@ -53,6 +53,9 @@ export default defineConfig({
   // ja faz.
   site: 'https://www.comunidadeairsoft.com.br',
 
+  // Porta fixa do dev local: http://localhost:1987
+  server: { port: 1987 },
+
   trailingSlash: 'never',
 
   // 'static' continua sendo o padrão: TODA página do diretório é gerada
