@@ -1,0 +1,80 @@
+---
+/**
+ * /armeiros/[slug] serve DUAS coisas:
+ *   /armeiros/joao-armeiro  → ficha do armeiro
+ *   /armeiros/pr            → hub estadual
+ *
+ * Mesma solução de /lojas/[slug]: dois arquivos de rota dinâmica no
+ * mesmo segmento colidiriam, então o `getStaticPaths` gera os dois
+ * tipos e o corpo escolhe o componente. A sigla de UF tem duas letras
+ * e o slug de armeiro tem no mínimo três, então não há como um armeiro
+ * roubar a URL de um estado.
+ *
+ * /armeiros/cadastrar e /armeiros/indicar são arquivos próprios e têm
+ * precedência sobre esta rota — e db/carregar-armeiros.mjs recusa esses
+ * slugs na entrada, para o conflito não nascer.
+ */
+import { getCollection } from "astro:content";
+import FichaArmeiro from "../../components/FichaArmeiro.astro";
+import HubArmeirosUf from "../../components/HubArmeirosUf.astro";
+
+export async function getStaticPaths() {
+  const armeiros = await getCollection(
+    "armeiros",
+    ({ data }) => data.status === "publicado",
+  );
+
+  const lojas = await getCollection("lojas", ({ data }) => data.status === "publicado");
+  const lojaPorId = new Map(lojas.map((loja) => [loja.id, loja]));
+
+  const totalEnvioNacional = armeiros.filter((a) => a.data.atende_envio).length;
+
+  const fichas = armeiros.map((armeiro) => ({
+    params: { slug: armeiro.id },
+    props: {
+      armeiro,
+      // Só amarra as duas fichas se a loja existir E estiver publicada:
+      // link para ficha despublicada seria 404 a partir da nossa casa.
+      loja: armeiro.data.loja_id
+        ? (lojaPorId.get(armeiro.data.loja_id) ?? null)
+        : null,
+      sigla: null,
+      armeirosDoEstado: [],
+      totalEnvioNacional,
+    },
+  }));
+
+  const porUf = new Map<string, typeof armeiros>();
+  for (const armeiro of armeiros) {
+    const uf = armeiro.data.uf;
+    porUf.set(uf, [...(porUf.get(uf) ?? []), armeiro]);
+  }
+
+  const hubs = [...porUf].map(([uf, lista]) => ({
+    params: { slug: uf.toLowerCase() },
+    props: {
+      armeiro: null,
+      loja: null,
+      sigla: uf,
+      armeirosDoEstado: lista,
+      totalEnvioNacional,
+    },
+  }));
+
+  return [...fichas, ...hubs];
+}
+
+const { armeiro, loja, sigla, armeirosDoEstado, totalEnvioNacional } = Astro.props;
+---
+
+{
+  armeiro ? (
+    <FichaArmeiro armeiro={armeiro} loja={loja} />
+  ) : (
+    <HubArmeirosUf
+      sigla={sigla}
+      armeiros={armeirosDoEstado}
+      totalEnvioNacional={totalEnvioNacional}
+    />
+  )
+}

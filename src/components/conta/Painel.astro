@@ -1,0 +1,49 @@
+---
+/**
+ * Bloco de seção da área logada.
+ *
+ * Substitui o reflexo de embrulhar tudo num cartão. O título fica FORA
+ * da moldura, e a moldura é uma só, dividida por fios internos — em vez
+ * de N cartões idênticos empilhados, que é o que a tela tinha antes.
+ *
+ * `sem_moldura` para conteúdo que não é lista (texto corrido, resumo).
+ */
+interface Props {
+  titulo: string;
+  descricao?: string;
+  /** Número ao lado do título, em mono. Ex.: quantidade de itens. */
+  contagem?: number | string;
+  semMoldura?: boolean;
+  class?: string;
+}
+
+const { titulo, descricao, contagem, semMoldura = false, class: classe } = Astro.props;
+const temAcao = Astro.slots.has("acao");
+---
+
+<section class:list={["min-w-0", classe]}>
+  <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+    <h2 class="flex items-baseline gap-2.5 text-[1.0625rem] font-semibold text-tinta">
+      {titulo}
+      {
+        contagem !== undefined && (
+          <span class="font-dado text-[0.75rem] font-normal tracking-[0.08em] text-texto-2">
+            {contagem}
+          </span>
+        )
+      }
+    </h2>
+    {temAcao && <slot name="acao" />}
+  </div>
+
+  {descricao && <p class="mt-1.5 max-w-[68ch] text-[0.9375rem] leading-relaxed text-texto-2">{descricao}</p>}
+
+  <div
+    class:list={[
+      "mt-4",
+      !semMoldura && "border border-borda bg-papel/60",
+    ]}
+  >
+    <slot />
+  </div>
+</section>

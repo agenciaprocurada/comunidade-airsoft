@@ -1,0 +1,1907 @@
+---
+import Conta from "../../layouts/Conta.astro";
+import Painel from "../../components/conta/Painel.astro";
+import GradeCards from "../../components/conta/GradeCards.astro";
+import CardHud from "../../components/conta/CardHud.astro";
+import ChipHud from "../../components/conta/ChipHud.astro";
+import Gaveta from "../../components/conta/Gaveta.astro";
+import Selo from "../../components/conta/Selo.astro";
+import {
+  AJUDA_CAMPO,
+  BOTAO_HUD,
+  BOTAO_PERIGO,
+  BOTAO_PRIMARIO,
+  BOTAO_SECUNDARIO,
+  BOTAO_TEXTO,
+  ENTRADA,
+  ENTRADA_INVALIDA,
+  ERRO_CAMPO,
+  ROTULO_CAMPO,
+  SELECAO,
+  SELECAO_INVALIDA,
+  TITULO_SECAO,
+} from "../../lib/estilos-form";
+import {
+  COLUNAS_OPERACAO,
+  OBSERVACOES_MAXIMO,
+  PAGAMENTO_MAXIMO,
+  STATUS_OPERACAO,
+  dataPorExtenso,
+  hora,
+  loteVigente,
+  slugDaOperacao,
+  ESTILOS_OPERACAO,
+  LADOS_MAXIMO,
+  LADOS_MINIMO,
+  lerPreco,
+  precoParaEntrada,
+  jaPassou,
+  quantoFalta,
+  urgencia,
+  ocupacao,
+  type Operacao,
+} from "../../lib/operacao";
+import { NOME_UF, ROTULO_MODALIDADE, slugificar } from "../../lib/uf";
+import { normalizarWhatsapp } from "../../lib/conta";
+
+export const prerender = false;
+
+const { supabase, usuario } = Astro.locals;
+
+let erroDe: Record<string, string> = {};
+let erroGeral = "";
+let enviado: Record<string, string> = {};
+/** Lados que voltam para a tela quando o formulário deu erro. */
+let ladosPreenchidos: { nome: string; vagas: string }[] = [];
+
+/**
+ * Hoje em São Paulo, no formato do <input type="date">.
+ *
+ * O servidor roda em UTC. Usar `new Date()` cru faz a data mínima virar
+ * amanhã depois das 21h no Brasil — e o organizador tomaria "essa data
+ * já passou" para o próprio dia de hoje.
+ */
+const hojeBR = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+}).format(new Date());
+
+/**
+ * Campos do diretório para o seletor.
+ *
+ * Vêm todos no HTML e o filtro só mostra e esconde — mesma escolha do
+ * /campos: sem JavaScript a lista inteira continua utilizável, é só
+ * rolar.
+ */
+const { data: campos } = await supabase
+  .from("campos")
+  .select("id,nome,cidade,uf,modalidade")
+  .eq("status", "publicado")
+  .order("nome")
+  .returns<{ id: string; nome: string; cidade: string; uf: string; modalidade: string }[]>();
+
+const listaCampos = campos ?? [];
+
+/** Sugestão inicial dos dois lados; o organizador troca por cima. */
+const PADRAO_LADOS = ["PMC / Mercenário", "Exército / Militar"];
+
+/** Só os estados e modalidades que existem — filtro que não filtra nada é ruído. */
+const ufsComCampo = [...new Set(listaCampos.map((c) => c.uf))].sort();
+const modalidadesComCampo = [...new Set(listaCampos.map((c) => c.modalidade))].sort();
+/*
+ * O corpo do POST é lido UMA vez e compartilhado pelos handlers.
+ *
+ * `formData()` consome o stream: uma segunda chamada devolve vazio, e
+ * o formulário de criação passaria a "perder" tudo que foi digitado
+ * sem nenhum erro na tela.
+ */
+const dadosPost =
+  Astro.request.method === "POST" ? await Astro.request.formData() : null;
+
+/** Sem `acao` é o formulário de criação, que é o POST original da tela. */
+const acaoPost = dadosPost?.get("acao")?.toString() || "criar";
+
+/**
+ * Exclusão pendente de confirmação.
+ *
+ * Evento sem ninguém na lista some no primeiro clique — não há o que
+ * perder. Com gente confirmada, o clique só monta este aviso: quem
+ * organiza precisa ver o número de pessoas que vai desmarcar ANTES de
+ * apagar, e o aviso vem do servidor para funcionar sem JavaScript.
+ */
+let confirmarExclusao: {
+  id: string;
+  nome: string;
+  data: string;
+  total: number;
+} | null = null;
+
+if (dadosPost && (acaoPost === "publicar" || acaoPost === "despublicar")) {
+  const { error } = await supabase
+    .from("operacoes")
+    .update({ status: acaoPost === "publicar" ? "publicada" : "rascunho" })
+    .eq("id", dadosPost.get("id")?.toString() ?? "")
+    // A RLS já barraria evento de outro dono. O filtro aqui é para o
+    // caso não dar 200 em silêncio quando a linha não é sua.
+    .eq("organizador_id", usuario!.id);
+
+  if (error) {
+    console.error("Falha ao mudar o status da operação:", error);
+    erroGeral = "Não conseguimos mudar agora. Tente de novo em instantes.";
+  } else {
+    return Astro.redirect("/conta/operacoes", 303);
+  }
+}
+
+if (dadosPost && acaoPost === "excluir") {
+  const id = dadosPost.get("id")?.toString() ?? "";
+  const confirmado = dadosPost.get("confirmado") === "1";
+
+  const { data: alvo } = await supabase
+    .from("operacoes")
+    .select("id,slug,data,campo_nome,local_avulso")
+    .eq("id", id)
+    .eq("organizador_id", usuario!.id)
+    .maybeSingle<{
+      id: string;
+      slug: string;
+      data: string;
+      campo_nome: string | null;
+      local_avulso: string | null;
+    }>();
+
+  if (!alvo) {
+    erroGeral = "Essa operação não existe mais.";
+  } else {
+    // Conta só quem ainda vale: cancelado já saiu da lista por vontade
+    // própria e não é gente que você vai desmarcar.
+    const { count } = await supabase
+      .from("inscricoes")
+      .select("id", { count: "exact", head: true })
+      .eq("operacao_id", alvo.id)
+      .neq("status", "cancelada");
+
+    const naLista = count ?? 0;
+
+    if (naLista > 0 && !confirmado) {
+      confirmarExclusao = {
+        id: alvo.id,
+        nome: alvo.campo_nome ?? alvo.local_avulso ?? "Operação",
+        data: alvo.data,
+        total: naLista,
+      };
+    } else {
+      // Lados e inscrições saem juntos pelo `on delete cascade`.
+      const { error } = await supabase
+        .from("operacoes")
+        .delete()
+        .eq("id", alvo.id)
+        .eq("organizador_id", usuario!.id);
+
+      if (error) {
+        console.error("Falha ao excluir operação:", error);
+        erroGeral = "Não conseguimos excluir agora. Tente de novo em instantes.";
+      } else {
+        return Astro.redirect("/conta/operacoes?apagada=1", 303);
+      }
+    }
+  }
+}
+
+if (dadosPost && acaoPost === "criar") {
+  const dados = dadosPost;
+  const texto = (chave: string) => (dados.get(chave)?.toString() ?? "").trim();
+
+  enviado = {
+    modo_campo: texto("modo_campo"),
+    campo_id: texto("campo_id"),
+    novo_nome: texto("novo_nome"),
+    novo_cidade: texto("novo_cidade"),
+    novo_uf: texto("novo_uf").toUpperCase(),
+    novo_modalidade: texto("novo_modalidade"),
+    novo_endereco: texto("novo_endereco"),
+    data: texto("data"),
+    abertura: texto("abertura"),
+    briefing: texto("briefing"),
+    inicio: texto("inicio"),
+    fim: texto("fim"),
+    estilo: texto("estilo"),
+    preco: texto("preco"),
+    preco_no_dia: texto("preco_no_dia"),
+    prazo_lote: texto("prazo_lote"),
+    pagamento: texto("pagamento"),
+    whatsapp_contato: texto("whatsapp_contato"),
+    visibilidade: texto("visibilidade") === "fechada" ? "fechada" : "aberta",
+    observacoes: texto("observacoes"),
+  };
+
+  /** Lados chegam como listas paralelas: nome[i] combina com vagas[i]. */
+  const ladosEnviados = dados
+    .getAll("lado_nome")
+    .map((valor, i) => ({
+      nome: valor.toString().trim(),
+      vagas: (dados.getAll("lado_vagas")[i]?.toString() ?? "").trim(),
+    }))
+    .filter((lado) => lado.nome !== "");
+
+  ladosPreenchidos = ladosEnviados;
+  /*
+   * Duas abas, dois caminhos: escolher da lista ou cadastrar o campo
+   * agora. Antes isso vinha embutido em `campo_id === "novo"` — um
+   * valor sentinela no meio dos ids reais. Com a aba própria o servidor
+   * sabe em qual das duas a pessoa estava e cobra só o que aquele
+   * caminho exige.
+   */
+  const criandoCampo = enviado.modo_campo === "novo";
+
+  if (!criandoCampo && !enviado.campo_id) {
+    erroDe.campo_id = "Escolha o campo onde vai ser.";
+  }
+
+  // Campo novo: os dados mínimos para a ficha existir no diretório.
+  if (criandoCampo) {
+    if (enviado.novo_nome.length < 3) erroDe.novo_nome = "Informe o nome do campo.";
+    if (enviado.novo_cidade.length < 2) erroDe.novo_cidade = "Informe a cidade.";
+    if (!NOME_UF[enviado.novo_uf]) erroDe.novo_uf = "Escolha o estado.";
+    if (!["airsoft", "paintball", "ambos"].includes(enviado.novo_modalidade)) {
+      erroDe.novo_modalidade = "Escolha a modalidade.";
+    }
+  }
+
+  if (!enviado.data) {
+    erroDe.data = "Informe a data.";
+  } else if (enviado.data < hojeBR) {
+    erroDe.data = "Essa data já passou. A agenda só mostra o que ainda vai acontecer.";
+  }
+
+  /*
+   * Portão, briefing e início são sempre do mesmo dia e sempre nessa
+   * ordem. `fim` fica de fora de propósito: operação noturna atravessa a
+   * meia-noite, e ali um fim menor que o início é legítimo.
+   */
+  const sequencia = [
+    { rotulo: "briefing", anterior: "portão", valor: enviado.briefing, antes: enviado.abertura },
+    { rotulo: "início", anterior: "briefing", valor: enviado.inicio, antes: enviado.briefing },
+    { rotulo: "início", anterior: "portão", valor: enviado.inicio, antes: enviado.abertura },
+  ];
+  for (const passo of sequencia) {
+    if (passo.valor && passo.antes && passo.valor < passo.antes) {
+      erroDe.horarios = `O ${passo.rotulo} não pode ser antes do ${passo.anterior}.`;
+      break;
+    }
+  }
+
+  if (enviado.prazo_lote && enviado.data && enviado.prazo_lote > enviado.data) {
+    erroDe.prazo_lote = "O lote antecipado tem que fechar antes da operação.";
+  }
+  if (enviado.estilo && !ESTILOS_OPERACAO.some((e) => e.valor === enviado.estilo)) {
+    erroDe.estilo = "Estilo inválido.";
+  }
+
+  // Dinheiro: `undefined` é texto que não é número; `null` é vazio.
+  const preco = lerPreco(enviado.preco);
+  const precoNoDia = lerPreco(enviado.preco_no_dia);
+  if (preco === undefined) erroDe.preco = "Valor inválido. Use R$ 35,00.";
+  if (precoNoDia === undefined) erroDe.preco_no_dia = "Valor inválido. Use R$ 50,00.";
+
+  if (ladosEnviados.length < LADOS_MINIMO) {
+    erroDe.lados = `Dê nome a pelo menos ${LADOS_MINIMO} lados.`;
+  }
+  if (ladosEnviados.length > LADOS_MAXIMO) {
+    erroDe.lados = `No máximo ${LADOS_MAXIMO} lados.`;
+  }
+  for (const lado of ladosEnviados) {
+    if (lado.vagas && !/^\d{1,3}$/.test(lado.vagas)) {
+      erroDe.lados = "Vagas: só número inteiro, ou vazio para sem limite.";
+      break;
+    }
+  }
+
+  if (enviado.observacoes.length > OBSERVACOES_MAXIMO) {
+    erroDe.observacoes = `No máximo ${OBSERVACOES_MAXIMO} caracteres.`;
+  }
+  if (enviado.pagamento.length > PAGAMENTO_MAXIMO) {
+    erroDe.pagamento = `No máximo ${PAGAMENTO_MAXIMO} caracteres.`;
+  }
+
+  /*
+   * O telefone é opcional, inclusive no evento fechado. Ele serve para
+   * quem viu o evento na agenda e NÃO recebeu o link: sem número, o
+   * botão de pedir convite não aparece e o combinado acontece por fora.
+   * Só reclama de número que não dá para reconhecer — deixar passar um
+   * engano viraria um botão de contato quebrado na página.
+   */
+  const fechada = enviado.visibilidade === "fechada";
+  const whatsappContato = normalizarWhatsapp(enviado.whatsapp_contato);
+
+  if (enviado.whatsapp_contato && !whatsappContato) {
+    erroDe.whatsapp_contato = "Não reconheci esse número. Use DDD + número.";
+  }
+
+  if (Object.keys(erroDe).length === 0) {
+    // Na aba de cadastro o id nasce do insert abaixo; um campo que
+    // tenha ficado marcado na outra aba não pode vazar para cá.
+    let campoId = criandoCampo ? "" : enviado.campo_id;
+
+    /*
+     * Campo que não estava na lista entra no diretório agora.
+     *
+     * Publicado e NÃO verificado, igual a todo campo que a gente
+     * coletou: a ficha existe, mostra o selo de não verificado e
+     * espera o dono reivindicar. É assim que o cadastro de operação
+     * mantém o diretório atualizado.
+     */
+    if (criandoCampo) {
+      const slugCidade = slugificar(enviado.novo_cidade);
+      const idNovo = slugificar(`${enviado.novo_nome}-${enviado.novo_cidade}`);
+
+      const { error: erroCampo } = await supabase.from("campos").insert({
+        id: idNovo,
+        nome: enviado.novo_nome,
+        modalidade: enviado.novo_modalidade,
+        uf: enviado.novo_uf,
+        cidade: enviado.novo_cidade,
+        cidade_slug: slugCidade,
+        endereco: enviado.novo_endereco || null,
+        status: "publicado",
+        verificado: false,
+        confianca: "baixa",
+        fonte: `submissao:operacao`,
+        submetido_por: usuario!.id,
+      });
+
+      if (erroCampo) {
+        if (erroCampo.code === "23505") {
+          erroDe.novo_nome = "Já existe um campo com esse nome nessa cidade. Procure na lista.";
+        } else if (erroCampo.message.includes("limite de 5 campos")) {
+          erroGeral = "Você já enviou 5 campos hoje. Tente amanhã ou fale com a gente.";
+        } else {
+          console.error("Falha ao cadastrar campo enviado:", erroCampo);
+          erroGeral = "Não conseguimos cadastrar o campo. Tente de novo em instantes.";
+        }
+      } else {
+        campoId = idNovo;
+      }
+    }
+
+    if (!erroGeral && Object.keys(erroDe).length === 0) {
+      // Nome congelado: a RLS de campos esconde ficha não publicada,
+      // e sem isso o organizador perderia o rótulo do próprio evento.
+      const nomeGravado = criandoCampo
+        ? enviado.novo_nome
+        : (listaCampos.find((c) => c.id === campoId)?.nome ?? null);
+
+      const registro = {
+        campo_id: campoId,
+        campo_nome: nomeGravado,
+        organizador_id: usuario!.id,
+        data: enviado.data,
+        abertura: enviado.abertura || null,
+        briefing: enviado.briefing || null,
+        inicio: enviado.inicio || null,
+        fim: enviado.fim || null,
+        estilo: enviado.estilo || null,
+        preco: preco,
+        preco_no_dia: precoNoDia,
+        prazo_lote: enviado.prazo_lote || null,
+        pagamento: enviado.pagamento || null,
+        observacoes: enviado.observacoes || null,
+        // Qual botão foi apertado decide o estado. Antes era uma caixa
+        // "publicar agora" marcada por padrão, e quem só queria guardar
+        // o esboço tinha que reparar nela e desmarcar.
+        status: dados.get("rascunho") !== null ? "rascunho" : "publicada",
+        visibilidade: fechada ? "fechada" : "aberta",
+        // O telefone fica NA OPERACAO: publicar o contato e um ato
+        // explicito para aquele evento, nao um efeito de ter perfil.
+        whatsapp_contato: fechada ? whatsappContato : null,
+      };
+
+      // Duas operações no mesmo campo e no mesmo dia é raro mas acontece
+      // (manhã e tarde). O sufixo evita o 23505 na cara do organizador.
+      let criada: { id: string; slug: string } | null = null;
+      for (let tentativa = 0; tentativa < 4 && !criada; tentativa++) {
+        const slug =
+          slugDaOperacao(campoId, enviado.data) + (tentativa === 0 ? "" : `-${tentativa + 1}`);
+        const { data, error } = await supabase
+          .from("operacoes")
+          .insert({ ...registro, slug })
+          .select("id,slug")
+          .single<{ id: string; slug: string }>();
+
+        if (data) {
+          criada = data;
+
+          /*
+           * O gatilho do banco cria dois lados como rede de segurança.
+           * Aqui os dois primeiros são renomeados e os demais entram —
+           * assim a operação nunca fica sem lado, mesmo se algo falhar
+           * no meio do caminho.
+           */
+          const { data: existentes } = await supabase
+            .from("operacao_lados")
+            .select("id,ordem")
+            .eq("operacao_id", data.id)
+            .order("ordem")
+            .returns<{ id: string; ordem: number }[]>();
+
+          const vagasDe = (bruto: string) => {
+            const n = Number(bruto);
+            return bruto && Number.isFinite(n) && n > 0 ? n : null;
+          };
+
+          for (const [i, lado] of ladosEnviados.entries()) {
+            const jaExiste = (existentes ?? []).find((l) => l.ordem === i);
+            if (jaExiste) {
+              await supabase
+                .from("operacao_lados")
+                .update({ nome: lado.nome, vagas: vagasDe(lado.vagas) })
+                .eq("id", jaExiste.id);
+            } else {
+              await supabase.from("operacao_lados").insert({
+                operacao_id: data.id,
+                nome: lado.nome,
+                ordem: i,
+                vagas: vagasDe(lado.vagas),
+              });
+            }
+          }
+
+          // Sobrou lado do gatilho que o organizador não quis.
+          for (const sobra of (existentes ?? []).filter((l) => l.ordem >= ladosEnviados.length)) {
+            await supabase.from("operacao_lados").delete().eq("id", sobra.id);
+          }
+        } else if (error?.code !== "23505") {
+          console.error("Falha ao criar operação:", error);
+          erroGeral = "Não conseguimos criar agora. Tente de novo em instantes.";
+          break;
+        }
+      }
+
+      if (criada) return Astro.redirect(`/conta/operacoes/${criada.slug}?criada=1`, 303);
+      if (!erroGeral) erroGeral = "Já existem operações demais nesse campo nessa data.";
+    }
+  }
+}
+
+// ------------------------------------------------------------------
+// Leitura
+// ------------------------------------------------------------------
+
+const { data: minhas } = await supabase
+  .from("operacoes")
+  .select(COLUNAS_OPERACAO)
+  .eq("organizador_id", usuario!.id)
+  .order("data", { ascending: true })
+  .returns<Operacao[]>();
+
+const operacoes = minhas ?? [];
+const idsOperacoes = operacoes.map((o) => o.id);
+
+/**
+ * Nome do campo de cada operação.
+ *
+ * Vem de consulta própria, SEM filtro de status. Antes saía da lista
+ * do seletor, que só traz campo publicado — bastava um campo virar
+ * rascunho para todas as operações dele dizerem "Campo removido",
+ * mesmo com o campo existindo e a operação valendo.
+ */
+const nomesDeCampo: Record<string, string> = {};
+const idsCampo = [...new Set(operacoes.map((o) => o.campo_id).filter(Boolean))] as string[];
+if (idsCampo.length > 0) {
+  const { data: fichas } = await supabase
+    .from("campos")
+    .select("id,nome")
+    .in("id", idsCampo)
+    .returns<{ id: string; nome: string }[]>();
+  for (const ficha of fichas ?? []) nomesDeCampo[ficha.id] = ficha.nome;
+}
+
+/** Confirmados por operação — o número que o organizador quer ver. */
+let confirmados: Record<string, number> = {};
+/** Vagas por operação, para o número ter denominador. */
+let ladosPorOperacao: Record<string, { vagas: number | null }[]> = {};
+
+if (idsOperacoes.length > 0) {
+  const [{ data: linhas }, { data: lados }] = await Promise.all([
+    supabase
+      .from("inscricoes")
+      .select("operacao_id")
+      .in("operacao_id", idsOperacoes)
+      .eq("status", "confirmada")
+      .returns<{ operacao_id: string }[]>(),
+    supabase
+      .from("operacao_lados")
+      .select("operacao_id,vagas")
+      .in("operacao_id", idsOperacoes)
+      .returns<{ operacao_id: string; vagas: number | null }[]>(),
+  ]);
+
+  for (const linha of linhas ?? []) {
+    confirmados[linha.operacao_id] = (confirmados[linha.operacao_id] ?? 0) + 1;
+  }
+  for (const lado of lados ?? []) {
+    (ladosPorOperacao[lado.operacao_id] ??= []).push({ vagas: lado.vagas });
+  }
+}
+
+/**
+ * Rótulo do local. Ordem: o nome congelado na operação, depois a
+ * ficha viva (caso o campo tenha sido renomeado), depois o local
+ * avulso do histórico.
+ */
+const nomeDoCampo = (operacao: Operacao) =>
+  operacao.campo_nome ??
+  (operacao.campo_id ? nomesDeCampo[operacao.campo_id] : null) ??
+  operacao.local_avulso ??
+  "Campo sem ficha";
+
+/**
+ * A lista responde "o que vem aí", não "o histórico".
+ *
+ * Antes vinha tudo junto em ordem decrescente de data: a operação
+ * mais próxima — a única que ainda dá para organizar — ficava no meio
+ * das já realizadas. Agora as futuras vêm primeiro, da mais próxima
+ * para a mais distante, e o passado desce para um bloco à parte.
+ */
+const encerrada = (o: Operacao) =>
+  o.status === "realizada" || o.status === "cancelada" || jaPassou(o);
+
+const proximas = operacoes.filter((o) => !encerrada(o));
+const passadas = operacoes.filter(encerrada).reverse();
+
+/**
+ * "Repetir esta operação": `?repetir=<id>` abre o formulário já
+ * preenchido, com a data em branco.
+ *
+ * Quem organiza roda o mesmo evento no mesmo campo todo mês — mesmos
+ * lados, mesmo preço, mesma forma de pagar. Preencher os vinte e tantos
+ * campos de novo toda vez era o maior desperdício desta tela.
+ *
+ * Fora do molde ficam a data e o prazo do lote: uma nunca se repete, e o
+ * outro só faz sentido preso a ela.
+ *
+ * Só vale em GET. Num POST que voltou com erro, o que a pessoa acabou de
+ * digitar vale mais do que qualquer molde.
+ */
+const idRepetir = Astro.url.searchParams.get("repetir");
+let repetindo: { nome: string; data: string } | null = null;
+
+if (idRepetir && Astro.request.method === "GET") {
+  const { data: molde } = await supabase
+    .from("operacoes")
+    .select(COLUNAS_OPERACAO)
+    .eq("id", idRepetir)
+    .eq("organizador_id", usuario!.id)
+    .maybeSingle<Operacao>();
+
+  if (molde) {
+    const { data: ladosMolde } = await supabase
+      .from("operacao_lados")
+      .select("nome,vagas,ordem")
+      .eq("operacao_id", molde.id)
+      .order("ordem")
+      .returns<{ nome: string; vagas: number | null; ordem: number }[]>();
+
+    /*
+     * O campo pode ter saído do ar desde a operação original. A lista do
+     * seletor só traz publicado, então marcar um id que não está lá
+     * deixaria o formulário com uma escolha invisível — pior do que
+     * voltar em branco e avisar.
+     */
+    const campoNaLista =
+      Boolean(molde.campo_id) && listaCampos.some((c) => c.id === molde.campo_id);
+
+    enviado = {
+      modo_campo: "lista",
+      campo_id: campoNaLista ? molde.campo_id! : "",
+      novo_nome: "",
+      novo_cidade: "",
+      novo_uf: "",
+      novo_modalidade: "",
+      novo_endereco: "",
+      data: "",
+      abertura: molde.abertura ?? "",
+      briefing: molde.briefing ?? "",
+      inicio: molde.inicio ?? "",
+      fim: molde.fim ?? "",
+      estilo: molde.estilo ?? "",
+      preco: precoParaEntrada(molde.preco),
+      preco_no_dia: precoParaEntrada(molde.preco_no_dia),
+      prazo_lote: "",
+      pagamento: molde.pagamento ?? "",
+      whatsapp_contato: molde.whatsapp_contato ?? "",
+      visibilidade: molde.visibilidade === "fechada" ? "fechada" : "aberta",
+      observacoes: molde.observacoes ?? "",
+    };
+
+    ladosPreenchidos = (ladosMolde ?? []).map((lado) => ({
+      nome: lado.nome,
+      vagas: lado.vagas === null ? "" : String(lado.vagas),
+    }));
+
+    repetindo = {
+      nome: molde.campo_nome ?? nomeDoCampo(molde),
+      data: molde.data,
+    };
+  }
+}
+
+/**
+ * Onde cada erro pousa. O resumo do topo é um índice: sem âncora ele
+ * diria o que está errado sem dizer onde, num formulário que passa de
+ * mil e quinhentos pixels.
+ */
+const ANCORA_ERRO: Record<string, string> = {
+  campo_id: "campo_id",
+  novo_nome: "novo_nome",
+  novo_cidade: "novo_cidade",
+  novo_uf: "novo_uf",
+  novo_modalidade: "novo_modalidade",
+  data: "data",
+  horarios: "abertura",
+  estilo: "estilo",
+  preco: "preco",
+  prazo_lote: "prazo_lote",
+  preco_no_dia: "preco_no_dia",
+  lados: "lado_nome_0",
+  pagamento: "pagamento",
+  observacoes: "observacoes",
+  whatsapp_contato: "whatsapp_contato",
+};
+
+const listaErros = Object.entries(erroDe).map(([campo, mensagem]) => ({
+  ancora: ANCORA_ERRO[campo],
+  mensagem,
+}));
+
+/**
+ * Bloco de seção do formulário. Fio acima e respiro: sem isso as seis
+ * seções viravam quinze rótulos soltos, porque a legenda tinha o mesmo
+ * peso visual do rótulo de um campo.
+ */
+const SECAO = "border-t border-borda pt-7";
+
+// O aviso de exclusão não pode abrir a gaveta de criar junto: são
+// duas coisas na tela pedindo atenção ao mesmo tempo.
+const abrirFormulario =
+  !confirmarExclusao &&
+  (Object.keys(erroDe).length > 0 || Boolean(erroGeral) || Boolean(repetindo));
+
+const apagada = Astro.url.searchParams.get("apagada") === "1";
+
+
+/**
+ * Cartão de escolha — o ÚNICO jeito de "escolha uma opção" nesta tela.
+ *
+ * Vale para as duas perguntas do formulário: onde vai ser (lista ou
+ * campo novo) e quem pode entrar (aberto ou por convite).
+ *
+ * A primeira versão da escolha do campo era uma aba sublinhada com o
+ * rádio em `sr-only`. Não funcionou: aba sublinhada no meio de um
+ * formulário lê como título de seção, e sem o rádio à vista ninguém
+ * percebia que "Meu campo não está na lista" era clicável. Mesma
+ * armadilha do cartão de acesso, que tinha o rádio escondido e parecia
+ * um campo de texto.
+ *
+ * Regra que ficou: se é escolha, o rádio aparece.
+ */
+const OPCAO_ESCOLHA =
+  "flex cursor-pointer items-start gap-3 border px-4 py-3 " +
+  "border-borda-forte bg-transparent " +
+  "transition-colors duration-150 hover:border-oliva-500 hover:bg-oliva-050 " +
+  "has-[:checked]:border-hud has-[:checked]:bg-hud/[0.06] " +
+  "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 " +
+  "has-[:focus-visible]:outline-hud";
+
+const TOM: Record<string, "ok" | "alerta" | "atencao" | "neutro"> = {
+  rascunho: "neutro",
+  publicada: "ok",
+  cancelada: "alerta",
+  realizada: "neutro",
+};
+---
+
+<Conta
+  titulo="Minhas operações"
+  descricao="Operações que você organiza."
+  resumo="Cada operação vira um link. Você manda o link no grupo uma vez e a lista se organiza sozinha ali."
+>
+  {
+    erroGeral && (
+      <p class="mt-8 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
+        {erroGeral}
+      </p>
+    )
+  }
+
+  {
+    apagada && (
+      <p class="mt-8 border border-borda-forte bg-papel/60 px-4 py-3 text-[0.9375rem] text-texto">
+        Operação excluída.
+      </p>
+    )
+  }
+
+  {/*
+    O aviso de exclusão vem do servidor, não de um `confirm()` do
+    navegador: sem JavaScript o botão continuaria apagando na hora, e
+    é justamente o caso com gente na lista que não pode ser um clique
+    distraído. Aqui o número de pessoas aparece antes da decisão.
+  */}
+  {
+    confirmarExclusao && (
+      <div class="mt-8 border border-alerta bg-alerta-bg px-5 py-5">
+        <p class="text-[1.0625rem] font-semibold leading-snug text-alerta-texto">
+          Tem {confirmarExclusao.total}{" "}
+          {confirmarExclusao.total === 1 ? "pessoa" : "pessoas"} na lista desta
+          operação.
+        </p>
+        <p class="mt-2 max-w-[62ch] text-[0.9375rem] leading-relaxed text-texto">
+          Excluir apaga <strong>{confirmarExclusao.nome}</strong> de{" "}
+          {dataPorExtenso(confirmarExclusao.data)} e a lista de presença junto,
+          sem volta. Ninguém é avisado.
+        </p>
+        <p class="mt-2 max-w-[62ch] text-[0.9375rem] leading-relaxed text-texto-2">
+          Se a operação foi desmarcada, o certo é <strong>cancelar</strong> pelo
+          painel: quem está na lista vê o motivo na página do evento.
+        </p>
+
+        <div class="mt-5 flex flex-wrap items-center gap-4">
+          <form method="POST">
+            <input type="hidden" name="acao" value="excluir" />
+            <input type="hidden" name="id" value={confirmarExclusao.id} />
+            <input type="hidden" name="confirmado" value="1" />
+            <button type="submit" class={BOTAO_PERIGO}>
+              Excluir mesmo assim
+            </button>
+          </form>
+          <a href="/conta/operacoes" class={BOTAO_TEXTO}>
+            Deixar como está
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  <div class="mt-10 space-y-10">
+    {
+      operacoes.length === 0 && (
+        <div class="moldura-tatica border border-borda bg-papel/60 px-5 py-8 sm:px-8">
+          <p class="max-w-[54ch] text-[1.0625rem] leading-relaxed text-texto">
+            Você ainda não abriu nenhuma operação.
+          </p>
+          <p class="mt-3 max-w-[58ch] text-[0.9375rem] leading-relaxed text-texto-2">
+            O endereço, o mapa e o contato do campo já vêm do diretório. Você
+            digita a data, o preço e as vagas — o resto está pronto.
+          </p>
+        </div>
+      )
+    }
+
+    {
+      proximas.length > 0 && (
+        <Painel titulo="Próximas" contagem={proximas.length} semMoldura={true}>
+          <GradeCards>
+            {proximas.map((operacao) => {
+              const lote = loteVigente(operacao);
+              const vagas = ocupacao(ladosPorOperacao[operacao.id] ?? [], confirmados[operacao.id] ?? 0);
+              const urg = urgencia(operacao.data);
+              return (
+                <CardHud destaque={urg === "hoje"}>
+                  <div class="flex items-start justify-between gap-3">
+                    <p
+                      class:list={[
+                        "font-dado text-[0.75rem] uppercase leading-tight tracking-[0.1em]",
+                        urg === "hoje"
+                          ? "text-hud"
+                          : urg === "semana"
+                            ? "text-latao"
+                            : "text-texto-2",
+                      ]}
+                    >
+                      {quantoFalta(operacao.data)}
+                    </p>
+                    <Selo tom={TOM[operacao.status]} ponto={operacao.status === "publicada"}>
+                      {STATUS_OPERACAO[operacao.status].rotulo}
+                    </Selo>
+                  </div>
+
+                  <p class="mt-3 text-[1.0625rem] font-semibold leading-snug text-tinta">
+                    <a
+                      href={`/conta/operacoes/${operacao.slug}`}
+                      class="transition-colors duration-150 hover:text-hud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hud"
+                    >
+                      {nomeDoCampo(operacao)}
+                    </a>
+                  </p>
+
+                  <p class="mt-1.5 text-[0.9375rem] leading-snug text-texto-2">
+                    {dataPorExtenso(operacao.data)}
+                    {operacao.inicio && ` · ${hora(operacao.inicio)}`}
+                  </p>
+
+                  <p class="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                    <ChipHud>{lote.rotulo}</ChipHud>
+                    {operacao.estilo && (
+                      <ChipHud tom="neutro">
+                        {ESTILOS_OPERACAO.find((e) => e.valor === operacao.estilo)?.rotulo ??
+                          operacao.estilo}
+                      </ChipHud>
+                    )}
+                  </p>
+
+                  {/* Ocupação: o número sozinho não diz nada. Com teto,
+                      vira "quanto falta para lotar". */}
+                  <div class="mt-4">
+                    <p class="flex items-baseline gap-2">
+                      <span
+                        class:list={[
+                          "font-dado text-[1.5rem] leading-none",
+                          vagas.cheio ? "text-latao" : "text-hud",
+                        ]}
+                      >
+                        {String(vagas.confirmados).padStart(2, "0")}
+                      </span>
+                      {vagas.total !== null && (
+                        <span class="font-dado text-[0.875rem] leading-none text-texto-2">
+                          / {vagas.total}
+                        </span>
+                      )}
+                      <span class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+                        {vagas.cheio ? "lotada" : "confirmados"}
+                      </span>
+                    </p>
+                    {vagas.fracao !== null && (
+                      <span
+                        class="mt-2 block h-[3px] w-full bg-borda"
+                        role="img"
+                        aria-label={`${vagas.confirmados} de ${vagas.total} vagas`}
+                      >
+                        <span
+                          class:list={["block h-full", vagas.cheio ? "bg-latao" : "bg-hud"]}
+                          style={`width: ${Math.round(vagas.fracao * 100)}%`}
+                        />
+                      </span>
+                    )}
+                  </div>
+
+                  {/*
+                    As ações do item moram no card.
+
+                    Antes tudo passava pelo painel: para tirar do ar um
+                    evento errado eram três telas. Painel e Editar são as
+                    duas portas de entrada; publicar, copiar e excluir são
+                    ação de um clique e ficam na linha discreta de baixo.
+                  */}
+                  <div class="mt-auto border-t border-borda pt-4">
+                    <div class="flex flex-wrap gap-2">
+                      <a href={`/conta/operacoes/${operacao.slug}`} class={BOTAO_HUD}>
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
+                          <path d="M4 5h16v14H4zM4 9h16M9 9v10" stroke-linejoin="miter" />
+                        </svg>
+                        Painel
+                      </a>
+                      <a href={`/conta/operacoes/${operacao.slug}#editar`} class={BOTAO_HUD}>
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
+                          <path d="M4 20h4L19 9l-4-4L4 16v4z" stroke-linejoin="miter" />
+                        </svg>
+                        Editar
+                      </a>
+                      {operacao.status === "publicada" && (
+                        <button
+                          type="button"
+                          class={`${BOTAO_HUD} copiar-link`}
+                          data-link={`${Astro.site?.origin ?? ""}/operacoes/${operacao.slug}`}
+                          hidden
+                        >
+                          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
+                            <path d="M9 9h11v11H9zM4 15V4h11" stroke-linejoin="miter" />
+                          </svg>
+                          <span class="rotulo-copiar">Copiar link</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                      {operacao.status === "rascunho" && (
+                        <form method="POST">
+                          <input type="hidden" name="acao" value="publicar" />
+                          <input type="hidden" name="id" value={operacao.id} />
+                          <button type="submit" class={BOTAO_TEXTO}>
+                            Publicar
+                          </button>
+                        </form>
+                      )}
+                      <a
+                        href={`/conta/operacoes?repetir=${operacao.id}#abrir-operacao`}
+                        class={BOTAO_TEXTO}
+                      >
+                        Repetir
+                      </a>
+                      {operacao.status === "publicada" && (
+                        <form method="POST">
+                          <input type="hidden" name="acao" value="despublicar" />
+                          <input type="hidden" name="id" value={operacao.id} />
+                          <button type="submit" class={BOTAO_TEXTO}>
+                            Tirar do ar
+                          </button>
+                        </form>
+                      )}
+                      <form method="POST">
+                        <input type="hidden" name="acao" value="excluir" />
+                        <input type="hidden" name="id" value={operacao.id} />
+                        <button
+                          type="submit"
+                          class="cursor-pointer text-[0.8125rem] font-semibold text-texto-2 transition-colors duration-150 hover:text-alerta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alerta"
+                        >
+                          Excluir
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </CardHud>
+              );
+            })}
+          </GradeCards>
+        </Painel>
+      )
+    }
+
+    {
+      passadas.length > 0 && (
+        <Painel
+          titulo="Já aconteceram"
+          contagem={passadas.length}
+          descricao="Ficam aqui para consulta. A lista de quem foi continua salva."
+          semMoldura={true}
+        >
+          <GradeCards>
+            {/*
+              O card deixou de ser um link inteiro: formulário dentro de
+              `<a>` é HTML inválido, e sem os botões aqui o histórico
+              seria a única parte da tela sem excluir — justamente onde
+              mais se acumula lixo de teste.
+            */}
+            {passadas.map((operacao) => (
+              <CardHud>
+                <div class="flex items-start justify-between gap-3">
+                  <p class="font-dado text-[0.75rem] uppercase leading-tight tracking-[0.1em] text-texto-2">
+                    {quantoFalta(operacao.data)}
+                  </p>
+                  <Selo tom={TOM[operacao.status]}>
+                    {STATUS_OPERACAO[operacao.status].rotulo}
+                  </Selo>
+                </div>
+
+                <p class="mt-3 text-[1.0625rem] font-semibold leading-snug text-texto">
+                  <a
+                    href={`/conta/operacoes/${operacao.slug}`}
+                    class="transition-colors duration-150 hover:text-hud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hud"
+                  >
+                    {nomeDoCampo(operacao)}
+                  </a>
+                </p>
+                <p class="mt-1.5 text-[0.9375rem] leading-snug text-texto-2">
+                  {dataPorExtenso(operacao.data)}
+                </p>
+
+                <div class="mt-auto border-t border-borda pt-4">
+                  <p class="flex items-baseline gap-2">
+                    <span class="font-dado text-[1.25rem] leading-none text-texto-2">
+                      {String(confirmados[operacao.id] ?? 0).padStart(2, "0")}
+                    </span>
+                    <span class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+                      na lista
+                    </span>
+                  </p>
+
+                  <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <a href={`/conta/operacoes/${operacao.slug}`} class={BOTAO_TEXTO}>
+                      Ver a lista
+                    </a>
+                    {/*
+                      Repetir mora aqui porque é daqui que se repete: a
+                      operação do mês passado é o molde da deste mês.
+                    */}
+                    <a
+                      href={`/conta/operacoes?repetir=${operacao.id}#abrir-operacao`}
+                      class={BOTAO_TEXTO}
+                    >
+                      Repetir
+                    </a>
+                    <form method="POST">
+                      <input type="hidden" name="acao" value="excluir" />
+                      <input type="hidden" name="id" value={operacao.id} />
+                      <button
+                        type="submit"
+                        class="cursor-pointer text-[0.8125rem] font-semibold text-texto-2 transition-colors duration-150 hover:text-alerta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alerta"
+                      >
+                        Excluir
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </CardHud>
+            ))}
+          </GradeCards>
+        </Painel>
+      )
+    }
+  </div>
+
+  <div class="mt-10">
+    <Gaveta
+      id="abrir-operacao"
+      titulo="Abrir operação"
+      descricao="Data, campo, valor e lados. O link para o grupo sai pronto no fim."
+      aberta={abrirFormulario || operacoes.length === 0}
+    >
+      <form method="POST" class="max-w-[38rem] space-y-8">
+        {/*
+          Resumo de erro. O formulário passa de mil e quinhentos pixels e
+          quase nada é validado pelo navegador — sem este índice a pessoa
+          apertava "publicar", voltava ao topo e não descobria onde errou.
+        */}
+        {listaErros.length > 0 && (
+          <div
+            id="resumo-erros"
+            class="border border-alerta bg-alerta-bg px-4 py-3 text-alerta-texto"
+            role="alert"
+            tabindex="-1"
+            autofocus
+          >
+            <p class="text-[0.9375rem] font-semibold">
+              {listaErros.length === 1
+                ? "Falta um ajuste antes de publicar:"
+                : `Faltam ${listaErros.length} ajustes antes de publicar:`}
+            </p>
+            <ul class="mt-2 space-y-1.5">
+              {listaErros.map((erro) => (
+                <li class="text-[0.9375rem] leading-snug">
+                  {erro.ancora ? (
+                    <a
+                      href={`#${erro.ancora}`}
+                      class="underline decoration-alerta/50 underline-offset-4 hover:decoration-alerta"
+                    >
+                      {erro.mensagem}
+                    </a>
+                  ) : (
+                    erro.mensagem
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {repetindo && (
+          <p class="border border-borda-forte bg-papel/60 px-4 py-3 text-[0.9375rem] leading-relaxed text-texto">
+            Copiado de <strong class="font-semibold text-tinta">{repetindo.nome}</strong>,{" "}
+            {dataPorExtenso(repetindo.data)}. Escolha a data nova — o resto já
+            está preenchido e dá para mudar o que quiser.
+            {!enviado.campo_id && (
+              <span class="mt-1 block text-texto-2">
+                O campo daquela operação não está mais publicado no diretório,
+                então ficou em branco.
+              </span>
+            )}
+          </p>
+        )}
+
+        <fieldset class="abas-campo">
+          <legend class={TITULO_SECAO}>Onde vai ser</legend>
+          <p class="mt-1.5 text-[0.9375rem] leading-snug text-texto-2">
+            Toda operação fica amarrada a um campo do diretório. É assim que a
+            lista de campos se mantém viva.
+          </p>
+
+          {/*
+            Cartão em rádio, não botão com script: o servidor precisa saber
+            em qual dos dois a pessoa estava para cobrar só o que aquele
+            caminho exige. Quem troca o painel é o `:has()` do CSS lá
+            embaixo — sem JavaScript a escolha continua trocando.
+          */}
+          <div class="mt-4 grid gap-2 sm:grid-cols-2" role="group" aria-label="Como informar o campo">
+            <label class={OPCAO_ESCOLHA}>
+              <input
+                type="radio"
+                name="modo_campo"
+                value="lista"
+                checked={enviado.modo_campo !== "novo"}
+                class="mt-0.5 h-4 w-4 shrink-0 accent-hud"
+              />
+              <span class="text-[0.9375rem] font-semibold leading-snug text-tinta">
+                Selecionar o campo
+                <span class="mt-0.5 block text-[0.8125rem] font-normal text-texto-2">
+                  escolher na lista do diretório
+                </span>
+              </span>
+            </label>
+
+            <label class={OPCAO_ESCOLHA}>
+              <input
+                type="radio"
+                name="modo_campo"
+                value="novo"
+                checked={enviado.modo_campo === "novo"}
+                class="mt-0.5 h-4 w-4 shrink-0 accent-hud"
+              />
+              <span class="text-[0.9375rem] font-semibold leading-snug text-tinta">
+                Meu campo não está na lista
+                <span class="mt-0.5 block text-[0.8125rem] font-normal text-texto-2">
+                  cadastrar agora
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div class="painel-lista pt-5">
+            <!--
+              Filtro igual ao do /campos. Os campos já estão todos no HTML;
+              o script só mostra e esconde. Sem JavaScript some o filtro e
+              fica a lista inteira, que continua funcionando.
+            -->
+            <div class="filtro-campo hidden gap-2 sm:grid sm:grid-cols-[1fr_7rem_9rem]">
+              <div>
+                <label for="fc-texto" class="sr-only">Campo ou cidade</label>
+                <input
+                  type="search"
+                  id="fc-texto"
+                  placeholder="Campo ou cidade"
+                  autocomplete="off"
+                  class={ENTRADA + " !mt-0"}
+                />
+              </div>
+              <div>
+                <label for="fc-uf" class="sr-only">Estado</label>
+                <select id="fc-uf" class={SELECAO + " !mt-0"}>
+                  <option value="">UF</option>
+                  {ufsComCampo.map((uf) => <option value={uf}>{uf}</option>)}
+                </select>
+              </div>
+              <div>
+                <label for="fc-modalidade" class="sr-only">Modalidade</label>
+                <select id="fc-modalidade" class={SELECAO + " !mt-0"}>
+                  <option value="">Modalidade</option>
+                  {
+                    modalidadesComCampo.map((m) => (
+                      <option value={m}>{ROTULO_MODALIDADE[m] ?? m}</option>
+                    ))
+                  }
+                </select>
+              </div>
+            </div>
+
+            {/*
+              A contagem é a única pista de que a caixa rola. Sem ela, quem
+              via três campos numa lista de duzentos achava que o diretório
+              tinha três campos.
+            */}
+            <p class="mt-3 font-dado text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2">
+              {listaCampos.length}{" "}
+              {listaCampos.length === 1 ? "campo no diretório" : "campos no diretório"}
+              {listaCampos.length > 4 && " — role para ver todos"}
+            </p>
+
+            <div
+              id="lista-campos"
+              class="mt-2 max-h-[17rem] overflow-y-auto border border-borda-forte bg-papel"
+            >
+              {
+                listaCampos.map((campo, i) => (
+                  <label
+                    class="opcao-campo flex cursor-pointer items-start gap-3 border-b border-borda px-4 py-3 transition-colors duration-150 last:border-b-0 hover:bg-oliva-050 has-[:checked]:bg-oliva-050"
+                    data-nome={campo.nome.toLowerCase()}
+                    data-cidade={campo.cidade.toLowerCase()}
+                    data-uf={campo.uf}
+                    data-modalidade={campo.modalidade}
+                  >
+                    <input
+                      id={i === 0 ? "campo_id" : undefined}
+                      type="radio"
+                      name="campo_id"
+                      value={campo.id}
+                      checked={enviado.campo_id === campo.id}
+                      class="mt-1 h-4 w-4 shrink-0 accent-hud"
+                    />
+                    <span class="min-w-0">
+                      <span class="block text-[0.9375rem] font-semibold leading-tight text-tinta">
+                        {campo.nome}
+                      </span>
+                      <span class="mt-0.5 block font-dado text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2">
+                        {campo.cidade}, {campo.uf}
+                        <span aria-hidden="true" class="px-1.5 text-borda-forte">/</span>
+                        {ROTULO_MODALIDADE[campo.modalidade] ?? campo.modalidade}
+                      </span>
+                    </span>
+                  </label>
+                ))
+              }
+
+              <p id="sem-resultado" hidden class="px-4 py-5 text-[0.9375rem] text-texto-2">
+                Nenhum campo com esse filtro. Limpe a busca ou troque para a
+                aba "Meu campo não está na lista".
+              </p>
+            </div>
+
+            {erroDe.campo_id && <p class={ERRO_CAMPO}>{erroDe.campo_id}</p>}
+          </div>
+
+          <div class="painel-novo pt-5">
+            <p class="text-[0.8125rem] leading-snug text-texto-2">
+              Procure na lista antes: campo repetido divide as operações em duas
+              fichas e atrapalha quem está escolhendo onde jogar.
+            </p>
+
+            <div class="mt-5 grid gap-5 sm:grid-cols-2">
+              <div class="sm:col-span-2">
+                <label for="novo_nome" class={ROTULO_CAMPO}>Nome do campo</label>
+                <input
+                  type="text"
+                  id="novo_nome"
+                  name="novo_nome"
+                  maxlength="80"
+                  value={enviado.novo_nome}
+                  placeholder="Arena Zona Norte Airsoft"
+                  aria-invalid={erroDe.novo_nome ? "true" : undefined}
+                  class={erroDe.novo_nome ? ENTRADA_INVALIDA : ENTRADA}
+                />
+                {erroDe.novo_nome && <p class={ERRO_CAMPO}>{erroDe.novo_nome}</p>}
+              </div>
+
+              <div>
+                <label for="novo_cidade" class={ROTULO_CAMPO}>Cidade</label>
+                <input
+                  type="text"
+                  id="novo_cidade"
+                  name="novo_cidade"
+                  maxlength="60"
+                  autocomplete="address-level2"
+                  value={enviado.novo_cidade}
+                  aria-invalid={erroDe.novo_cidade ? "true" : undefined}
+                  class={erroDe.novo_cidade ? ENTRADA_INVALIDA : ENTRADA}
+                />
+                {erroDe.novo_cidade && <p class={ERRO_CAMPO}>{erroDe.novo_cidade}</p>}
+              </div>
+
+              <div>
+                <label for="novo_uf" class={ROTULO_CAMPO}>Estado</label>
+                <select
+                  id="novo_uf"
+                  name="novo_uf"
+                  autocomplete="address-level1"
+                  aria-invalid={erroDe.novo_uf ? "true" : undefined}
+                  class={erroDe.novo_uf ? SELECAO_INVALIDA : SELECAO}
+                >
+                  <option value="">Escolha</option>
+                  {
+                    Object.entries(NOME_UF)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([sigla, nome]) => (
+                        <option value={sigla} selected={enviado.novo_uf === sigla}>
+                          {sigla} — {nome}
+                        </option>
+                      ))
+                  }
+                </select>
+                {erroDe.novo_uf && <p class={ERRO_CAMPO}>{erroDe.novo_uf}</p>}
+              </div>
+
+              <div>
+                <label for="novo_modalidade" class={ROTULO_CAMPO}>Modalidade</label>
+                <select
+                  id="novo_modalidade"
+                  name="novo_modalidade"
+                  aria-invalid={erroDe.novo_modalidade ? "true" : undefined}
+                  class={erroDe.novo_modalidade ? SELECAO_INVALIDA : SELECAO}
+                >
+                  <option value="">Escolha</option>
+                  {
+                    ["airsoft", "paintball", "ambos"].map((m) => (
+                      <option value={m} selected={enviado.novo_modalidade === m}>
+                        {ROTULO_MODALIDADE[m] ?? m}
+                      </option>
+                    ))
+                  }
+                </select>
+                {erroDe.novo_modalidade && <p class={ERRO_CAMPO}>{erroDe.novo_modalidade}</p>}
+              </div>
+
+              <div class="sm:col-span-2">
+                <label for="novo_endereco" class={ROTULO_CAMPO}>
+                  Endereço <span class="font-normal text-texto-2">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  id="novo_endereco"
+                  name="novo_endereco"
+                  maxlength="140"
+                  value={enviado.novo_endereco}
+                  class={ENTRADA}
+                />
+              </div>
+            </div>
+
+            <p class={AJUDA_CAMPO}>
+              O campo entra no diretório na hora, com selo de não verificado
+              até alguém do local assumir a página.
+            </p>
+          </div>
+        </fieldset>
+
+        {/*
+          Data e horários juntos. Antes "Data" era um rótulo solto e
+          "Horários" um grupo à parte, com o mesmo peso visual — duas
+          perguntas sobre a mesma coisa em dois lugares.
+        */}
+        <fieldset class={SECAO}>
+          <legend class={TITULO_SECAO}>Quando</legend>
+
+          <div class="mt-5 max-w-[14rem]">
+            <label for="data" class={ROTULO_CAMPO}>Data</label>
+            <input
+              type="date"
+              id="data"
+              name="data"
+              required
+              min={hojeBR}
+              value={enviado.data}
+              aria-invalid={erroDe.data ? "true" : undefined}
+              class={erroDe.data ? ENTRADA_INVALIDA : ENTRADA}
+            />
+            {erroDe.data && <p class={ERRO_CAMPO}>{erroDe.data}</p>}
+          </div>
+
+          <p class="mt-6 text-[0.9375rem] font-semibold leading-tight text-tinta">
+            Horários <span class="font-normal text-texto-2">(opcional)</span>
+          </p>
+          {/*
+            Rótulo de 13px aqui de propósito: são quatro colunas de um
+            mesmo campo, não quatro campos independentes. O rótulo de
+            15px fica reservado ao que é pergunta por si só.
+          */}
+          <div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { nome: "abertura", rotulo: "Portão" },
+              { nome: "briefing", rotulo: "Briefing" },
+              { nome: "inicio", rotulo: "Início" },
+              { nome: "fim", rotulo: "Fim" },
+            ].map((campo) => (
+              <div>
+                <label
+                  for={campo.nome}
+                  class="block text-[0.8125rem] leading-tight text-texto-2"
+                >
+                  {campo.rotulo}
+                </label>
+                <input
+                  type="time"
+                  id={campo.nome}
+                  name={campo.nome}
+                  value={enviado[campo.nome]}
+                  aria-invalid={erroDe.horarios ? "true" : undefined}
+                  class={erroDe.horarios ? ENTRADA_INVALIDA : ENTRADA}
+                />
+              </div>
+            ))}
+          </div>
+          {erroDe.horarios && <p class={ERRO_CAMPO}>{erroDe.horarios}</p>}
+        </fieldset>
+
+        <fieldset class={SECAO}>
+          <legend class={TITULO_SECAO}>O jogo</legend>
+
+          <div class="mt-5 max-w-[18rem]">
+            <label for="estilo" class={ROTULO_CAMPO}>
+              Estilo <span class="font-normal text-texto-2">(opcional)</span>
+            </label>
+            <select id="estilo" name="estilo" class={SELECAO}>
+              <option value="">Escolha</option>
+              {ESTILOS_OPERACAO.map((estilo) => (
+                <option value={estilo.valor} selected={enviado.estilo === estilo.valor}>
+                  {estilo.rotulo}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <p class="mt-6 text-[0.9375rem] font-semibold leading-tight text-tinta">
+            Lados e vagas
+          </p>
+          <p class={AJUDA_CAMPO}>
+            Mínimo de {LADOS_MINIMO} lados, até {LADOS_MAXIMO}. Vagas em branco =
+            sem limite; quando lota, quem chega entra na lista de espera e sobe
+            sozinho se alguém desistir.
+          </p>
+
+          {/*
+            Cabeçalho de coluna uma vez, em vez de rótulo repetido seis
+            vezes. Antes os rótulos eram `sr-only` e a única referência
+            era o placeholder — que some no primeiro caractere digitado.
+          */}
+          <div
+            class="mt-3 grid grid-cols-[1fr_6.5rem_3.5rem] gap-2 text-[0.8125rem] leading-tight text-texto-2"
+            aria-hidden="true"
+          >
+            <span>Nome do lado</span>
+            <span>Vagas</span>
+            <span />
+          </div>
+
+          <!--
+            Sem JavaScript aparecem os seis pares de campos e o
+            organizador preenche quantos quiser — lado sem nome é
+            ignorado no servidor. Com JavaScript, os vazios ficam
+            escondidos atrás do botão de acrescentar.
+          -->
+          <ul id="lados" class="mt-1.5 space-y-2">
+            {
+              Array.from({ length: LADOS_MAXIMO }).map((_, i) => {
+                const nome = ladosPreenchidos[i]?.nome ?? PADRAO_LADOS[i] ?? "";
+                const vagas = ladosPreenchidos[i]?.vagas ?? "";
+                return (
+                  <li
+                    class="linha-lado grid grid-cols-[1fr_6.5rem_3.5rem] gap-2"
+                    data-extra={i >= LADOS_MINIMO ? "1" : undefined}
+                  >
+                    <div>
+                      <label for={`lado_nome_${i}`} class="sr-only">
+                        Nome do lado {i + 1}
+                      </label>
+                      <input
+                        type="text"
+                        id={`lado_nome_${i}`}
+                        name="lado_nome"
+                        maxlength="40"
+                        value={nome}
+                        placeholder={`Lado ${i + 1}`}
+                        aria-invalid={erroDe.lados ? "true" : undefined}
+                        class={(erroDe.lados ? ENTRADA_INVALIDA : ENTRADA) + " !mt-0"}
+                      />
+                    </div>
+                    <div>
+                      <label for={`lado_vagas_${i}`} class="sr-only">
+                        Vagas do lado {i + 1}
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="200"
+                        id={`lado_vagas_${i}`}
+                        name="lado_vagas"
+                        value={vagas}
+                        placeholder="livre"
+                        class={ENTRADA + " !mt-0"}
+                      />
+                    </div>
+                    {/*
+                      "Tirar" existe só nas linhas extras — as duas
+                      primeiras são o mínimo e não saem. Nasce escondido
+                      e o script revela: sem JavaScript não há o que
+                      tirar, porque as seis linhas já estão à mostra.
+                    */}
+                    {i >= LADOS_MINIMO ? (
+                      <button
+                        type="button"
+                        class="tirar-lado cursor-pointer self-center text-[0.8125rem] font-semibold text-texto-2 transition-colors duration-150 hover:text-alerta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alerta"
+                        hidden
+                      >
+                        Tirar
+                        <span class="sr-only"> o lado {i + 1}</span>
+                      </button>
+                    ) : (
+                      <span />
+                    )}
+                  </li>
+                );
+              })
+            }
+          </ul>
+
+          <button type="button" id="mais-lado" hidden class={BOTAO_HUD + " mt-3"}>
+            + Acrescentar lado
+          </button>
+
+          {erroDe.lados && <p class={ERRO_CAMPO}>{erroDe.lados}</p>}
+        </fieldset>
+
+        <fieldset class={SECAO}>
+          <legend class={TITULO_SECAO}>Valor</legend>
+          <p class="mt-1.5 text-[0.9375rem] leading-snug text-texto-2">
+            Em branco = a combinar. O pagamento é direto com você: a plataforma
+            não recebe nem intermedia, só mostra o que estiver escrito aqui.
+          </p>
+
+          <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label for="preco" class="block text-[0.8125rem] leading-tight text-texto-2">
+                Antecipado
+              </label>
+              <input
+                type="text"
+                inputmode="decimal"
+                id="preco"
+                name="preco"
+                value={enviado.preco}
+                placeholder="R$ 35,00"
+                aria-invalid={erroDe.preco ? "true" : undefined}
+                class={"dinheiro " + (erroDe.preco ? ENTRADA_INVALIDA : ENTRADA)}
+              />
+              {erroDe.preco && <p class={ERRO_CAMPO}>{erroDe.preco}</p>}
+            </div>
+            <div>
+              <label for="prazo_lote" class="block text-[0.8125rem] leading-tight text-texto-2">
+                Vale até
+              </label>
+              <input
+                type="date"
+                id="prazo_lote"
+                name="prazo_lote"
+                value={enviado.prazo_lote}
+                aria-invalid={erroDe.prazo_lote ? "true" : undefined}
+                class={erroDe.prazo_lote ? ENTRADA_INVALIDA : ENTRADA}
+              />
+              {erroDe.prazo_lote && <p class={ERRO_CAMPO}>{erroDe.prazo_lote}</p>}
+            </div>
+            <div>
+              <label for="preco_no_dia" class="block text-[0.8125rem] leading-tight text-texto-2">
+                No dia
+              </label>
+              <input
+                type="text"
+                inputmode="decimal"
+                id="preco_no_dia"
+                name="preco_no_dia"
+                value={enviado.preco_no_dia}
+                placeholder="R$ 50,00"
+                aria-invalid={erroDe.preco_no_dia ? "true" : undefined}
+                class={"dinheiro " + (erroDe.preco_no_dia ? ENTRADA_INVALIDA : ENTRADA)}
+              />
+              {erroDe.preco_no_dia && <p class={ERRO_CAMPO}>{erroDe.preco_no_dia}</p>}
+            </div>
+          </div>
+
+          <div class="mt-6">
+            <label for="pagamento" class={ROTULO_CAMPO}>
+              Como pagar <span class="font-normal text-texto-2">(opcional)</span>
+            </label>
+            <textarea
+              id="pagamento"
+              name="pagamento"
+              rows="3"
+              maxlength={PAGAMENTO_MAXIMO}
+              placeholder={"Pix CNPJ 00.000.000/0001-00\nMercado Pago — Nome do responsável\nComprovante no PV"}
+              aria-invalid={erroDe.pagamento ? "true" : undefined}
+              class={erroDe.pagamento ? ENTRADA_INVALIDA : ENTRADA}
+              set:text={enviado.pagamento}
+            />
+            {erroDe.pagamento && <p class={ERRO_CAMPO}>{erroDe.pagamento}</p>}
+          </div>
+        </fieldset>
+
+        <!--
+          Aberto x por convite: as duas escolhas lado a lado, e só a
+          escolhida abre a sua explicação. Era uma caixinha "só por
+          convite" com o campo de WhatsApp sempre visível embaixo —
+          quem fazia evento aberto via um pedido de telefone que não
+          tinha nada a ver com ele.
+        -->
+        <fieldset class={"acesso " + SECAO}>
+          <legend class={TITULO_SECAO}>Quem pode entrar</legend>
+
+          <div class="mt-5 grid gap-2 sm:grid-cols-2">
+            <label class={OPCAO_ESCOLHA}>
+              <input
+                type="radio"
+                name="visibilidade"
+                value="aberta"
+                checked={enviado.visibilidade !== "fechada"}
+                class="mt-0.5 h-4 w-4 shrink-0 accent-hud"
+              />
+              <span class="text-[0.9375rem] font-semibold leading-snug text-tinta">
+                Público aberto
+                <span class="mt-0.5 block text-[0.8125rem] font-normal text-texto-2">
+                  qualquer um entra
+                </span>
+              </span>
+            </label>
+
+            <label class={OPCAO_ESCOLHA}>
+              <input
+                type="radio"
+                name="visibilidade"
+                value="fechada"
+                checked={enviado.visibilidade === "fechada"}
+                class="mt-0.5 h-4 w-4 shrink-0 accent-hud"
+              />
+              <span class="text-[0.9375rem] font-semibold leading-snug text-tinta">
+                Só por convite
+                <span class="mt-0.5 block text-[0.8125rem] font-normal text-texto-2">
+                  evento fechado
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div class="painel-aberta mt-4">
+            <p class="text-[0.9375rem] leading-relaxed text-texto">
+              O evento aparece na agenda e <strong class="font-semibold">qualquer
+              pessoa pode entrar na lista pelo site</strong>, sem precisar falar
+              com você antes. A lista de quem confirmou fica à vista de todo mundo.
+            </p>
+          </div>
+
+          <div class="painel-fechada mt-4">
+            <p class="text-[0.9375rem] leading-relaxed text-texto">
+              O evento aparece na agenda com data, campo e estilo, mas a lista e
+              a inscrição só abrem para quem receber o seu link. Quem quiser
+              entrar te chama no WhatsApp.
+            </p>
+
+            <div class="mt-5">
+              <label for="whatsapp_contato" class={ROTULO_CAMPO}>
+                WhatsApp para pedir convite{" "}
+                <span class="font-normal text-texto-2">(opcional)</span>
+              </label>
+              <input
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                id="whatsapp_contato"
+                name="whatsapp_contato"
+                value={enviado.whatsapp_contato}
+                placeholder="(51) 99999-8888"
+                aria-invalid={erroDe.whatsapp_contato ? "true" : undefined}
+                class={erroDe.whatsapp_contato ? ENTRADA_INVALIDA : ENTRADA}
+              />
+              <p class={AJUDA_CAMPO}>
+                É por aqui que fala com você <strong class="font-semibold text-texto">quem
+                viu o evento na agenda mas não recebeu o link de convite</strong>.
+                A pessoa aperta um botão e cai no seu WhatsApp já sabendo qual
+                evento é. Deixe em branco se preferir combinar por fora — o
+                botão simplesmente não aparece.
+              </p>
+              {erroDe.whatsapp_contato && <p class={ERRO_CAMPO}>{erroDe.whatsapp_contato}</p>}
+            </div>
+          </div>
+        </fieldset>
+
+        <div class={SECAO}>
+          <label for="observacoes" class={TITULO_SECAO}>
+            Observações <span class="font-normal text-texto-2">(opcional)</span>
+          </label>
+          <p class="mt-1.5 text-[0.9375rem] leading-snug text-texto-2">
+            O que mais o jogador precisa saber: o que levar, regra da casa,
+            limite de FPS, como chegar.
+          </p>
+          <textarea
+            id="observacoes"
+            name="observacoes"
+            rows="3"
+            maxlength={OBSERVACOES_MAXIMO}
+            aria-invalid={erroDe.observacoes ? "true" : undefined}
+            class={"mt-3 " + (erroDe.observacoes ? ENTRADA_INVALIDA : ENTRADA)}
+            set:text={enviado.observacoes}
+          />
+          {erroDe.observacoes && <p class={ERRO_CAMPO}>{erroDe.observacoes}</p>}
+        </div>
+
+        {/*
+          Dois botões, duas intenções — no lugar da caixa "publicar
+          agora" marcada por padrão. Publicar é o primeiro submit, então
+          continua sendo o que o Enter aciona.
+        */}
+        <div class={SECAO + " flex flex-wrap items-center gap-3"}>
+          <button type="submit" class={BOTAO_PRIMARIO}>Publicar evento</button>
+          <button type="submit" name="rascunho" value="1" class={BOTAO_SECUNDARIO}>
+            Salvar como rascunho
+          </button>
+          <a href="/operacoes" class={BOTAO_TEXTO}>Ver a agenda</a>
+        </div>
+      </form>
+    </Gaveta>
+  </div>
+</Conta>
+
+<style>
+  /* O cabeçalho da página é sticky: sem isto o link do resumo de erro
+     rola o campo para debaixo dele. */
+  form [id],
+  #abrir-operacao {
+    scroll-margin-top: 6rem;
+  }
+
+  /*
+    A aba que troca o painel. Em CSS, não em script: o formulário de
+    operação é a tela que mais gente abre do celular no campo, e uma
+    aba que só funciona depois do JavaScript carregar é uma aba
+    quebrada. Onde `:has()` não existir, os dois painéis aparecem —
+    feio, mas inteiro, e o envio ainda vai pelo caminho marcado.
+  */
+  .abas-campo:has(input[name="modo_campo"][value="lista"]:checked) .painel-novo,
+  .abas-campo:has(input[name="modo_campo"][value="novo"]:checked) .painel-lista {
+    display: none;
+  }
+
+  /*
+    Mesma ideia para o acesso: só a explicação da opção escolhida
+    aparece, e o campo de WhatsApp só existe no evento por convite.
+    Sem `:has()` os dois textos ficam à mostra — o formulário continua
+    correto, é o servidor que decide pelo rádio marcado.
+  */
+  .acesso:has(input[name="visibilidade"][value="aberta"]:checked) .painel-fechada,
+  .acesso:has(input[name="visibilidade"][value="fechada"]:checked) .painel-aberta {
+    display: none;
+  }
+</style>
+
+<script>
+  /**
+   * Melhorias progressivas do cadastro de operação. Sem nenhuma delas
+   * o formulário continua inteiro: a lista de campos é rolável, a
+   * aba troca no CSS, o preço aceita "35" e os seis pares de lado
+   * ficam visíveis.
+   */
+
+  // --- Filtro da lista de campos, igual ao do /campos ---
+  const filtro = document.querySelector<HTMLElement>(".filtro-campo");
+  const opcoes = [...document.querySelectorAll<HTMLElement>(".opcao-campo")];
+  const semResultado = document.getElementById("sem-resultado");
+  const fTexto = document.querySelector<HTMLInputElement>("#fc-texto");
+  const fUf = document.querySelector<HTMLSelectElement>("#fc-uf");
+  const fModalidade = document.querySelector<HTMLSelectElement>("#fc-modalidade");
+
+  if (filtro && fTexto && fUf && fModalidade && semResultado) {
+    filtro.classList.remove("hidden");
+
+    const aplicar = () => {
+      const busca = fTexto.value.trim().toLowerCase();
+      const uf = fUf.value;
+      const modalidade = fModalidade.value;
+      let visiveis = 0;
+
+      for (const opcao of opcoes) {
+        const casa =
+          (!busca ||
+            (opcao.dataset.nome ?? "").includes(busca) ||
+            (opcao.dataset.cidade ?? "").includes(busca)) &&
+          (!uf || opcao.dataset.uf === uf) &&
+          (!modalidade || opcao.dataset.modalidade === modalidade);
+        opcao.hidden = !casa;
+        if (casa) visiveis++;
+      }
+      semResultado.hidden = visiveis > 0;
+    };
+
+    fTexto.addEventListener("input", aplicar);
+    fUf.addEventListener("change", aplicar);
+    fModalidade.addEventListener("change", aplicar);
+  }
+
+  // --- Dinheiro em R$ 00,00 enquanto digita ---
+  for (const campo of document.querySelectorAll<HTMLInputElement>("input.dinheiro")) {
+    const formatar = () => {
+      const digitos = campo.value.replace(/\D/g, "").slice(0, 8);
+      if (!digitos) {
+        campo.value = "";
+        return;
+      }
+      const valor = Number(digitos) / 100;
+      campo.value = valor.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      });
+    };
+    // Formata o que o servidor devolveu e depois a cada digitação.
+    if (campo.value.trim()) formatar();
+    campo.addEventListener("input", formatar);
+  }
+
+  // --- Lados: começa com dois, cresce sob demanda ---
+  const listaLados = document.getElementById("lados");
+  const botaoMais = document.getElementById("mais-lado");
+
+  if (listaLados && botaoMais) {
+    const linhas = [...listaLados.querySelectorAll<HTMLElement>(".linha-lado")];
+
+    const preenchida = (linha: HTMLElement) =>
+      [...linha.querySelectorAll<HTMLInputElement>("input")].some((i) => i.value.trim() !== "");
+
+    // Esconde os extras vazios; os que voltaram preenchidos ficam.
+    const extras = linhas.filter((l) => l.dataset.extra === "1");
+    for (const linha of extras) {
+      if (!preenchida(linha)) linha.hidden = true;
+    }
+
+    const atualizarBotao = () => {
+      botaoMais.hidden = extras.every((l) => !l.hidden);
+    };
+
+    botaoMais.addEventListener("click", () => {
+      const proxima = extras.find((l) => l.hidden);
+      if (proxima) {
+        proxima.hidden = false;
+        proxima.querySelector<HTMLInputElement>("input")?.focus();
+      }
+      atualizarBotao();
+    });
+
+    /*
+     * "Tirar" esconde a linha e limpa os campos — lado sem nome o
+     * servidor ignora, então esconder já é remover.
+     *
+     * A linha volta para o fim da fila: sempre sai a última visível,
+     * senão o organizador tira o lado 3 e o botão devolve um buraco no
+     * meio da lista.
+     */
+    for (const linha of extras) {
+      const tirar = linha.querySelector<HTMLButtonElement>(".tirar-lado");
+      if (!tirar) continue;
+
+      tirar.hidden = false;
+      tirar.addEventListener("click", () => {
+        const visiveis = extras.filter((l) => !l.hidden);
+        const ultima = visiveis[visiveis.length - 1];
+        if (!ultima) return;
+
+        // O conteúdo sobe uma casa para não sumir o que foi digitado
+        // numa linha do meio.
+        const daqui = extras.indexOf(linha);
+        for (let i = daqui; i < extras.indexOf(ultima); i++) {
+          const atual = extras[i].querySelectorAll<HTMLInputElement>("input");
+          const seguinte = extras[i + 1].querySelectorAll<HTMLInputElement>("input");
+          atual[0].value = seguinte[0].value;
+          atual[1].value = seguinte[1].value;
+        }
+
+        for (const campo of ultima.querySelectorAll<HTMLInputElement>("input")) {
+          campo.value = "";
+        }
+        ultima.hidden = true;
+        atualizarBotao();
+      });
+    }
+
+    atualizarBotao();
+  }
+</script>
+
+<script>
+  /**
+   * Copiar o link da operação.
+   *
+   * O produto inteiro gira em torno de "mande o link no grupo" — mas
+   * pegar esse link exigia entrar no painel da operação. Aqui ele sai
+   * do card, num clique.
+   *
+   * Os botões nascem `hidden` e só aparecem quando há área de
+   * transferência: sem isso, um botão que não copia nada é pior do
+   * que botão nenhum. Quem está sem JavaScript continua pegando o
+   * link dentro do painel, onde ele está escrito por extenso.
+   */
+  const podeCopiar = Boolean(navigator.clipboard?.writeText);
+
+  for (const botao of document.querySelectorAll<HTMLButtonElement>("button.copiar-link")) {
+    if (!podeCopiar) continue;
+    botao.hidden = false;
+
+    const rotulo = botao.querySelector<HTMLElement>(".rotulo-copiar");
+    const original = rotulo?.textContent ?? "Copiar link";
+
+    botao.addEventListener("click", async () => {
+      const link = botao.dataset.link;
+      if (!link || !rotulo) return;
+      try {
+        await navigator.clipboard.writeText(link);
+        rotulo.textContent = "Copiado";
+        botao.classList.add("!border-hud", "!text-hud");
+        setTimeout(() => {
+          rotulo.textContent = original;
+          botao.classList.remove("!border-hud", "!text-hud");
+        }, 1800);
+      } catch {
+        // Navegador negou a permissão: o link continua no painel.
+        rotulo.textContent = "Abra o painel";
+      }
+    });
+  }
+</script>

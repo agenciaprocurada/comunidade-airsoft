@@ -1,0 +1,33 @@
+---
+/**
+ * Chip do atributo-chave de um card: o acionamento da réplica, o
+ * estilo da operação, a sigla da equipe.
+ *
+ * É mono porque é dado, não título. Contorno em vez de preenchimento
+ * porque o card já é uma superfície — chip sólido brigaria com o selo
+ * de status no canto de cima.
+ */
+interface Props {
+  /** `hud` para o atributo principal, `neutro` para o secundário. */
+  tom?: "hud" | "neutro";
+  class?: string;
+}
+
+const { tom = "hud", class: classe } = Astro.props;
+
+const tons = {
+  hud: "border-hud/50 text-hud",
+  neutro: "border-borda-forte text-texto-2",
+} as const;
+---
+
+<span
+  class:list={[
+    "inline-flex shrink-0 items-center border px-2 py-[3px]",
+    "font-dado text-[0.6875rem] uppercase leading-none tracking-[0.1em]",
+    tons[tom],
+    classe,
+  ]}
+>
+  <slot />
+</span>

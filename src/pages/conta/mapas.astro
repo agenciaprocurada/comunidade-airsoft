@@ -1,0 +1,190 @@
+---
+import Conta from "../../layouts/Conta.astro";
+import Painel from "../../components/conta/Painel.astro";
+import GradeCards from "../../components/conta/GradeCards.astro";
+import CardHud from "../../components/conta/CardHud.astro";
+import { BOTAO_PRIMARIO, BOTAO_TEXTO } from "../../lib/estilos-form";
+import { COLUNAS_MAPA, FORMATOS, LIMITE_MAPAS, type Mapa } from "../../lib/mapa";
+
+export const prerender = false;
+
+/**
+ * Meus mapas.
+ *
+ * A tela é deliberadamente magra: listar, abrir e apagar. Renomear,
+ * duplicar e organizar em pasta não entram porque o mapa vive dentro do
+ * editor — trazer edição para cá seria manter dois lugares que fazem a
+ * mesma coisa e discordam.
+ */
+
+const { supabase, usuario } = Astro.locals;
+
+let erroGeral = "";
+
+if (Astro.request.method === "POST") {
+  const dados = await Astro.request.formData();
+  const id = dados.get("id")?.toString() ?? "";
+
+  if (dados.get("acao")?.toString() === "apagar" && id) {
+    // O PNG publicado sai junto: registro sem arquivo é lixo no bucket
+    // que ninguém mais consegue alcançar. Mesmo critério da troca de
+    // capa em `diretorio-admin`.
+    const { data: alvo } = await supabase
+      .from("mapas")
+      .select("publicado_url")
+      .eq("id", id)
+      .eq("usuario_id", usuario!.id)
+      .maybeSingle<{ publicado_url: string | null }>();
+
+    const { error } = await supabase
+      .from("mapas")
+      .delete()
+      .eq("id", id)
+      .eq("usuario_id", usuario!.id);
+
+    if (error) {
+      console.error("Falha ao apagar mapa:", error);
+      erroGeral = "Não foi possível apagar este mapa.";
+    } else {
+      if (alvo?.publicado_url) {
+        await supabase.storage.from("mapas").remove([`${usuario!.id}/${id}.png`]);
+      }
+      return Astro.redirect("/conta/mapas?removido=1", 303);
+    }
+  }
+}
+
+const { data: mapas } = await supabase
+  .from("mapas")
+  .select(COLUNAS_MAPA)
+  .eq("usuario_id", usuario!.id)
+  .order("atualizado_em", { ascending: false })
+  .returns<Mapa[]>();
+
+const lista = mapas ?? [];
+const removido = Astro.url.searchParams.has("removido");
+
+const dataCurta = (iso: string) =>
+  new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+---
+
+<Conta
+  titulo="Meus mapas"
+  descricao="Mapas de operação que você montou."
+  resumo="Mapas de campo montados sobre a imagem de satélite."
+>
+  {
+    removido && (
+      <p class="mb-6 border border-borda bg-papel/60 px-4 py-3 text-[0.9375rem] text-texto-2" role="status">
+        Mapa apagado.
+      </p>
+    )
+  }
+
+  {
+    erroGeral && (
+      <p class="mb-6 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto" role="alert">
+        {erroGeral}
+      </p>
+    )
+  }
+
+  <Painel
+    titulo="Meus mapas"
+    contagem={`${lista.length}/${LIMITE_MAPAS}`}
+    descricao="Abra para continuar editando, ou anexe um mapa a uma operação na tela do evento."
+    semMoldura={lista.length > 0}
+  >
+    <a slot="acao" href="/mapa" class={BOTAO_PRIMARIO}>Criar mapa</a>
+
+    {
+      lista.length === 0 ? (
+        <div class="px-5 py-8">
+          <p class="max-w-[52ch] text-[0.9375rem] leading-relaxed text-texto-2">
+            Você ainda não montou nenhum mapa. O criador abre a imagem de satélite do
+            campo e deixa você marcar a grade de setores, o estacionamento, a safe e
+            o CQB — depois é só baixar o PNG e mandar no grupo.
+          </p>
+          <a href="/mapa" class={`${BOTAO_PRIMARIO} mt-5`}>Montar o primeiro</a>
+        </div>
+      ) : (
+        <GradeCards>
+          {lista.map((mapa) => (
+            <CardHud>
+              {/*
+                A miniatura é a imagem BASE, sem o desenho por cima — o
+                banco guarda enquadramento, não bitmap. Serve para o
+                reconhecimento de relance, que é o trabalho do card, e
+                sai de graça: mesma URL do editor, já quente no cache.
+              */}
+              <a
+                href={`/mapa?id=${mapa.id}`}
+                class="relative block overflow-hidden border border-borda bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hud"
+                style="aspect-ratio:16/9"
+              >
+                <img
+                  src={`/api/mapa/base?lat=${mapa.lat}&lng=${mapa.lng}&z=${mapa.zoom}`}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  class="h-full w-full object-cover"
+                  style={`transform: rotate(${mapa.rotacao}deg) scale(1.5)`}
+                />
+                {mapa.publicado_url && (
+                  <span class="absolute right-2 top-2 bg-oliva-500 px-2 py-1 font-dado text-[10px] uppercase tracking-[0.12em] text-fundo">
+                    Publicado
+                  </span>
+                )}
+              </a>
+
+              <h3 class="mt-4 text-[0.9375rem] font-semibold leading-tight text-tinta">
+                {mapa.nome}
+              </h3>
+
+              <p class="mt-1 font-dado text-[0.75rem] uppercase tracking-[0.08em] text-texto-2">
+                {FORMATOS[mapa.formato].rotulo} · Zoom {mapa.zoom}
+                {mapa.rotacao > 0 && ` · ${mapa.rotacao}°`}
+              </p>
+
+              <p class="mt-1 text-[0.8125rem] text-texto-2">
+                Editado em {dataCurta(mapa.atualizado_em)}
+              </p>
+
+              <div class="mt-4 flex items-center gap-4 border-t border-borda pt-3">
+                <a href={`/mapa?id=${mapa.id}`} class={BOTAO_TEXTO}>Abrir</a>
+                <form method="POST" class="ml-auto">
+                  <input type="hidden" name="acao" value="apagar" />
+                  <input type="hidden" name="id" value={mapa.id} />
+                  {/*
+                    Confirmação inline via `onsubmit`: apagar mapa não é
+                    destrutivo o bastante para merecer uma tela própria,
+                    mas é irreversível o bastante para não acontecer num
+                    clique distraído.
+                  */}
+                  <button
+                    type="submit"
+                    class="font-dado text-[0.75rem] uppercase tracking-[0.12em] text-texto-2 transition-colors hover:text-alerta"
+                    data-confirmar={`Apagar "${mapa.nome}"? Isso não tem volta.`}
+                  >
+                    Apagar
+                  </button>
+                </form>
+              </div>
+            </CardHud>
+          ))}
+        </GradeCards>
+      )
+    }
+  </Painel>
+</Conta>
+
+<script>
+  // Um só ouvinte no documento: a lista é renderizada no servidor e
+  // pode crescer, e ligar um handler por botão não acrescenta nada.
+  document.addEventListener("submit", (evento) => {
+    const form = evento.target as HTMLFormElement;
+    const botao = form.querySelector<HTMLButtonElement>("[data-confirmar]");
+    if (!botao) return;
+    if (!window.confirm(botao.dataset.confirmar!)) evento.preventDefault();
+  });
+</script>

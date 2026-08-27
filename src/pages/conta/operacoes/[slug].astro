@@ -1,0 +1,1062 @@
+---
+import Conta from "../../../layouts/Conta.astro";
+import Painel from "../../../components/conta/Painel.astro";
+import Selo from "../../../components/conta/Selo.astro";
+import {
+  AJUDA_CAMPO,
+  BOTAO_PRIMARIO,
+  BOTAO_SECUNDARIO,
+  BOTAO_TEXTO,
+  ENTRADA,
+  ENTRADA_INVALIDA,
+  ERRO_CAMPO,
+  LINHA_CAIXA,
+  ROTULO_CAMPO,
+  SELECAO,
+} from "../../../lib/estilos-form";
+import {
+  COLUNAS_INSCRICAO,
+  COLUNAS_LADO,
+  COLUNAS_OPERACAO_DONO,
+  OBSERVACOES_MAXIMO,
+  PAGAMENTO_MAXIMO,
+  ESTILOS_OPERACAO,
+  LADOS_MAXIMO,
+  LADOS_MINIMO,
+  lerPreco,
+  precoParaEntrada,
+  STATUS_OPERACAO,
+  dataPorExtenso,
+  quantoFalta,
+  urgencia,
+  hora,
+  loteVigente,
+  linkDaOperacao,
+  linkDeConvite,
+  type Inscricao,
+  type Lado,
+  type LinhaDaLista,
+  type Operacao,
+} from "../../../lib/operacao";
+import { formatarWhatsapp, normalizarWhatsapp } from "../../../lib/conta";
+
+export const prerender = false;
+
+const { supabase, usuario } = Astro.locals;
+const { slug } = Astro.params;
+
+const { data: operacao } = await supabase
+  .from("operacoes")
+  // COLUNAS_OPERACAO_DONO e nao COLUNAS_OPERACAO: esta consulta já
+  // está presa ao organizador logo abaixo, então aqui a chave do link
+  // exclusivo pode vir junto.
+  .select(COLUNAS_OPERACAO_DONO)
+  .eq("slug", slug!)
+  .maybeSingle<Operacao>();
+
+// A RLS já esconderia a operação dos outros; o 404 aqui é para não
+// dar uma tela quebrada a quem digitou o endereço de outra pessoa.
+if (!operacao || operacao.organizador_id !== usuario!.id) {
+  const resposta = await Astro.rewrite("/404");
+  return new Response(resposta.body, { status: 404, headers: resposta.headers });
+}
+
+let erroDe: Record<string, string> = {};
+let erroGeral = "";
+
+/**
+ * Quantos vão perder o lugar se este evento for apagado.
+ *
+ * Fica `null` enquanto ninguém pediu para excluir. Com número, a tela
+ * troca o botão pelo aviso: apagar leva a lista de presença junto, e
+ * quem organiza precisa ver o tamanho do estrago antes de confirmar.
+ */
+let confirmarExclusao: number | null = null;
+
+if (Astro.request.method === "POST") {
+  const dados = await Astro.request.formData();
+  const acao = dados.get("acao")?.toString();
+  const texto = (chave: string) => (dados.get(chave)?.toString() ?? "").trim();
+  const aqui = `/conta/operacoes/${operacao.slug}`;
+  const agora = new Date().toISOString();
+
+  if (acao === "publicar" || acao === "despublicar") {
+    await supabase
+      .from("operacoes")
+      .update({ status: acao === "publicar" ? "publicada" : "rascunho" })
+      .eq("id", operacao.id);
+    return Astro.redirect(aqui, 303);
+  }
+
+  if (acao === "cancelar") {
+    const motivo = texto("motivo");
+    if (motivo.length < 5) {
+      erroDe.motivo = "Escreva o motivo — quem está na lista vai ler isso.";
+    } else {
+      await supabase
+        .from("operacoes")
+        .update({ status: "cancelada", motivo_cancelamento: motivo })
+        .eq("id", operacao.id);
+      return Astro.redirect(aqui, 303);
+    }
+  }
+
+  /*
+   * Excluir é diferente de cancelar, e a tela precisa deixar isso
+   * claro: cancelar mantém o evento no ar com o motivo à vista de
+   * quem estava na lista; excluir apaga o evento e a lista junto,
+   * sem aviso a ninguém. Com gente confirmada, o primeiro clique só
+   * monta o aviso — o segundo é que apaga.
+   */
+  if (acao === "excluir") {
+    const { count } = await supabase
+      .from("inscricoes")
+      .select("id", { count: "exact", head: true })
+      .eq("operacao_id", operacao.id)
+      .neq("status", "cancelada");
+
+    const naLista = count ?? 0;
+
+    if (naLista > 0 && dados.get("confirmado") !== "1") {
+      confirmarExclusao = naLista;
+    } else {
+      // Lados e inscrições saem juntos pelo `on delete cascade`.
+      const { error } = await supabase
+        .from("operacoes")
+        .delete()
+        .eq("id", operacao.id)
+        .eq("organizador_id", usuario!.id);
+
+      if (error) {
+        console.error("Falha ao excluir operação:", error);
+        erroGeral = "Não conseguimos excluir agora. Tente de novo em instantes.";
+      } else {
+        // Volta para a lista: a página deste evento não existe mais.
+        return Astro.redirect("/conta/operacoes?apagada=1", 303);
+      }
+    }
+  }
+
+  if (acao === "pago" || acao === "presente") {
+    const marcar = texto("valor") === "1";
+    await supabase
+      .from("inscricoes")
+      .update(
+        acao === "pago"
+          ? { pago: marcar, pago_em: marcar ? agora : null }
+          : { presente: marcar, presente_em: marcar ? agora : null },
+      )
+      .eq("id", texto("id"))
+      .eq("operacao_id", operacao.id);
+    return Astro.redirect(aqui, 303);
+  }
+
+  if (acao === "remover") {
+    await supabase
+      .from("inscricoes")
+      .delete()
+      .eq("id", texto("id"))
+      .eq("operacao_id", operacao.id);
+    return Astro.redirect(aqui, 303);
+  }
+
+  if (acao === "avulso") {
+    const nome = texto("nome_avulso");
+    if (nome.length < 2) {
+      erroDe.nome_avulso = "Escreva o nome de quem vai jogar.";
+    } else {
+      const { error } = await supabase.from("inscricoes").insert({
+        operacao_id: operacao.id,
+        lado_id: texto("lado_id") || null,
+        nome_avulso: nome,
+      });
+      if (error) {
+        console.error("Falha ao anotar jogador:", error);
+        erroGeral = "Não conseguimos anotar agora.";
+      } else return Astro.redirect(aqui, 303);
+    }
+  }
+
+  /*
+   * UM handler para toda a edição.
+   *
+   * Antes eram três — dados, lados e visibilidade — cada um com o seu
+   * botão. Quem organiza não pensa em três coisas: ele abre o evento,
+   * muda o que precisa e salva. Um formulário, um botão.
+   */
+  if (acao === "salvar") {
+    const fechar = texto("visibilidade") === "fechada";
+    const contato = normalizarWhatsapp(texto("whatsapp_contato"));
+
+    const preco = lerPreco(texto("preco"));
+    const precoNoDia = lerPreco(texto("preco_no_dia"));
+
+    if (!texto("data")) erroDe.data = "Informe a data.";
+    if (preco === undefined) erroDe.preco = "Valor inválido. Ex.: 35 ou 35,00.";
+    if (precoNoDia === undefined) erroDe.preco_no_dia = "Valor inválido. Ex.: 50 ou 50,00.";
+    if (texto("prazo_lote") && texto("data") && texto("prazo_lote") > texto("data")) {
+      erroDe.prazo_lote = "O lote antecipado tem que fechar antes do evento.";
+    }
+    // O telefone é opcional, inclusive no evento fechado: quem não
+    // quer publicar o número combina o convite por fora. Só reclama
+    // quando digitaram algo que não dá para reconhecer — aí é engano,
+    // e salvar em silêncio deixaria um botão de contato quebrado.
+    if (texto("whatsapp_contato") && !contato) {
+      erroDe.whatsapp_contato = "Não reconheci esse número. Use DDD + número.";
+    }
+
+    if (Object.keys(erroDe).length === 0) {
+      const { error } = await supabase
+        .from("operacoes")
+        .update({
+          data: texto("data"),
+          abertura: texto("abertura") || null,
+          briefing: texto("briefing") || null,
+          inicio: texto("inicio") || null,
+          fim: texto("fim") || null,
+          estilo: texto("estilo") || null,
+          preco: preco ?? null,
+          preco_no_dia: precoNoDia ?? null,
+          prazo_lote: texto("prazo_lote") || null,
+          pagamento: texto("pagamento") || null,
+          observacoes: texto("observacoes") || null,
+          visibilidade: fechar ? "fechada" : "aberta",
+          // A chave nasce no gatilho e não é apagada ao reabrir: se o
+          // evento voltar a ser fechado, o link que já circulou continua
+          // valendo em vez de virar link morto no grupo.
+          whatsapp_contato: fechar ? contato : null,
+        })
+        .eq("id", operacao.id);
+
+      if (error) {
+        console.error("Falha ao salvar evento:", error);
+        erroGeral = "Não conseguimos salvar agora. Tente de novo em instantes.";
+      } else {
+        // Lados vêm no mesmo formulário e são salvos junto.
+        const { data: atuais } = await supabase
+          .from("operacao_lados")
+          .select("id,ordem")
+          .eq("operacao_id", operacao.id)
+          .order("ordem")
+          .returns<{ id: string; ordem: number }[]>();
+
+        const vagasDe = (bruto: string) =>
+          bruto ? Math.min(200, Math.max(1, Number(bruto))) : null;
+
+        /*
+         * Remover um lado é botão DENTRO deste formulário, e não um
+         * form próprio: form dentro de form é HTML inválido, e o
+         * organizador não perde o que já tinha digitado nos outros
+         * campos ao tirar um time da lista.
+         *
+         * Quem estava inscrito nele NÃO some: o `on delete set null`
+         * do banco solta a inscrição e ela reaparece como "Sem lado".
+         * Perder o lado é ajuste de organização; perder o jogador
+         * seria outra coisa, e essa a tela não faz sozinha.
+         */
+        const removerId = texto("remover_lado");
+        const restantes = (atuais ?? []).filter((l) => l.id !== removerId);
+
+        if (removerId) {
+          if (restantes.length < LADOS_MINIMO) {
+            erroDe.lados = `A operação precisa de pelo menos ${LADOS_MINIMO} lados.`;
+          } else {
+            const { error: erroRemover } = await supabase
+              .from("operacao_lados")
+              .delete()
+              .eq("id", removerId)
+              .eq("operacao_id", operacao.id);
+
+            if (erroRemover) {
+              console.error("Falha ao remover lado:", erroRemover);
+              erroDe.lados = "Não conseguimos remover esse lado agora.";
+            }
+          }
+        }
+
+        for (const lado of erroDe.lados ? (atuais ?? []) : restantes) {
+          const nome = texto(`nome_${lado.id}`);
+          await supabase
+            .from("operacao_lados")
+            .update({
+              ...(nome ? { nome } : {}),
+              vagas: vagasDe(texto(`vagas_${lado.id}`)),
+            })
+            .eq("id", lado.id);
+        }
+
+        /*
+         * Um lado NOVO, quando o organizador pede.
+         *
+         * A tela não oferece pares em branco esperando serem
+         * preenchidos: o evento tem os lados que tem, e cresce um por
+         * vez. O botão salva o que está na tela e cria mais um já
+         * nomeado ("Lado 3"), que aparece pronto para renomear.
+         *
+         * Criar no banco em vez de mostrar um campo vazio é o que faz
+         * isso funcionar sem JavaScript nenhum.
+         */
+        const usados = erroDe.lados ? (atuais?.length ?? 0) : restantes.length;
+
+        if (dados.get("adicionar_lado") !== null && !erroDe.lados) {
+          if (usados >= LADOS_MAXIMO) {
+            erroDe.lados = `No máximo ${LADOS_MAXIMO} lados.`;
+          } else {
+            // A ordem continua de onde a lista parou; o gatilho do
+            // banco não numera sozinho.
+            const proximaOrdem =
+              Math.max(-1, ...(atuais ?? []).map((l) => l.ordem)) + 1;
+
+            const { error: erroLado } = await supabase.from("operacao_lados").insert({
+              operacao_id: operacao.id,
+              nome: `Lado ${usados + 1}`,
+              ordem: proximaOrdem,
+              vagas: null,
+            });
+
+            if (erroLado) {
+              console.error("Falha ao acrescentar lado:", erroLado);
+              erroDe.lados = "Não conseguimos acrescentar o lado agora.";
+            }
+          }
+        }
+
+        // O resto do evento já foi salvo; só o mexido nos lados falhou.
+        // Fica na página para o organizador ler o porquê.
+        if (!erroDe.lados) return Astro.redirect(`${aqui}?salvo=1#lados`, 303);
+      }
+    }
+  }
+
+}
+
+// ------------------------------------------------------------------
+// Leitura
+// ------------------------------------------------------------------
+
+const [{ data: ladosBruto }, { data: inscricoesBruto }, { data: nomesBruto }] = await Promise.all([
+  supabase
+    .from("operacao_lados")
+    .select(COLUNAS_LADO)
+    .eq("operacao_id", operacao.id)
+    .order("ordem")
+    .returns<Lado[]>(),
+  supabase
+    .from("inscricoes")
+    .select(COLUNAS_INSCRICAO)
+    .eq("operacao_id", operacao.id)
+    .neq("status", "cancelada")
+    .order("criado_em")
+    .returns<Inscricao[]>(),
+  // O nome de quem tem conta vem da função, que só responde para o
+  // organizador: a RLS de `perfis` não deixa `inscricoes` trazer nome
+  // por join, e a lista com nomes não é pública.
+  supabase.rpc("lista_da_operacao", { p_operacao: operacao.id }),
+]);
+
+const lados = ladosBruto ?? [];
+const inscricoes = inscricoesBruto ?? [];
+
+const nomes = (nomesBruto as Pick<LinhaDaLista, "id" | "nome" | "nickname">[] | null) ?? [];
+const nomePorInscricao = new Map(nomes.map((n) => [n.id, n.nome ?? n.nickname]));
+const nomeDe = (inscricao: Inscricao) =>
+  inscricao.nome_avulso ?? nomePorInscricao.get(inscricao.id) ?? "Jogador";
+
+const confirmadas = inscricoes.filter((i) => i.status === "confirmada");
+const emEspera = inscricoes.filter((i) => i.status === "espera");
+const pagos = confirmadas.filter((i) => i.pago).length;
+const presentes = confirmadas.filter((i) => i.presente).length;
+const acompanhantes = confirmadas.reduce((s, i) => s + i.acompanhantes, 0);
+
+/**
+ * Quantos estão inscritos em cada lado.
+ *
+ * Serve ao botão de remover: tirar um lado com gente dentro não apaga
+ * ninguém, mas joga essas pessoas para "Sem lado" — e o organizador
+ * precisa saber quantas são antes de clicar.
+ */
+const naLista: Record<string, number> = {};
+for (const inscricao of inscricoes) {
+  if (inscricao.lado_id) naLista[inscricao.lado_id] = (naLista[inscricao.lado_id] ?? 0) + 1;
+}
+
+const podeAcrescentarLado = lados.length < LADOS_MAXIMO;
+
+const nomeDoLado = (id: string | null) =>
+  id ? (lados.find((l) => l.id === id)?.nome ?? "—") : "Sem lado";
+
+const salvo = Astro.url.searchParams.get("salvo") === "1";
+const criada = Astro.url.searchParams.get("criada") === "1";
+
+const base = (Astro.site ?? Astro.url.origin).toString();
+const enderecoPublico = linkDaOperacao(operacao, base);
+/** Só existe em evento fechado — é a chave que abre a lista. */
+const linkConvite = linkDeConvite(operacao, base);
+const fechada = operacao.visibilidade === "fechada";
+const lote = loteVigente(operacao);
+
+/**
+ * O painel não carrega a ficha do campo — não precisa dela para
+ * nada. O nome congelado na operação basta, e é o único que sobrevive
+ * à ficha sair do ar.
+ */
+const nomeDoLocal =
+  operacao.campo_nome ?? operacao.local_avulso ?? "Campo sem ficha";
+
+const TOM: Record<string, "ok" | "alerta" | "atencao" | "neutro"> = {
+  rascunho: "neutro",
+  publicada: "ok",
+  cancelada: "alerta",
+  realizada: "neutro",
+};
+
+const RESUMO = [
+  { rotulo: "Na lista", valor: confirmadas.length },
+  { rotulo: "Acompanhantes", valor: acompanhantes },
+  { rotulo: "Pagos", valor: pagos },
+  { rotulo: "Espera", valor: emEspera.length },
+];
+---
+
+<Conta
+  titulo={nomeDoLocal}
+  descricao="Painel da operação."
+  resumo={dataPorExtenso(operacao.data)}
+>
+  <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+    <Selo tom={TOM[operacao.status]}>{STATUS_OPERACAO[operacao.status].rotulo}</Selo>
+    <span
+      class:list={[
+        "font-dado text-[0.75rem] uppercase tracking-[0.1em]",
+        urgencia(operacao.data) === "hoje"
+          ? "text-hud"
+          : urgencia(operacao.data) === "semana"
+            ? "text-latao"
+            : "text-texto-2",
+      ]}
+    >
+      {quantoFalta(operacao.data)}
+    </span>
+    <span class="font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+      {lote.rotulo}
+      {operacao.inicio && (
+        <>
+          <span aria-hidden="true" class="px-1.5 text-borda-forte">/</span>
+          início {hora(operacao.inicio)}
+        </>
+      )}
+    </span>
+  </p>
+
+  {
+    (criada || salvo) && (
+      <p class="entrada-suave mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
+        <Selo tom="ok">{criada ? "Criada" : "Salvo"}</Selo>
+        {criada
+          ? "Operação criada. Mande o link abaixo no grupo — uma vez só."
+          : "Alterações salvas."}
+      </p>
+    )
+  }
+
+  {
+    erroGeral && (
+      <p class="mt-8 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
+        {erroGeral}
+      </p>
+    )
+  }
+
+  {/*
+    O link é o produto: é ele que vai para o grupo.
+
+    No evento fechado são DOIS endereços diferentes, e a diferença
+    importa: o de convite abre a lista, o público mostra só a capa.
+    Mostrar os dois juntos, nomeados, evita mandar o errado.
+  */}
+  <div class="mt-8 border border-oliva-700 bg-oliva-050 px-5 py-4">
+    <p class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-oliva-300">
+      {fechada ? "Link de convite — mande só para quem vai jogar" : "Link do evento"}
+    </p>
+    <p class="mt-2 break-all font-dado text-[0.9375rem] text-tinta">
+      {fechada ? (linkConvite ?? enderecoPublico) : enderecoPublico}
+    </p>
+    <p class="mt-2 text-[0.8125rem] leading-snug text-texto-2">
+      {fechada
+        ? "Quem abrir este link entra na lista. Ele é a chave do evento — quem não tem vê só o campo, a data e o horário."
+        : "Mande no grupo uma vez. Quem entrar depois vê a lista atualizada — você não reenvia nada."}
+    </p>
+
+    {fechada && (
+      <div class="mt-4 border-t border-oliva-700/40 pt-3">
+        <p class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+          Endereço público (não abre a lista)
+        </p>
+        <p class="mt-1 break-all font-dado text-[0.8125rem] text-texto-2">
+          {enderecoPublico}
+        </p>
+      </div>
+    )}
+
+    <div class="mt-4 flex flex-wrap gap-3">
+      <a href={enderecoPublico} class={BOTAO_SECUNDARIO}>Ver a página</a>
+      {operacao.status === "rascunho" && (
+        <form method="POST">
+          <input type="hidden" name="acao" value="publicar" />
+          <button type="submit" class={BOTAO_PRIMARIO}>Publicar</button>
+        </form>
+      )}
+      {operacao.status === "publicada" && (
+        <form method="POST">
+          <input type="hidden" name="acao" value="despublicar" />
+          <button type="submit" class={BOTAO_TEXTO}>Voltar para rascunho</button>
+        </form>
+      )}
+    </div>
+  </div>
+
+  <!--
+    Aberta x fechada. Fica junto do link porque é a mesma decisão: o
+    que muda entre as duas é quem consegue usar o endereço acima.
+  -->
+  <div class="mt-8 grid gap-px border border-borda bg-borda sm:grid-cols-4">
+    {
+      RESUMO.map((item) => (
+        <div class="bg-papel px-4 py-3">
+          <p class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+            {item.rotulo}
+          </p>
+          <p class="mt-1 font-dado text-[1.5rem] leading-none text-tinta">{item.valor}</p>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="mt-10">
+    <Painel titulo="Lista" contagem={confirmadas.length}>
+      {
+        inscricoes.length === 0 ? (
+          <p class="px-4 py-6 text-[0.9375rem] leading-relaxed text-texto-2">
+            Ninguém na lista ainda. Mande o link no grupo — e, para quem mandar o
+            nome por lá mesmo, use o campo abaixo.
+          </p>
+        ) : (
+          <ul class="divide-y divide-borda">
+            {inscricoes.map((inscricao) => (
+              <li class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3.5">
+                <div class="min-w-0">
+                  <p class="flex flex-wrap items-center gap-2 text-[0.9375rem] font-semibold leading-tight text-tinta">
+                    {nomeDe(inscricao)}
+                    {inscricao.etiqueta_equipe && (
+                      <span class="font-dado text-[0.75rem] font-normal uppercase tracking-[0.08em] text-oliva-400">
+                        {inscricao.etiqueta_equipe}
+                      </span>
+                    )}
+                    {inscricao.acompanhantes > 0 && (
+                      <span class="font-dado text-[0.75rem] font-normal text-latao">
+                        +{inscricao.acompanhantes}
+                      </span>
+                    )}
+                    {inscricao.status === "espera" && <Selo tom="atencao">Espera</Selo>}
+                    {inscricao.nome_avulso && <Selo tom="neutro">Sem conta</Selo>}
+                  </p>
+                  <p class="mt-1 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+                    {nomeDoLado(inscricao.lado_id)}
+                  </p>
+                </div>
+
+                <div class="flex shrink-0 flex-wrap items-center gap-3">
+                  <form method="POST">
+                    <input type="hidden" name="acao" value="pago" />
+                    <input type="hidden" name="id" value={inscricao.id} />
+                    <input type="hidden" name="valor" value={inscricao.pago ? "0" : "1"} />
+                    <button
+                      type="submit"
+                      class:list={[
+                        "cursor-pointer border px-2.5 py-1.5 font-dado text-[0.6875rem] uppercase tracking-[0.1em] transition-colors duration-150",
+                        inscricao.pago
+                          ? "border-ok bg-ok-bg text-ok-texto"
+                          : "border-borda-forte text-texto-2 hover:border-ok hover:text-ok-texto",
+                      ]}
+                    >
+                      {inscricao.pago ? "Pago" : "Marcar pago"}
+                    </button>
+                  </form>
+
+                  <form method="POST">
+                    <input type="hidden" name="acao" value="presente" />
+                    <input type="hidden" name="id" value={inscricao.id} />
+                    <input type="hidden" name="valor" value={inscricao.presente ? "0" : "1"} />
+                    <button
+                      type="submit"
+                      class:list={[
+                        "cursor-pointer border px-2.5 py-1.5 font-dado text-[0.6875rem] uppercase tracking-[0.1em] transition-colors duration-150",
+                        inscricao.presente
+                          ? "border-oliva-700 bg-oliva-050 text-oliva-300"
+                          : "border-borda-forte text-texto-2 hover:border-oliva-500 hover:text-oliva-300",
+                      ]}
+                    >
+                      {inscricao.presente ? "Chegou" : "Check-in"}
+                    </button>
+                  </form>
+
+                  <form method="POST">
+                    <input type="hidden" name="acao" value="remover" />
+                    <input type="hidden" name="id" value={inscricao.id} />
+                    <button type="submit" class={BOTAO_TEXTO}>Tirar</button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </Painel>
+  </div>
+
+  <!-- Absorve quem mandou o nome no grupo em vez de entrar pelo site. -->
+  <div class="mt-10">
+    <Painel
+      titulo="Anotar quem mandou no grupo"
+      descricao="Sem conta, sem convite. Você digita o nome e ele entra na lista."
+      semMoldura
+    >
+      <form method="POST" class="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="acao" value="avulso" />
+        <div class="min-w-[14rem] flex-1">
+          <label for="nome_avulso" class={ROTULO_CAMPO}>Nome</label>
+          <input
+            type="text"
+            id="nome_avulso"
+            name="nome_avulso"
+            maxlength="60"
+            placeholder="Guilherme Abreu"
+            class={ENTRADA}
+          />
+          {erroDe.nome_avulso && <p class={ERRO_CAMPO}>{erroDe.nome_avulso}</p>}
+        </div>
+        {lados.length > 0 && (
+          <div class="w-[12rem]">
+            <label for="lado_avulso" class={ROTULO_CAMPO}>Lado</label>
+            <select id="lado_avulso" name="lado_id" class={SELECAO}>
+              {lados.map((lado) => (
+                <option value={lado.id}>{lado.nome}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <button type="submit" class={BOTAO_SECUNDARIO}>Anotar</button>
+      </form>
+    </Painel>
+  </div>
+
+  <div class="mt-12" id="editar">
+    <h2 class="font-display text-[1.25rem] font-bold uppercase text-tinta">Editar evento</h2>
+    <p class="mt-1.5 max-w-[62ch] text-[0.9375rem] leading-relaxed text-texto-2">
+      Mude o que precisar e salve. Tudo aqui é uma coisa só.
+    </p>
+
+    <form method="POST" class="mt-6 max-w-[42rem] space-y-7">
+      <input type="hidden" name="acao" value="salvar" />
+
+      {/*
+        Enter dentro de um campo aciona o PRIMEIRO botão de submit do
+        formulário — que agora seria o "Remover" do primeiro lado. Este
+        botão sem nome vem antes e não manda nada além de `acao=salvar`:
+        apertar Enter salva, como sempre salvou.
+      */}
+      <button type="submit" hidden tabindex="-1">Salvar</button>
+
+      {/*
+        Aberto x fechado é um CAMPO, não um botão à parte: quem organiza
+        muda isso junto com o resto e salva uma vez só.
+      */}
+      <fieldset>
+        <legend class={ROTULO_CAMPO}>Quem pode entrar</legend>
+        <div class="mt-2 space-y-2">
+          <label class={LINHA_CAIXA}>
+            <input
+              type="radio"
+              name="visibilidade"
+              value="aberta"
+              checked={!fechada}
+              class="mt-0.5 h-[1.15rem] w-[1.15rem] shrink-0 accent-oliva-500"
+            />
+            <span class="text-[0.9375rem] leading-snug text-texto">
+              Aberto para todo mundo
+              <span class="mt-0.5 block text-[0.8125rem] text-texto-2">
+                Qualquer pessoa acha o evento na agenda e confirma presença.
+              </span>
+            </span>
+          </label>
+
+          <label class={LINHA_CAIXA}>
+            <input
+              type="radio"
+              name="visibilidade"
+              value="fechada"
+              checked={fechada}
+              class="mt-0.5 h-[1.15rem] w-[1.15rem] shrink-0 accent-oliva-500"
+            />
+            <span class="text-[0.9375rem] leading-snug text-texto">
+              Fechado, só por convite
+              <span class="mt-0.5 block text-[0.8125rem] text-texto-2">
+                Aparece na agenda com data e campo, mas só entra quem receber o
+                seu link.
+              </span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div>
+        <label for="whatsapp_contato" class={ROTULO_CAMPO}>
+          WhatsApp para pedir convite{" "}
+          <span class="font-normal text-texto-2">(opcional)</span>
+        </label>
+        <input
+          type="tel"
+          id="whatsapp_contato"
+          name="whatsapp_contato"
+          value={formatarWhatsapp(operacao.whatsapp_contato ?? null)}
+          placeholder="(51) 99999-8888"
+          aria-invalid={erroDe.whatsapp_contato ? "true" : undefined}
+          class={erroDe.whatsapp_contato ? ENTRADA_INVALIDA : ENTRADA}
+        />
+        <p class={AJUDA_CAMPO}>
+          É por aqui que fala com você <strong class="font-semibold text-texto">quem
+          viu o evento na agenda mas não recebeu o link de convite</strong>. A
+          pessoa aperta um botão e cai no seu WhatsApp já sabendo qual evento é.
+          Deixe em branco se preferir combinar por fora — o botão simplesmente
+          não aparece.
+        </p>
+        <p class={AJUDA_CAMPO}>
+          Só é mostrado quando o evento é fechado. Em evento aberto o seu
+          telefone não vai para lugar nenhum.
+        </p>
+        {erroDe.whatsapp_contato && <p class={ERRO_CAMPO}>{erroDe.whatsapp_contato}</p>}
+      </div>
+
+      <div class="flex flex-wrap gap-4">
+        <div class="min-w-[10rem] flex-1">
+          <label for="data" class={ROTULO_CAMPO}>Data</label>
+          <input
+            type="date"
+            id="data"
+            name="data"
+            required
+            value={operacao.data}
+            aria-invalid={erroDe.data ? "true" : undefined}
+            class={erroDe.data ? ENTRADA_INVALIDA : ENTRADA}
+          />
+          {erroDe.data && <p class={ERRO_CAMPO}>{erroDe.data}</p>}
+        </div>
+        <div class="min-w-[10rem] flex-1">
+          <label for="estilo" class={ROTULO_CAMPO}>Estilo</label>
+          <select id="estilo" name="estilo" class={SELECAO}>
+            <option value="">—</option>
+            {ESTILOS_OPERACAO.map((e) => (
+              <option value={e.valor} selected={operacao.estilo === e.valor}>
+                {e.rotulo}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <fieldset>
+        <legend class={ROTULO_CAMPO}>Horários</legend>
+        <div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { nome: "abertura", rotulo: "Portão", valor: operacao.abertura },
+            { nome: "briefing", rotulo: "Briefing", valor: operacao.briefing },
+            { nome: "inicio", rotulo: "Início", valor: operacao.inicio },
+            { nome: "fim", rotulo: "Fim", valor: operacao.fim },
+          ].map((campo) => (
+            <div>
+              <label for={campo.nome} class="block text-[0.8125rem] leading-tight text-texto-2">
+                {campo.rotulo}
+              </label>
+              <input
+                type="time"
+                id={campo.nome}
+                name={campo.nome}
+                value={hora(campo.valor)}
+                class={ENTRADA}
+              />
+            </div>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend class={ROTULO_CAMPO}>Valor</legend>
+        <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div>
+            <label for="preco" class="block text-[0.8125rem] leading-tight text-texto-2">
+              Antecipado
+            </label>
+            <input
+              type="text"
+              inputmode="decimal"
+              id="preco"
+              name="preco"
+              value={precoParaEntrada(operacao.preco)}
+              placeholder="35,00"
+              aria-invalid={erroDe.preco ? "true" : undefined}
+              class={erroDe.preco ? ENTRADA_INVALIDA : ENTRADA}
+            />
+            {erroDe.preco && <p class={ERRO_CAMPO}>{erroDe.preco}</p>}
+          </div>
+          <div>
+            <label for="prazo_lote" class="block text-[0.8125rem] leading-tight text-texto-2">
+              Até
+            </label>
+            <input
+              type="date"
+              id="prazo_lote"
+              name="prazo_lote"
+              value={operacao.prazo_lote ?? ""}
+              aria-invalid={erroDe.prazo_lote ? "true" : undefined}
+              class={erroDe.prazo_lote ? ENTRADA_INVALIDA : ENTRADA}
+            />
+            {erroDe.prazo_lote && <p class={ERRO_CAMPO}>{erroDe.prazo_lote}</p>}
+          </div>
+          <div>
+            <label for="preco_no_dia" class="block text-[0.8125rem] leading-tight text-texto-2">
+              No dia
+            </label>
+            <input
+              type="text"
+              inputmode="decimal"
+              id="preco_no_dia"
+              name="preco_no_dia"
+              value={precoParaEntrada(operacao.preco_no_dia)}
+              placeholder="50,00"
+              aria-invalid={erroDe.preco_no_dia ? "true" : undefined}
+              class={erroDe.preco_no_dia ? ENTRADA_INVALIDA : ENTRADA}
+            />
+            {erroDe.preco_no_dia && <p class={ERRO_CAMPO}>{erroDe.preco_no_dia}</p>}
+          </div>
+        </div>
+      </fieldset>
+
+      {/*
+        A lista mostra os lados que a operação TEM — nem um campo a
+        mais. Cresce um por vez pelo botão, encolhe pelo "Remover".
+        Antes só dava para renomear o que já existia: quem abriu o
+        evento com dois times ficava com dois para sempre.
+
+        Sem JavaScript: acrescentar e remover são botões de submit
+        comuns, e o servidor faz o resto. Nada aqui depende de script.
+      */}
+      <fieldset id="lados">
+        <legend class={ROTULO_CAMPO}>Lados e vagas</legend>
+        <div class="mt-2 space-y-3">
+          {lados.map((lado) => (
+            <div class="flex flex-wrap items-end gap-3">
+              <div class="min-w-[12rem] flex-1">
+                <label
+                  for={`nome_${lado.id}`}
+                  class="block text-[0.8125rem] leading-tight text-texto-2"
+                >
+                  Nome do lado
+                </label>
+                <input
+                  type="text"
+                  id={`nome_${lado.id}`}
+                  name={`nome_${lado.id}`}
+                  maxlength="40"
+                  value={lado.nome}
+                  class={ENTRADA}
+                />
+              </div>
+              <div class="w-[8rem]">
+                <label
+                  for={`vagas_${lado.id}`}
+                  class="block text-[0.8125rem] leading-tight text-texto-2"
+                >
+                  Vagas
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="200"
+                  id={`vagas_${lado.id}`}
+                  name={`vagas_${lado.id}`}
+                  value={lado.vagas ?? ""}
+                  class={ENTRADA}
+                />
+              </div>
+              {lados.length > LADOS_MINIMO && (
+                <button
+                  type="submit"
+                  name="remover_lado"
+                  value={lado.id}
+                  class="mb-2.5 cursor-pointer text-[0.8125rem] font-semibold text-texto-2 transition-colors duration-150 hover:text-alerta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alerta"
+                  title={
+                    naLista[lado.id]
+                      ? `${naLista[lado.id]} na lista deste lado ficam sem lado`
+                      : undefined
+                  }
+                >
+                  Remover
+                  {naLista[lado.id] ? ` (${naLista[lado.id]} na lista)` : ""}
+                </button>
+              )}
+            </div>
+          ))}
+
+        </div>
+
+        {/*
+          Um clique, um lado. O botão salva o que está na tela e cria o
+          próximo já nomeado — nada de campo em branco esperando ser
+          preenchido, e nada que dependa de JavaScript.
+        */}
+        {podeAcrescentarLado && (
+          <button type="submit" name="adicionar_lado" value="1" class={BOTAO_SECUNDARIO + " mt-3"}>
+            + Acrescentar lado
+          </button>
+        )}
+        <p class={AJUDA_CAMPO}>
+          Vazio = sem limite. Diminuir as vagas não tira ninguém que já está
+          confirmado, e remover um lado não apaga quem estava nele — essas
+          pessoas voltam para a lista como "Sem lado".
+        </p>
+        {erroDe.lados && <p class={ERRO_CAMPO}>{erroDe.lados}</p>}
+      </fieldset>
+
+      <div>
+        <label for="pagamento" class={ROTULO_CAMPO}>Como pagar</label>
+        <textarea
+          id="pagamento"
+          name="pagamento"
+          rows="3"
+          maxlength={PAGAMENTO_MAXIMO}
+          class={ENTRADA}
+          set:text={operacao.pagamento ?? ""}
+        />
+      </div>
+
+      <div>
+        <label for="observacoes" class={ROTULO_CAMPO}>Observações</label>
+        <textarea
+          id="observacoes"
+          name="observacoes"
+          rows="3"
+          maxlength={OBSERVACOES_MAXIMO}
+          class={ENTRADA}
+          set:text={operacao.observacoes ?? ""}
+        />
+      </div>
+
+      <div class="sticky bottom-4 flex flex-wrap items-center gap-4 border-t border-borda bg-fundo/95 pt-4">
+        <button type="submit" class={BOTAO_PRIMARIO}>Salvar</button>
+        <a href={`/operacoes/${operacao.slug}`} class={BOTAO_TEXTO}>Ver a página do evento</a>
+      </div>
+    </form>
+  </div>
+
+  {/*
+    Cancelar e excluir vivem no mesmo canto do fim da página, e é de
+    propósito que cancelar venha primeiro: com gente na lista, cancelar
+    é quase sempre o certo — o evento continua no ar com o motivo à
+    vista de quem ia jogar. Excluir é para o que nunca chegou a ser
+    evento: rascunho, teste, data errada.
+  */}
+  {
+    operacao.status !== "cancelada" && (
+      <div class="mt-12 border-t border-borda pt-6">
+        <details class="group">
+          <summary class="cursor-pointer list-none text-[0.9375rem] font-semibold text-texto-2 transition-colors duration-150 hover:text-alerta">
+            Cancelar a operação
+          </summary>
+          <form method="POST" class="mt-4 max-w-[34rem]">
+            <input type="hidden" name="acao" value="cancelar" />
+            <label for="motivo" class={ROTULO_CAMPO}>Motivo</label>
+            <input
+              type="text"
+              id="motivo"
+              name="motivo"
+              maxlength="200"
+              placeholder="Chuva forte, campo alagado"
+              class={ENTRADA}
+            />
+            <p class={AJUDA_CAMPO}>
+              Aparece na página para quem está na lista — e só para eles, não
+              para o grupo inteiro.
+            </p>
+            {erroDe.motivo && <p class={ERRO_CAMPO}>{erroDe.motivo}</p>}
+            <button
+              type="submit"
+              class="mt-4 cursor-pointer border border-alerta bg-transparent px-4 py-2.5 text-[0.9375rem] font-semibold text-alerta-texto transition-colors duration-150 hover:bg-alerta-bg"
+            >
+              Cancelar operação
+            </button>
+          </form>
+        </details>
+      </div>
+    )
+  }
+
+  <div
+    class:list={[
+      "border-t border-borda pt-6",
+      operacao.status === "cancelada" ? "mt-12" : "mt-6",
+    ]}
+  >
+    {
+      confirmarExclusao === null ? (
+        <details class="group">
+          <summary class="cursor-pointer list-none text-[0.9375rem] font-semibold text-texto-2 transition-colors duration-150 hover:text-alerta">
+            Excluir a operação
+          </summary>
+          <form method="POST" class="mt-4 max-w-[34rem]">
+            <input type="hidden" name="acao" value="excluir" />
+            <p class="text-[0.9375rem] leading-relaxed text-texto-2">
+              Apaga o evento, a lista de presença e o link que você mandou no
+              grupo. Não tem como desfazer, e ninguém é avisado.
+            </p>
+            <button
+              type="submit"
+              class="mt-4 cursor-pointer border border-alerta bg-transparent px-4 py-2.5 text-[0.9375rem] font-semibold text-alerta-texto transition-colors duration-150 hover:bg-alerta-bg"
+            >
+              Excluir operação
+            </button>
+          </form>
+        </details>
+      ) : (
+        /* O aviso vem do servidor, e não de um `confirm()`: sem
+           JavaScript o clique apagaria na hora, e este é justamente o
+           caso que não pode ser um clique distraído. */
+        <div class="border border-alerta bg-alerta-bg px-5 py-5">
+          <p class="text-[1.0625rem] font-semibold leading-snug text-alerta-texto">
+            Tem {confirmarExclusao} {confirmarExclusao === 1 ? "pessoa" : "pessoas"}{" "}
+            na lista.
+          </p>
+          <p class="mt-2 max-w-[62ch] text-[0.9375rem] leading-relaxed text-texto">
+            Excluir apaga o evento e a lista junto, sem volta e sem aviso a
+            quem confirmou. Se a operação foi desmarcada, cancele em vez de
+            excluir — aí o motivo aparece para quem estava na lista.
+          </p>
+          <div class="mt-5 flex flex-wrap items-center gap-4">
+            <form method="POST">
+              <input type="hidden" name="acao" value="excluir" />
+              <input type="hidden" name="confirmado" value="1" />
+              <button
+                type="submit"
+                class="cursor-pointer border border-alerta bg-transparent px-4 py-2.5 text-[0.9375rem] font-semibold text-alerta-texto transition-colors duration-150 hover:bg-alerta-bg"
+              >
+                Excluir mesmo assim
+              </button>
+            </form>
+            <a href={`/conta/operacoes/${operacao.slug}`} class={BOTAO_TEXTO}>
+              Deixar como está
+            </a>
+          </div>
+        </div>
+      )
+    }
+  </div>
+</Conta>

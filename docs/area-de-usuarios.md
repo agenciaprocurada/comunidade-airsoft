@@ -103,6 +103,51 @@ service role, e ela ignora RLS.
 
 ---
 
+---
+
+## Reivindicação de página
+
+Fluxo: ficha → "Reivindicar esta página" → `/reivindicar?tipo=campo&id=...`
+
+- **Sem login:** vai para `/entrar` e volta para o mesmo pedido depois.
+- **Sem perfil completo:** vai para `/conta/perfil` com o motivo explicado.
+- **Com perfil completo:** formulário (relação com o local, telefone,
+  como confirmar, links de comprovação, declaração de veracidade).
+- Nunca é aprovado sozinho. Cai na fila em `/conta/admin/reivindicacoes`.
+
+Quatro regras ficam **no banco**, não na tela — mudar o front não fura nenhuma:
+
+| Regra | Como é garantida |
+|---|---|
+| Só perfil completo abre pedido | policy de insert consulta `perfis.perfil_completo` |
+| Ninguém abre pedido já aprovado | policy de insert exige `status = 'pendente'` |
+| Uma ficha tem no máximo um dono | índice único parcial `where status = 'aprovada'` |
+| Só admin decide | policy de update exige `e_admin()` |
+
+### Virar administrador
+
+Não existe tela para isso — é SQL, de propósito:
+
+```sql
+insert into public.administradores (id)
+select id from auth.users where lower(email) = 'seu@email.com'
+on conflict (id) do nothing;
+```
+
+A conta precisa ter entrado no site pelo menos uma vez (senão não existe
+em `auth.users`). Para remover: `delete from public.administradores where id = '...';`
+
+### Decisões conscientes
+
+- **Links, não upload de arquivo.** Guardar documento cria dever de guarda e
+  descarte sob LGPD. Link de post oficial é prova mais forte e mais barata.
+- **Sem código de verificação por enquanto.** Você confere manualmente pelo
+  canal que já está na ficha (89% dos campos e 100% das lojas têm algum).
+- **Quem pediu não cancela pelo site.** Só admin muda status nesta versão.
+- **`/conta/admin` devolve 404, não 403**, para quem não é admin.
+
+---
+
 ## Decisões que valem revisitar depois
 
 | Assunto | Situação hoje | Quando mexer |

@@ -1,0 +1,40 @@
+---
+/**
+ * Card da área logada — o vocabulário único de "um item da minha conta".
+ *
+ * Existia só na tela de réplicas e foi copiado à mão; operações,
+ * equipes e páginas ficaram com linha simples. Duas gramáticas na
+ * mesma área é o defeito mais caro de UI de produto: a pessoa
+ * reaprende o mesmo objeto a cada tela.
+ *
+ * `destaque` é o estado "este é o principal / o seu": moldura viva e
+ * brilho. `href` transforma o card inteiro em alvo de clique, sem
+ * perder o foco por teclado.
+ */
+interface Props {
+  destaque?: boolean;
+  /** Card inteiro clicável. Sem isso, o card é só um contêiner. */
+  href?: string;
+  class?: string;
+}
+
+const { destaque = false, href, class: classe } = Astro.props;
+
+const Tag = href ? "a" : "div";
+---
+
+<li class="contents">
+  <Tag
+    href={href}
+    class:list={[
+      "moldura-hud flex flex-col border bg-fundo/80 p-5 transition-colors duration-150",
+      destaque
+        ? "moldura-hud-ativa border-hud/45"
+        : "border-borda hover:border-borda-forte hover:bg-papel-2/60",
+      href && "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hud",
+      classe,
+    ]}
+  >
+    <slot />
+  </Tag>
+</li>

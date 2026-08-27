@@ -1,0 +1,47 @@
+---
+/**
+ * Blueprint da réplica por categoria.
+ *
+ * As sete artes vieram em PNG 1536² com moldura preta; o script de
+ * preparo recortou, deu 6% de folga e gravou WebP 80 com no máximo
+ * 300px (3 a 8 KB cada). Ficam em src/assets para o Astro versionar
+ * o nome do arquivo e escrever width/height sozinho.
+ *
+ * "Outra" não tem arte — cai no ícone vetorial, que é justamente o
+ * desenho de "não se encaixa em nenhuma silhueta".
+ */
+import { Image } from "astro:assets";
+import IconeCategoria from "./IconeCategoria.astro";
+import { rotuloCategoria, type Categoria } from "../../lib/armamento";
+
+interface Props {
+  categoria: Categoria;
+  /** Largura renderizada. A imagem nunca passa de 300px de origem. */
+  class?: string;
+}
+
+const { categoria, class: classe } = Astro.props;
+
+const artes = import.meta.glob<{ default: ImageMetadata }>(
+  "../../assets/replicas/*.webp",
+  { eager: true },
+);
+
+const arte = artes[`../../assets/replicas/${categoria}.webp`]?.default;
+---
+
+{
+  arte ? (
+    <Image
+      src={arte}
+      alt={`Ilustração de ${rotuloCategoria(categoria).toLowerCase()}`}
+      class:list={["arte-replica h-auto w-full object-contain", classe]}
+      loading="lazy"
+      decoding="async"
+    />
+  ) : (
+    <span class:list={["flex items-center justify-center", classe]}>
+      <IconeCategoria categoria={categoria} class="h-24 w-24 text-hud/80" />
+    </span>
+  )
+}

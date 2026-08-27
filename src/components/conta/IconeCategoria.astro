@@ -1,0 +1,93 @@
+---
+/**
+ * Ícone por categoria de réplica.
+ *
+ * Deliberadamente ESQUEMÁTICO, não ilustrativo. O documento de projeto
+ * lista "ser visto como vendedor de réplica" como risco alto, e o
+ * PRODUCT.md tem "tático agressivo / arma de fogo" como anti-referência.
+ * Silhueta caprichada de fuzil empurra o site para lá de graça.
+ *
+ * Então o que cada ícone comunica é a SILHUETA DE USO — longa, compacta,
+ * de mão, com luneta, de cano largo — na mesma linguagem angular do
+ * design system: traço reto, ponta quadrada, canto em esquadria, sem
+ * curva. Nunca sai da área logada.
+ */
+import type { Categoria } from "../../lib/armamento";
+
+interface Props {
+  categoria: Categoria;
+  class?: string;
+}
+
+const { categoria, class: classe } = Astro.props;
+
+/**
+ * Grade de 24×24, no máximo três gestos por ícone.
+ *
+ * A primeira versão desenhava a silhueta inteira — coronha, carregador,
+ * guarda-mato — e a 20px virava mancha: rifle, DMR e metralhadora
+ * ficavam idênticos. Detalhe pequeno não sobrevive em ícone de lista.
+ *
+ * Agora cada categoria carrega UM traço que só ela tem:
+ *   rifle        corpo longo, sem luneta
+ *   smg          carregador vertical exagerado
+ *   pistola      o L do ferrolho sobre o punho
+ *   sniper       o V do bipé
+ *   dmr          a luneta erguida, sem bipé
+ *   shotgun      a linha dobrada do cano duplo
+ *   metralhadora a caixa de munição pesada
+ *   outra        reticências: o que não se encaixa
+ */
+const DESENHOS: Record<Categoria, { titulo: string; caminho: string }> = {
+  rifle: {
+    titulo: "Rifle",
+    caminho: "M4 12h16M2 16l3-4M10 12v5h3v-5",
+  },
+  smg: {
+    titulo: "Submetralhadora",
+    caminho: "M7 10h12M5 14l2-4M10 10v9h3v-9",
+  },
+  // O cano saliente à direita é o que salva: sem ele, ferrolho sobre
+  // punho vira um "T" simétrico e some no meio dos outros ícones.
+  pistola: {
+    titulo: "Pistola",
+    caminho: "M3 9h13v4H9l-1 7H5l1-7H3zM16 10h5v2h-5",
+  },
+  sniper: {
+    titulo: "Sniper",
+    caminho: "M2 12h20M8 7h7v3H8zM17 12l-3 8M17 12l3 8",
+  },
+  dmr: {
+    titulo: "DMR",
+    caminho: "M3 13h18M8 8h8v3H8zM10 13v5h3v-5",
+  },
+  shotgun: {
+    titulo: "Shotgun",
+    caminho: "M7 9h14M7 13h14M7 9v4M2 17l5-4",
+  },
+  metralhadora: {
+    titulo: "Metralhadora",
+    caminho: "M4 10h16M7 10v8h8v-8M17 10l-2 9M17 10l3 9",
+  },
+  outra: {
+    titulo: "Outra",
+    caminho: "M5 12h1M11 12h1M17 12h1",
+  },
+};
+
+const { titulo, caminho } = DESENHOS[categoria];
+---
+
+<svg
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.75"
+  stroke-linecap="square"
+  stroke-linejoin="miter"
+  role="img"
+  aria-label={titulo}
+  class:list={["shrink-0", classe]}
+>
+  <path d={caminho}></path>
+</svg>

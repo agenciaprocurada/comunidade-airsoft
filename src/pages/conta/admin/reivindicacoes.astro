@@ -1,0 +1,151 @@
+---
+import Conta from "../../../layouts/Conta.astro";
+import Painel from "../../../components/conta/Painel.astro";
+import GradeCards from "../../../components/conta/GradeCards.astro";
+import CardHud from "../../../components/conta/CardHud.astro";
+import Selo from "../../../components/conta/Selo.astro";
+import {
+  COLUNAS_REIVINDICACAO,
+  STATUS,
+  formatarData,
+  type Reivindicacao,
+  type StatusReivindicacao,
+} from "../../../lib/reivindicacao";
+
+export const prerender = false;
+
+// O middleware já devolveu 404 para quem não é administrador.
+const { supabase } = Astro.locals;
+
+const FILTROS = [
+  { valor: "abertos", rotulo: "Na fila" },
+  { valor: "aprovada", rotulo: "Aprovadas" },
+  { valor: "recusada", rotulo: "Recusadas" },
+  { valor: "todos", rotulo: "Todas" },
+] as const;
+
+const filtro = Astro.url.searchParams.get("filtro") ?? "abertos";
+const decidida = Astro.url.searchParams.get("decidida") === "1";
+
+let consulta = supabase
+  .from("reivindicacoes")
+  .select(COLUNAS_REIVINDICACAO)
+  .order("criado_em", { ascending: true });
+
+if (filtro === "abertos") consulta = consulta.in("status", ["pendente", "em_analise"]);
+else if (filtro !== "todos") consulta = consulta.eq("status", filtro);
+
+const { data: pedidos, error } = await consulta.returns<Reivindicacao[]>();
+const lista = pedidos ?? [];
+
+const { count } = await supabase
+  .from("reivindicacoes")
+  .select("id", { count: "exact", head: true })
+  .in("status", ["pendente", "em_analise"]);
+const naFila = count ?? 0;
+
+const TOM: Record<StatusReivindicacao, "ok" | "alerta" | "atencao" | "neutro"> = {
+  pendente: "atencao",
+  em_analise: "atencao",
+  aprovada: "ok",
+  recusada: "alerta",
+  cancelada: "neutro",
+};
+---
+
+<Conta
+  titulo="Reivindicações"
+  descricao="Fila de análise manual."
+  resumo={
+    naFila === 0
+      ? "Nenhum pedido esperando análise."
+      : `${naFila} ${naFila > 1 ? "pedidos esperam" : "pedido espera"} análise. Confirme por um canal oficial da ficha antes de aprovar.`
+  }
+>
+  {
+    decidida && (
+      <p class="entrada-suave mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
+        <Selo tom="ok">Registrado</Selo>
+        Decisão salva com seu nome e a data.
+      </p>
+    )
+  }
+
+  <nav class="mt-8 flex flex-wrap gap-1" aria-label="Filtrar por situação">
+    {
+      FILTROS.map((opcao) => (
+        <a
+          href={`/conta/admin/reivindicacoes?filtro=${opcao.valor}`}
+          aria-current={filtro === opcao.valor ? "page" : undefined}
+          class:list={[
+            "border px-3 py-1.5 text-[0.875rem] font-semibold transition-colors duration-150",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oliva-300",
+            filtro === opcao.valor
+              ? "border-oliva-700 bg-oliva-050 text-oliva-100"
+              : "border-borda text-texto-2 hover:border-borda-forte hover:text-tinta",
+          ]}
+        >
+          {opcao.rotulo}
+        </a>
+      ))
+    }
+  </nav>
+
+  {
+    error && (
+      <p class="mt-6 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
+        Falha ao carregar a fila: {error.message}
+      </p>
+    )
+  }
+
+  <div class="mt-6">
+    {
+      lista.length === 0 ? (
+        <p class="border border-borda bg-papel/60 px-5 py-8 text-[0.9375rem] text-texto-2">
+          {filtro === "abertos"
+            ? "Fila vazia. Nada esperando análise."
+            : "Nenhum pedido com esse filtro."}
+        </p>
+      ) : (
+        <Painel
+          titulo={FILTROS.find((f) => f.valor === filtro)?.rotulo ?? "Pedidos"}
+          contagem={lista.length}
+          semMoldura={true}
+        >
+          <GradeCards>
+            {lista.map((pedido) => (
+              <CardHud href={`/conta/admin/reivindicacoes/${pedido.id}`}>
+                <div class="flex items-start justify-between gap-3">
+                  <p class="font-dado text-[0.75rem] uppercase leading-tight tracking-[0.1em] text-texto-2">
+                    {pedido.tipo_entidade === "campo" ? "Campo" : "Loja"}
+                    <span aria-hidden="true" class="px-1.5 text-borda-forte">/</span>
+                    {formatarData(pedido.criado_em)}
+                  </p>
+                  <Selo tom={TOM[pedido.status]} ponto={pedido.status !== "cancelada"}>
+                    {STATUS[pedido.status].rotulo}
+                  </Selo>
+                </div>
+
+                <p class="mt-4 text-[1.0625rem] font-semibold leading-snug text-tinta">
+                  {pedido.entidade_nome}
+                </p>
+
+                <p class="mt-2.5 line-clamp-3 text-[0.9375rem] leading-snug text-texto-2">
+                  {pedido.mensagem}
+                </p>
+
+                <p class="mt-auto flex items-center gap-2 border-t border-borda pt-4 font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-hud">
+                  Analisar
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
+                    <path d="m9 5 7 7-7 7" stroke-linecap="square" />
+                  </svg>
+                </p>
+              </CardHud>
+            ))}
+          </GradeCards>
+        </Painel>
+      )
+    }
+  </div>
+</Conta>

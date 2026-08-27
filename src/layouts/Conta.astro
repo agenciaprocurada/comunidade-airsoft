@@ -1,93 +1,225 @@
 ---
 import Base from "./Base.astro";
+import IconeNav from "../components/conta/IconeNav.astro";
 
 /**
- * Moldura das paginas de /conta: barra do usuario, sub-navegacao e o
- * botao de sair. Sempre noindex — area logada nao vai para o Google.
+ * Casca da área logada.
+ *
+ * Antes: uma segunda barra horizontal colada no Header do site, as duas
+ * em caixa alta display. Duas navegações empilhadas, peso dobrado logo
+ * na entrada, e sem espaço para crescer (equipes e operações ainda vêm).
+ *
+ * Agora: coluna lateral no desktop, faixa rolável no celular. Separa os
+ * dois níveis — sair da conta para o site continua sendo o Header — e
+ * aguenta a lista de seções crescer.
  */
 interface Props {
   titulo: string;
   descricao: string;
+  /** Texto curto abaixo do título da página. */
+  resumo?: string;
 }
 
-const { titulo, descricao } = Astro.props;
-const { usuario, perfil } = Astro.locals;
+const { titulo, descricao, resumo } = Astro.props;
+const { usuario, perfil, admin, paginas } = Astro.locals;
 
-const abas = [
-  { href: "/conta", texto: "Painel" },
-  { href: "/conta/perfil", texto: "Meu perfil" },
+/**
+ * Ordem do menu. "Painel" e "Meu perfil" viraram um item só: o painel
+ * era um índice de coisas que já estão na navegação ao lado, então
+ * duplicava a própria barra.
+ *
+ * `href: null` = seção anunciada mas ainda não construída. Aparece
+ * inerte, com marca de "em breve", em vez de levar a lugar nenhum:
+ * item de menu que quebra ensina a pessoa a não confiar no menu.
+ *
+ * "Minhas páginas" só entra para quem já teve alguma reivindicação
+ * aprovada — quem não tem campo nem loja não precisa da seção.
+ */
+const secoes = [
+  { href: "/conta", texto: "Meu perfil", icone: "perfil" as const },
+  { href: "/conta/equipes", texto: "Equipes", icone: "equipes" as const },
+  { href: "/conta/armamentos", texto: "Minhas réplicas", icone: "replicas" as const },
+  { href: "/conta/operacoes", texto: "Meus eventos", icone: "operacoes" as const },
+  { href: "/conta/mapas", texto: "Meus mapas", icone: "mapas" as const },
+  ...(paginas > 0
+    ? [{ href: "/conta/reivindicacoes", texto: "Minhas páginas", icone: "paginas" as const }]
+    : []),
 ];
 
+const moderacao = admin
+  ? [
+      { href: "/conta/admin/reivindicacoes", texto: "Reivindicações", icone: "moderacao" as const },
+      { href: "/conta/admin/diretorio", texto: "Diretório", icone: "paginas" as const },
+    ]
+  : [];
+
 const atual = Astro.url.pathname;
+const ativo = (href: string | null) =>
+  href === null ? false : href === "/conta" ? atual === "/conta" : atual.startsWith(href);
+
 const nome = perfil?.nome ?? usuario?.email ?? "jogador";
-const iniciais = nome.trim().charAt(0).toUpperCase();
+const inicial = nome.trim().charAt(0).toUpperCase();
+
+const CLASSE_ITEM =
+  "flex items-center gap-2.5 px-3 py-2 text-[0.9375rem] leading-tight transition-colors duration-150 " +
+  "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-oliva-300";
 ---
 
 <Base titulo={titulo} descricao={descricao} semIndexar={true}>
-  <div class="border-b border-borda bg-papel/40">
-    <div
-      class="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 px-5 py-5 md:px-12"
-    >
-      <div class="flex items-center gap-3">
-        {
-          perfil?.foto_url ? (
-            <img
-              src={perfil.foto_url}
-              alt=""
-              width="40"
-              height="40"
-              referrerpolicy="no-referrer"
-              class="h-10 w-10 border border-borda-forte object-cover"
-            />
-          ) : (
-            <span class="flex h-10 w-10 items-center justify-center border border-borda-forte bg-oliva-050 font-display text-lg font-bold text-oliva-300">
-              {iniciais}
-            </span>
-          )
-        }
-        <div>
-          <p class="rotulo">Área do jogador</p>
-          <p class="font-display text-lg font-bold uppercase tracking-[0.04em] leading-tight">
-            {nome}
-          </p>
-        </div>
-      </div>
+  <div class="mx-auto max-w-[1240px] px-5 md:px-12">
+    <div class="lg:grid lg:grid-cols-[14.5rem_minmax(0,1fr)] lg:gap-12">
+      <!-- Identidade + navegação -->
+      <div class="lg:sticky lg:top-24 lg:self-start lg:py-12">
+        <div class="flex items-center gap-3 border-b border-borda py-5 lg:border-b-0 lg:pb-6 lg:pt-0">
+          {
+            perfil?.foto_url ? (
+              <img
+                src={perfil.foto_url}
+                alt=""
+                width="36"
+                height="36"
+                referrerpolicy="no-referrer"
+                class="octogono h-11 w-11 shrink-0 bg-oliva-050 object-cover"
+              />
+            ) : (
+              <span class="octogono flex h-11 w-11 shrink-0 items-center justify-center bg-oliva-050 text-[1.0625rem] font-semibold text-hud">
+                {inicial}
+              </span>
+            )
+          }
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-[0.9375rem] font-semibold leading-tight text-tinta">
+              {nome}
+            </p>
+            <p class="truncate text-[0.8125rem] leading-tight text-texto-2">
+              {usuario?.email}
+            </p>
+          </div>
 
-      <div class="flex items-center gap-6">
-        <nav aria-label="Minha conta">
-          <ul class="flex items-center gap-6">
+          <!-- No celular o "sair" fica aqui; no desktop vai para o pé da coluna. -->
+          <form method="POST" action="/auth/sair" class="lg:hidden">
+            <button
+              type="submit"
+              class="cursor-pointer px-2 py-1 text-[0.8125rem] font-semibold text-texto-2 transition-colors duration-150 hover:text-alerta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oliva-300"
+            >
+              Sair
+            </button>
+          </form>
+        </div>
+
+        <nav aria-label="Minha conta" class="lg:mt-2">
+          <!--
+            Quebra em linha no celular em vez de rolar na horizontal.
+            Rolagem lateral escondia a última seção sem nenhuma pista de
+            que havia mais — item de navegação invisível é item que não
+            existe.
+          -->
+          <ul
+            class="-mx-1 flex flex-wrap gap-1 py-2 lg:mx-0 lg:flex-col lg:flex-nowrap lg:gap-0.5 lg:py-0"
+          >
             {
-              abas.map((aba) => (
-                <li>
-                  <a
-                    href={aba.href}
-                    aria-current={atual === aba.href ? "page" : undefined}
-                    class:list={[
-                      "block border-b-2 pb-1 font-display text-base font-bold uppercase tracking-[0.08em] transition-colors",
-                      atual === aba.href
-                        ? "border-oliva-500 text-tinta"
-                        : "border-transparent text-tinta/70 hover:border-oliva-500 hover:text-tinta",
-                    ]}
-                  >
-                    {aba.texto}
-                  </a>
-                </li>
-              ))
+              secoes.map((secao) =>
+                secao.href === null ? (
+                  /* Seção anunciada e ainda não construída: some o
+                     link, fica o rótulo com a marca de espera. */
+                  <li class="shrink-0 lg:shrink">
+                    <span
+                      class:list={[CLASSE_ITEM, "cursor-default whitespace-nowrap text-desabilitado lg:whitespace-normal"]}
+                    >
+                      <IconeNav nome={secao.icone} class="h-[1.15rem] w-[1.15rem]" />
+                      {secao.texto}
+                      <span class="ml-auto hidden font-dado text-[0.625rem] uppercase tracking-[0.12em] lg:inline">
+                        em breve
+                      </span>
+                    </span>
+                  </li>
+                ) : (
+                  <li class="shrink-0 lg:shrink">
+                    <a
+                      href={secao.href}
+                      aria-current={ativo(secao.href) ? "page" : undefined}
+                      class:list={[
+                        CLASSE_ITEM,
+                        "whitespace-nowrap lg:whitespace-normal",
+                        ativo(secao.href)
+                          ? "bg-oliva-050 font-semibold text-oliva-100"
+                          : "text-texto hover:bg-papel hover:text-tinta",
+                      ]}
+                    >
+                      <IconeNav nome={secao.icone} class="h-[1.15rem] w-[1.15rem]" />
+                      {secao.texto}
+                    </a>
+                  </li>
+                ),
+              )
+            }
+
+            {
+              moderacao.length > 0 && (
+                <>
+                  <li
+                    aria-hidden="true"
+                    class="hidden lg:mt-4 lg:mb-1 lg:block lg:h-px lg:w-full bg-borda"
+                  />
+                  <li class="hidden lg:block">
+                    <p class="px-3 pb-1 font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+                      Moderação
+                    </p>
+                  </li>
+                  {moderacao.map((secao) => (
+                    <li class="shrink-0 lg:shrink">
+                      <a
+                        href={secao.href}
+                        aria-current={ativo(secao.href) ? "page" : undefined}
+                        class:list={[
+                          CLASSE_ITEM,
+                          "whitespace-nowrap lg:whitespace-normal",
+                          ativo(secao.href)
+                            ? "bg-oliva-050 font-semibold text-oliva-100"
+                            : "text-texto hover:bg-papel hover:text-tinta",
+                        ]}
+                      >
+                        <IconeNav nome={secao.icone} class="h-[1.15rem] w-[1.15rem]" />
+                        <span class="lg:hidden">Moderação · </span>{secao.texto}
+                      </a>
+                    </li>
+                  ))}
+                </>
+              )
             }
           </ul>
         </nav>
 
-        <form method="POST" action="/auth/sair">
+        <form method="POST" action="/auth/sair" class="mt-6 hidden border-t border-borda pt-4 lg:block">
           <button
             type="submit"
-            class="cursor-pointer font-display text-base font-bold uppercase tracking-[0.08em] text-texto-2 transition-colors hover:text-alerta"
+            class="flex cursor-pointer items-center gap-2.5 px-3 py-1 text-[0.9375rem] text-texto-2 transition-colors duration-150 hover:text-alerta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oliva-300"
           >
-            Sair
+            <IconeNav nome="sair" class="h-[1.15rem] w-[1.15rem]" />
+            Sair da conta
           </button>
         </form>
       </div>
+
+      <!-- Conteúdo -->
+      <div class="min-w-0 py-8 lg:py-12">
+        <header>
+          <h1
+            class="font-display text-[1.75rem] font-bold uppercase leading-none tracking-[0.01em] text-tinta md:text-[2rem]"
+          >
+            {titulo}
+          </h1>
+          {
+            resumo && (
+              <p class="mt-3 max-w-[68ch] text-[1.0625rem] leading-relaxed text-texto-2">
+                {resumo}
+              </p>
+            )
+          }
+        </header>
+
+        <slot />
+      </div>
     </div>
   </div>
-
-  <slot />
 </Base>

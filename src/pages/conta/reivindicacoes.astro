@@ -1,0 +1,125 @@
+---
+import Conta from "../../layouts/Conta.astro";
+import Painel from "../../components/conta/Painel.astro";
+import GradeCards from "../../components/conta/GradeCards.astro";
+import CardHud from "../../components/conta/CardHud.astro";
+import ChipHud from "../../components/conta/ChipHud.astro";
+import Selo from "../../components/conta/Selo.astro";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "../../lib/estilos-form";
+import {
+  COLUNAS_REIVINDICACAO,
+  STATUS,
+  VINCULOS,
+  formatarData,
+  type Reivindicacao,
+  type StatusReivindicacao,
+} from "../../lib/reivindicacao";
+
+export const prerender = false;
+
+const { supabase, usuario } = Astro.locals;
+const enviada = Astro.url.searchParams.get("enviada") === "1";
+
+// A RLS já limita ao próprio usuário; o filtro aqui é só clareza.
+const { data: pedidos } = await supabase
+  .from("reivindicacoes")
+  .select(COLUNAS_REIVINDICACAO)
+  .eq("usuario_id", usuario!.id)
+  .order("criado_em", { ascending: false })
+  .returns<Reivindicacao[]>();
+
+const lista = pedidos ?? [];
+
+const rotuloVinculo = (valor: string) =>
+  VINCULOS.find((v) => v.valor === valor)?.rotulo ?? valor;
+
+/** Um mapa só de status → tom do selo, para as três telas concordarem. */
+const TOM: Record<StatusReivindicacao, "ok" | "alerta" | "atencao" | "neutro"> = {
+  pendente: "atencao",
+  em_analise: "atencao",
+  aprovada: "ok",
+  recusada: "alerta",
+  cancelada: "neutro",
+};
+---
+
+<Conta
+  titulo="Minhas páginas"
+  descricao="Pedidos para assumir páginas de campo e loja."
+  resumo="Quando você assume a página do seu campo ou da sua loja, passa a responder por ela. Todo pedido passa por conferência nossa — nada é aprovado sozinho."
+>
+  {
+    enviada && (
+      <p class="entrada-suave mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
+        <Selo tom="ok">Enviado</Selo>
+        Vamos conferir e responder pelo seu WhatsApp ou e-mail.
+      </p>
+    )
+  }
+
+  <div class="mt-10">
+    {
+      lista.length === 0 ? (
+        <div class="moldura-tatica border border-borda bg-papel/60 px-5 py-8 sm:px-8">
+          <p class="max-w-[54ch] text-[1.0625rem] leading-relaxed text-texto">
+            Você ainda não pediu nenhuma página.
+          </p>
+          <p class="mt-3 max-w-[58ch] text-[0.9375rem] leading-relaxed text-texto-2">
+            Abra a ficha do seu campo ou da sua loja no diretório e use o botão
+            "Reivindicar esta página". A gente confere que o local é seu antes
+            de liberar.
+          </p>
+          <div class="mt-6 flex flex-wrap gap-3">
+            <a href="/campos" class={BOTAO_PRIMARIO}>Procurar meu campo</a>
+            <a href="/lojas" class={BOTAO_SECUNDARIO}>Procurar minha loja</a>
+          </div>
+        </div>
+      ) : (
+        <Painel titulo="Seus pedidos" contagem={lista.length} semMoldura={true}>
+          <GradeCards>
+            {lista.map((pedido) => (
+              <CardHud destaque={pedido.status === "aprovada"}>
+                <div class="flex items-start justify-between gap-3">
+                  <p class="font-dado text-[0.75rem] uppercase leading-tight tracking-[0.1em] text-texto-2">
+                    {pedido.tipo_entidade === "campo" ? "Campo" : "Loja"}
+                    <span aria-hidden="true" class="px-1.5 text-borda-forte">/</span>
+                    {formatarData(pedido.criado_em)}
+                  </p>
+                  <Selo tom={TOM[pedido.status]} ponto={pedido.status !== "cancelada"}>
+                    {STATUS[pedido.status].rotulo}
+                  </Selo>
+                </div>
+
+                <p class="mt-4 text-[1.0625rem] font-semibold leading-snug text-tinta">
+                  {pedido.entidade_nome}
+                </p>
+
+                <p class="mt-2.5">
+                  <ChipHud tom="neutro">{rotuloVinculo(pedido.vinculo)}</ChipHud>
+                </p>
+
+                {pedido.status === "recusada" && pedido.motivo_analise && (
+                  <div class="mt-4 border border-alerta/50 bg-alerta-bg px-4 py-3">
+                    <p class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-alerta-texto">
+                      Motivo
+                    </p>
+                    <p class="mt-1.5 text-[0.9375rem] leading-snug text-alerta-texto">
+                      {pedido.motivo_analise}
+                    </p>
+                  </div>
+                )}
+
+                {pedido.status === "aprovada" && (
+                  <p class="mt-auto border-t border-borda pt-4 text-[0.9375rem] leading-snug text-texto-2">
+                    Sua desde {formatarData(pedido.analisado_em)}. As ferramentas de
+                    edição entram na próxima entrega.
+                  </p>
+                )}
+              </CardHud>
+            ))}
+          </GradeCards>
+        </Painel>
+      )
+    }
+  </div>
+</Conta>

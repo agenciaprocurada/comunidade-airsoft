@@ -1,0 +1,48 @@
+---
+/**
+ * Selo de estado — UMA implementação para toda a área logada.
+ *
+ * Antes existiam três listas de classes condicionais copiadas entre a
+ * lista do usuário, a fila do admin e a tela de decisão. Vocabulário
+ * de componente divergente entre telas é o defeito mais caro de UI de
+ * produto: a pessoa reaprende o mesmo sinal a cada tela.
+ *
+ * Mono de propósito: selo é dado, não título.
+ */
+interface Props {
+  tom?: "neutro" | "ok" | "atencao" | "alerta" | "marca";
+  /** Bolinha antes do texto. Usar quando o selo indica situação viva. */
+  ponto?: boolean;
+  class?: string;
+}
+
+const { tom = "neutro", ponto = false, class: classe } = Astro.props;
+
+const tons = {
+  neutro: "border-borda-forte bg-papel-2 text-texto-2",
+  ok: "border-ok bg-ok-bg text-ok-texto",
+  atencao: "border-latao/60 bg-latao/10 text-latao",
+  alerta: "border-alerta bg-alerta-bg text-alerta-texto",
+  marca: "border-oliva-700 bg-oliva-050 text-oliva-300",
+} as const;
+
+const pontos = {
+  neutro: "bg-texto-2",
+  ok: "bg-ok",
+  atencao: "bg-latao",
+  alerta: "bg-alerta",
+  marca: "bg-oliva-500",
+} as const;
+---
+
+<span
+  class:list={[
+    "inline-flex shrink-0 items-center gap-1.5 border px-2 py-[3px]",
+    "font-dado text-[0.6875rem] uppercase leading-none tracking-[0.1em]",
+    tons[tom],
+    classe,
+  ]}
+>
+  {ponto && <span class:list={["h-1.5 w-1.5 shrink-0", pontos[tom]]} aria-hidden="true" />}
+  <slot />
+</span>

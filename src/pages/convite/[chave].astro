@@ -1,0 +1,78 @@
+---
+/**
+ * O link exclusivo do evento fechado.
+ *
+ * Endereço próprio, e não `?k=` colado na página pública, por duas
+ * razões que apareceram no uso: a query string se perde quando alguém
+ * copia só até o "?", e os dois endereços ficavam iguais na aparência
+ * — quem recebia não sabia qual repassar.
+ *
+ * O que esta página faz: confere a chave, guarda o acesso num cookie e
+ * manda a pessoa para o endereço normal do evento. Depois disso ela
+ * navega pelo site como qualquer um, sem a chave à mostra na barra e
+ * sem precisar do link de novo a cada visita.
+ */
+import Base from "../../layouts/Base.astro";
+import Botao from "../../components/Botao.astro";
+import { COOKIE_CONVITE, DIAS_DO_CONVITE } from "../../lib/operacao";
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+const { chave } = Astro.params;
+
+const limpa = (chave ?? "").trim();
+
+// Só busca se tiver a cara de uma chave. Sem isso, qualquer bobagem na
+// URL vira uma consulta ao banco.
+const formaValida = /^[a-f0-9]{32}$/.test(limpa);
+
+const { data: operacao } = formaValida
+  ? await supabase
+      .from("operacoes")
+      .select("id,slug,status")
+      .eq("chave_acesso", limpa)
+      .maybeSingle<{ id: string; slug: string; status: string }>()
+  : { data: null };
+
+if (operacao && operacao.status !== "rascunho") {
+  /*
+   * O cookie é por evento: receber o convite de um jogo não abre a
+   * lista de outro. `httpOnly` porque nada no navegador precisa ler
+   * isso — quem confere é o servidor, a cada carregamento.
+   */
+  Astro.cookies.set(`${COOKIE_CONVITE}${operacao.id}`, limpa, {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: !import.meta.env.DEV,
+    maxAge: 60 * 60 * 24 * DIAS_DO_CONVITE,
+  });
+
+  return Astro.redirect(`/operacoes/${operacao.slug}`, 302);
+}
+---
+
+<Base
+  titulo="Convite não encontrado"
+  descricao="Este link de convite não vale mais."
+  semIndexar={true}
+>
+  <div class="mx-auto max-w-[640px] px-5 py-16 md:px-12 md:py-24">
+    <h1 class="font-display text-3xl font-extrabold uppercase italic leading-[0.95] md:text-4xl">
+      Convite não encontrado
+    </h1>
+    <p class="mt-5 max-w-[54ch] text-[1.0625rem] leading-relaxed text-texto-2">
+      Este link não corresponde a nenhum evento aberto. Pode ter sido copiado
+      pela metade, ou o evento pode ter voltado a ser rascunho.
+    </p>
+    <p class="mt-3 max-w-[54ch] text-[0.9375rem] leading-relaxed text-texto-2">
+      Peça o link de novo para quem organiza — cada evento fechado tem o seu, e
+      ele não muda.
+    </p>
+    <div class="mt-8 flex flex-wrap gap-3">
+      <Botao href="/operacoes">Ver a agenda</Botao>
+      <Botao href="/" variante="secundario">Ir para a home</Botao>
+    </div>
+  </div>
+</Base>

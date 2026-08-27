@@ -185,6 +185,26 @@ drop trigger if exists ao_criar_usuario on auth.users;
 create trigger ao_criar_usuario after insert on auth.users
   for each row execute function public.criar_perfil_ao_cadastrar();
 
+-- Quem se cadastrou ANTES do gatilho existir ficou sem perfil. Sem
+-- linha em `perfis`, a pessoa nunca completa o onboarding e fica
+-- presa num laco entre o formulario e o painel. Idempotente: pode
+-- rodar o arquivo inteiro de novo sem estragar nada.
+insert into public.perfis (id, nome, foto_url)
+select
+  u.id,
+  nullif(trim(coalesce(
+    u.raw_user_meta_data->>'full_name',
+    u.raw_user_meta_data->>'name',
+    ''
+  )), ''),
+  nullif(trim(coalesce(
+    u.raw_user_meta_data->>'avatar_url',
+    u.raw_user_meta_data->>'picture',
+    ''
+  )), '')
+from auth.users u
+on conflict (id) do nothing;
+
 -- ------------------------------------------------------------
 -- RLS
 --

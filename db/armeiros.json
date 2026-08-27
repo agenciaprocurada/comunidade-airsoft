@@ -1,0 +1,1203 @@
+[
+  {
+    "id": "carlos-gabriel-kato-jara-alcobaca",
+    "nome": "Carlos Gabriel Kato Jara — KOA",
+    "tipo": "autonomo",
+    "uf": "BA",
+    "cidade": "Alcobaça",
+    "cidade_slug": "alcobaca",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "aep",
+      "gbb",
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "reparo",
+      "upgrade"
+    ],
+    "observacoes": "Declara manter estoque permanente de peças KPP Airsoft e AEGPlus.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "73991967760",
+      "instagram": "@koaoficinado"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil | https://airsoftrs.com/armeiros-na-bahia/",
+    "status": "publicado"
+  },
+  {
+    "id": "ismaik-de-sousa-lima-fortaleza",
+    "nome": "Ismaik de Sousa Lima — Volants Airsoft",
+    "tipo": "autonomo",
+    "uf": "CE",
+    "cidade": "Fortaleza",
+    "cidade_slug": "fortaleza",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "observacoes": "O DDD do telefone (84) é do Rio Grande do Norte, mas a fonte registra Fortaleza (CE) como cidade de atendimento. Confirme com ele onde atende antes de se deslocar.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "84996250889"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "diogenes-flavio-pires-brazabrantes",
+    "nome": "Diógenes Flávio Pires — AEGPlus",
+    "tipo": "autonomo",
+    "uf": "GO",
+    "cidade": "Brazabrantes",
+    "cidade_slug": "brazabrantes",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "62998514443",
+      "instagram": "@aeg.plus"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "eduardo-kbeca-inhumas",
+    "nome": "Eduardo KBeça — Oficina do KBeça",
+    "tipo": "autonomo",
+    "uf": "GO",
+    "cidade": "Inhumas",
+    "cidade_slug": "inhumas",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "62984935990",
+      "instagram": "@oficinadokbeca"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "ricardo-furlan-goiania",
+    "nome": "Ricardo Furlan — Mundo do Airsoft",
+    "tipo": "autonomo",
+    "uf": "GO",
+    "cidade": "Goiânia",
+    "cidade_slug": "goiania",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "62985880112",
+      "instagram": "@mundodoairsoft"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "clayton-andrade-coronel-fabriciano",
+    "nome": "Clayton Andrade — Hunter Airsoft",
+    "tipo": "autonomo",
+    "uf": "MG",
+    "cidade": "Coronel Fabriciano",
+    "cidade_slug": "coronel-fabriciano",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "31988365753",
+      "instagram": "@hunterairsoft.com.br"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "igor-nascimento-sao-joao-nepomuceno",
+    "nome": "Igor Nascimento — Nascimento Armeiro",
+    "tipo": "autonomo",
+    "uf": "MG",
+    "cidade": "São João Nepomuceno",
+    "cidade_slug": "sao-joao-nepomuceno",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "32988967108",
+      "instagram": "@nascimento_armeiro"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "paulinho-vga-varginha",
+    "nome": "Paulinho VGA",
+    "tipo": "autonomo",
+    "uf": "MG",
+    "cidade": "Varginha",
+    "cidade_slug": "varginha",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "35988726726",
+      "instagram": "@paulinhovga"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "rodrigo-muriel-montes-claros",
+    "nome": "Rodrigo Muriel — Oficina 6mm",
+    "tipo": "autonomo",
+    "uf": "MG",
+    "cidade": "Montes Claros",
+    "cidade_slug": "montes-claros",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "38992175270",
+      "instagram": "@oficina6mm"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "igor-bolinha-recife",
+    "nome": "Igor Bolinha — Oficina do Bolinha",
+    "tipo": "autonomo",
+    "uf": "PE",
+    "cidade": "Recife",
+    "cidade_slug": "recife",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "observacoes": "O telefone publicado na fonte tem um dígito a menos que um celular brasileiro e pode não completar. Se não conseguir, tente pelo Instagram.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "8192268446",
+      "instagram": "@oficina_do_bolinha"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "renato-armeiro-rio-de-janeiro",
+    "nome": "Renato Armeiro",
+    "tipo": "autonomo",
+    "uf": "RJ",
+    "cidade": "Rio de Janeiro",
+    "cidade_slug": "rio-de-janeiro",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "21982961386",
+      "instagram": "@renatoarmeiro"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "angelo-angeloff-itaborai",
+    "nome": "Angelo Angeloff — Airsoft Anatomy",
+    "tipo": "autonomo",
+    "uf": "RJ",
+    "cidade": "Itaboraí",
+    "cidade_slug": "itaborai",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "21999041498"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "giulliano-tank-guarulhos",
+    "nome": "Giulliano Tank — Infantaria Airsoft",
+    "tipo": "autonomo",
+    "uf": "SP",
+    "cidade": "Guarulhos",
+    "cidade_slug": "guarulhos",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "11947358603"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "kaue-bauru",
+    "nome": "Kauê — Laboratório Secreto",
+    "tipo": "autonomo",
+    "uf": "SP",
+    "cidade": "Bauru",
+    "cidade_slug": "bauru",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "14998694894",
+      "instagram": "@armmeiro"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "marcio-nodot-braganca-paulista",
+    "nome": "Marcio Nodot — Force One",
+    "tipo": "autonomo",
+    "uf": "SP",
+    "cidade": "Bragança Paulista",
+    "cidade_slug": "braganca-paulista",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "11983529606",
+      "instagram": "@marcioforceone"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "max-armeiro-jaboticabal",
+    "nome": "Max Armeiro — MR sob Medida",
+    "tipo": "autonomo",
+    "uf": "SP",
+    "cidade": "Jaboticabal",
+    "cidade_slug": "jaboticabal",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "aep",
+      "gbb",
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "reparo",
+      "manutencao"
+    ],
+    "observacoes": "Também aparece no meio como Marcos Roberto e como MR sob Medida — é a mesma bancada.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "16997093063"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil | https://airsoftrs.com/armeiros-em-sao-paulo/",
+    "status": "publicado"
+  },
+  {
+    "id": "rudson-de-assis-sao-bernardo-do-campo",
+    "nome": "Rudson de Assis — RA Customs",
+    "tipo": "autonomo",
+    "uf": "SP",
+    "cidade": "São Bernardo do Campo",
+    "cidade_slug": "sao-bernardo-do-campo",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [
+      "customizacao"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "11962827803",
+      "instagram": "@rudson.armeiro"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil",
+    "status": "publicado"
+  },
+  {
+    "id": "flavio-luiz-borges-gurupi",
+    "nome": "Flávio Luiz Borges",
+    "tipo": "autonomo",
+    "uf": "TO",
+    "cidade": "Gurupi",
+    "cidade_slug": "gurupi",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "aep",
+      "gbb",
+      "gbbr",
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "reparo",
+      "upgrade"
+    ],
+    "observacoes": "As duas listas onde este cadastro aparece trazem telefones diferentes. O número aqui é o da fonte mais detalhada; o outro publicado é (63) 99112-5932.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "63992150921",
+      "instagram": "@flavio_07_armeiro_airsoft"
+    },
+    "fonte": "https://www.aegplus.com/conteudo/12-armeiros-airsoft-no-brasil | https://airsoftrs.com/armeiros-em-tocantins/",
+    "status": "publicado"
+  },
+  {
+    "id": "mauricio-salera-araraquara",
+    "nome": "Mauricio Salera — Air Tech",
+    "tipo": "autonomo",
+    "uf": "SP",
+    "cidade": "Araraquara",
+    "cidade_slug": "araraquara",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "upgrade",
+      "reparo",
+      "manutencao"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "16993881165"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-em-sao-paulo/",
+    "status": "publicado"
+  },
+  {
+    "id": "thiago-barion-umuarama",
+    "nome": "Thiago Barion — THB",
+    "tipo": "autonomo",
+    "uf": "PR",
+    "cidade": "Umuarama",
+    "cidade_slug": "umuarama",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "upgrade",
+      "solda",
+      "eletronica"
+    ],
+    "observacoes": "Declara usinagem de peças, recuperação de gearbox de zamak e reparo de placa de gatilho eletrônico. Atua desde 2013.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "44998982769",
+      "instagram": "@thb417"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-parana/",
+    "status": "publicado"
+  },
+  {
+    "id": "uiliam-dos-reis-antonio-umuarama",
+    "nome": "Uiliam dos Reis Antonio",
+    "tipo": "autonomo",
+    "uf": "PR",
+    "cidade": "Umuarama",
+    "cidade_slug": "umuarama",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [
+      "reparo",
+      "upgrade"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "44991324681"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-parana/",
+    "status": "publicado"
+  },
+  {
+    "id": "armeiro-airsoft-rio-de-janeiro",
+    "nome": "Armeiro Airsoft",
+    "tipo": "autonomo",
+    "uf": "RJ",
+    "cidade": "Rio de Janeiro",
+    "cidade_slug": "rio-de-janeiro",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "reparo",
+      "customizacao"
+    ],
+    "observacoes": "O site armeiroairsoft.com.br exibe aviso de encerramento das atividades. Este armeiro pode não estar mais atendendo — confirme antes de contar com o serviço.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "21979260640"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-rio-de-janeiro/",
+    "status": "publicado"
+  },
+  {
+    "id": "plinio-henrique-tangua",
+    "nome": "Plínio Henrique",
+    "tipo": "autonomo",
+    "uf": "RJ",
+    "cidade": "Tanguá",
+    "cidade_slug": "tangua",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "aep",
+      "gbb",
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "reparo"
+    ],
+    "observacoes": "Declara especialidade em sniper.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "21995633986"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-rio-de-janeiro/",
+    "status": "publicado"
+  },
+  {
+    "id": "paulo-vinicius-machado-de-carvalho-alem-paraiba",
+    "nome": "Paulo Vinícius Machado de Carvalho",
+    "tipo": "autonomo",
+    "uf": "MG",
+    "cidade": "Além Paraíba",
+    "cidade_slug": "alem-paraiba",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "32991449955"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-em-minas-gerais/",
+    "status": "publicado"
+  },
+  {
+    "id": "everson-teixeira-criciuma",
+    "nome": "Everson Teixeira",
+    "tipo": "autonomo",
+    "uf": "SC",
+    "cidade": "Criciúma",
+    "cidade_slug": "criciuma",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [
+      "reparo"
+    ],
+    "observacoes": "Declara mais de 20 anos em metalúrgica e fabricação de peças.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "48998078194"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-de-santa-catarina/",
+    "status": "publicado"
+  },
+  {
+    "id": "lucas-felipe-de-oliveira-joinville",
+    "nome": "Lucas Felipe de Oliveira",
+    "tipo": "autonomo",
+    "uf": "SC",
+    "cidade": "Joinville",
+    "cidade_slug": "joinville",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "reparo"
+    ],
+    "observacoes": "Declara-se autorizado Rossi/ActionX, Ar Mais e ProHunters (ARES).",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "47991505282"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-de-santa-catarina/",
+    "status": "publicado"
+  },
+  {
+    "id": "gleydson-ataide-santa-maria",
+    "nome": "Gleydson Ataide",
+    "tipo": "autonomo",
+    "uf": "DF",
+    "cidade": "Santa Maria",
+    "cidade_slug": "santa-maria",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "reparo"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "61992955082"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-em-brasilia/",
+    "status": "publicado"
+  },
+  {
+    "id": "rafael-azeredo-faria-palmas",
+    "nome": "Rafael Azeredo Faria — ZERO1 Airsoft",
+    "tipo": "autonomo",
+    "uf": "TO",
+    "cidade": "Palmas",
+    "cidade_slug": "palmas",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "aep",
+      "gbb",
+      "gbbr",
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "reparo",
+      "upgrade"
+    ],
+    "observacoes": "Declara linha própria de peças de reposição.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "63999466684"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-em-tocantins/",
+    "status": "publicado"
+  },
+  {
+    "id": "jason-amaral-natal",
+    "nome": "Jason Amaral — BS Squad",
+    "tipo": "autonomo",
+    "uf": "RN",
+    "cidade": "Natal",
+    "cidade_slug": "natal",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [],
+    "gearboxes": [],
+    "servicos": [],
+    "observacoes": "Declara 5 a 6 anos de bancada e curso com Bernardo Vitureira.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "84991603240"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-norte/",
+    "status": "publicado"
+  },
+  {
+    "id": "diego-gomes-cassol-alegrete",
+    "nome": "Diego Gomes Cassol",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Alegrete",
+    "cidade_slug": "alegrete",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "reparo"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "996330501"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "abel-obes-alvorada",
+    "nome": "Abel Obes",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Alvorada",
+    "cidade_slug": "alvorada",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "gbb"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "51984169314"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "lucas-dutra-canoas",
+    "nome": "Lucas Dutra",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Canoas",
+    "cidade_slug": "canoas",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "upgrade"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "51984263597"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "linhares-airsoft-custom-cruz-alta",
+    "nome": "Linhares Airsoft Custom",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Cruz Alta",
+    "cidade_slug": "cruz-alta",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "upgrade",
+      "customizacao"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "991863055"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "ricardo-musselin-ilopolis",
+    "nome": "Ricardo Musselin",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Ilópolis",
+    "cidade_slug": "ilopolis",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "upgrade"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "51997286934"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "tiago-vasconcelos-frederico-westphalen",
+    "nome": "Tiago Vasconcelos",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Frederico Westphalen",
+    "cidade_slug": "frederico-westphalen",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "hop-up",
+      "shimming"
+    ],
+    "observacoes": "O telefone publicado na fonte tem um dígito a menos que um celular brasileiro e pode não completar.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "991920605"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "roberto-sniper-montenegro",
+    "nome": "Roberto Sniper",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Montenegro",
+    "cidade_slug": "montenegro",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "upgrade"
+    ],
+    "observacoes": "Declara foco em sniper e DMR.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "51981699601"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "higor-daroit-nova-brescia",
+    "nome": "Higor Daroit",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Nova Bréscia",
+    "cidade_slug": "nova-brescia",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "gbb",
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "51984489457"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "hilario-fenzke-panambi",
+    "nome": "Hilário Fenzke",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Panambi",
+    "cidade_slug": "panambi",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "upgrade"
+    ],
+    "observacoes": "Telefone fixo. Declara-se autorizado ActionX.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "33754781"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "marcos-gartner-panambi",
+    "nome": "Marcos Gartner",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Panambi",
+    "cidade_slug": "panambi",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "eletronica"
+    ],
+    "observacoes": "Declara fabricação de MOSFET.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "991624736"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "norberto-bogacki-vargas-junior-pelotas",
+    "nome": "Norberto Bogacki Vargas Junior",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Pelotas",
+    "cidade_slug": "pelotas",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "aep",
+      "gbb"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "53981390559"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "lucas-strapazzon-passo-fundo",
+    "nome": "Lucas Strapazzon",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Passo Fundo",
+    "cidade_slug": "passo-fundo",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "upgrade"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "54996863567"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "leonardo-altoe-porto-alegre",
+    "nome": "Leonardo Altoé",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Porto Alegre",
+    "cidade_slug": "porto-alegre",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao"
+    ],
+    "observacoes": "Declara-se armeiro de sniper.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "51999607769"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "rodivaldo-ferreira-mengue-porto-alegre",
+    "nome": "Rodivaldo Ferreira Mengue",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Porto Alegre",
+    "cidade_slug": "porto-alegre",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "customizacao"
+    ],
+    "observacoes": "Declara-se autorizado ActionX.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "51981588749"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "davi-freitas-santiago",
+    "nome": "Davi Freitas",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Santiago",
+    "cidade_slug": "santiago",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao",
+      "upgrade"
+    ],
+    "observacoes": "Declara-se armeiro ActionX.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "999397749"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "bruno-de-arreal-santa-maria",
+    "nome": "Bruno de Arreal",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "Santa Maria",
+    "cidade_slug": "santa-maria",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "aep",
+      "gbb",
+      "spring"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao"
+    ],
+    "observacoes": "A lista de origem publica este mesmo telefone para outro armeiro, Chistian Rodrigues, de São Sepé. Um dos dois cadastros está com o número trocado — confirme com quem atender.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "999696168"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "m2f-armeiro-sao-gabriel",
+    "nome": "M2F Armeiro — Matheus",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "São Gabriel",
+    "cidade_slug": "sao-gabriel",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg",
+      "aep",
+      "gbb"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "manutencao"
+    ],
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "984477412"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  },
+  {
+    "id": "chistian-rodrigues-sao-sepe",
+    "nome": "Chistian Rodrigues",
+    "tipo": "autonomo",
+    "uf": "RS",
+    "cidade": "São Sepé",
+    "cidade_slug": "sao-sepe",
+    "endereco_publico": false,
+    "atende_presencial": true,
+    "atende_envio": false,
+    "plataformas": [
+      "aeg"
+    ],
+    "gearboxes": [],
+    "servicos": [
+      "upgrade",
+      "shimming",
+      "manutencao"
+    ],
+    "observacoes": "A lista de origem publica este mesmo telefone para outro armeiro, Bruno de Arreal, de Santa Maria. Um dos dois cadastros está com o número trocado — confirme com quem atender.",
+    "confianca": "baixa",
+    "verificado": false,
+    "contato": {
+      "whatsapp": "999696168"
+    },
+    "fonte": "https://airsoftrs.com/armeiros-no-rio-grande-do-sul/",
+    "status": "publicado"
+  }
+]

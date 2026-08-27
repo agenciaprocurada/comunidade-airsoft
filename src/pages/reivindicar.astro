@@ -1,9 +1,285 @@
 ---
-import EmBreve from "../components/EmBreve.astro";
+import Base from "../layouts/Base.astro";
+import Botao from "../components/Botao.astro";
+import { formatarWhatsapp } from "../lib/conta";
+import {
+  ENTIDADES,
+  MENSAGEM_MINIMA,
+  VINCULOS,
+  ehTipoEntidade,
+  limparProvas,
+} from "../lib/reivindicacao";
+import {
+  AJUDA_CAMPO,
+  CAIXA,
+  ENTRADA,
+  ERRO_CAIXA,
+  LINHA_CAIXA,
+  ROTULO_CAMPO,
+  SELECAO,
+} from "../lib/estilos-form";
+
+export const prerender = false;
+
+// O middleware ja garantiu sessao e onboarding minimo antes daqui.
+const { supabase, usuario, perfil } = Astro.locals;
+
+const tipo = Astro.url.searchParams.get("tipo");
+const entidadeId = Astro.url.searchParams.get("id");
+
+if (!ehTipoEntidade(tipo) || !entidadeId) {
+  return Astro.redirect("/campos", 302);
+}
+
+const entidade = ENTIDADES[tipo];
+
+// A ficha precisa existir e estar publicada. A RLS da anon ja filtra
+// rascunho, entao nao ha o que checar aqui alem do retorno vazio.
+const { data: ficha } = await supabase
+  .from(entidade.tabela)
+  .select("id,nome")
+  .eq("id", entidadeId)
+  .maybeSingle<{ id: string; nome: string }>();
+
+if (!ficha) {
+  const resposta = await Astro.rewrite("/404");
+  return new Response(resposta.body, { status: 404, headers: resposta.headers });
+}
+
+/**
+ * Perfil completo e condicao para assumir qualquer coisa — decisao de
+ * produto, e o banco tambem exige (policy de insert). Aqui a pessoa
+ * volta com o motivo explicado em vez de tomar um erro seco.
+ */
+if (!perfil?.perfil_completo) {
+  const volta = encodeURIComponent(Astro.url.pathname + Astro.url.search);
+  return Astro.redirect(`/conta?motivo=reivindicar&voltar=${volta}`, 302);
+}
+
+// Pedido ja existente para esta ficha (aberto ou decidido).
+const { data: jaFeito } = await supabase
+  .from("reivindicacoes")
+  .select("id,status")
+  .eq("tipo_entidade", tipo)
+  .eq("entidade_id", entidadeId)
+  .eq("usuario_id", usuario!.id)
+  .in("status", ["pendente", "em_analise", "aprovada"])
+  .maybeSingle<{ id: string; status: string }>();
+
+let erros: string[] = [];
+let enviado: Record<string, string> = {};
+
+if (Astro.request.method === "POST" && !jaFeito) {
+  const dados = await Astro.request.formData();
+  const texto = (chave: string) => (dados.get(chave)?.toString() ?? "").trim();
+
+  enviado = {
+    vinculo: texto("vinculo"),
+    telefone: texto("telefone"),
+    mensagem: texto("mensagem"),
+    provas: texto("provas"),
+  };
+
+  if (!VINCULOS.some((v) => v.valor === enviado.vinculo)) {
+    erros.push("Diga qual é a sua relação com o local.");
+  }
+  if (enviado.mensagem.length < MENSAGEM_MINIMA) {
+    erros.push(
+      `Explique em pelo menos ${MENSAGEM_MINIMA} caracteres como podemos confirmar que o local é seu.`,
+    );
+  }
+  if (!dados.get("veracidade")) {
+    erros.push("É obrigatório declarar que as informações são verdadeiras.");
+  }
+
+  const { validas, invalidas } = limparProvas(enviado.provas);
+  if (invalidas.length > 0) {
+    erros.push(`Não reconheci como link: ${invalidas.join(", ")}`);
+  }
+
+  if (erros.length === 0) {
+    const { error } = await supabase.from("reivindicacoes").insert({
+      usuario_id: usuario!.id,
+      tipo_entidade: tipo,
+      entidade_id: ficha.id,
+      entidade_nome: ficha.nome,
+      vinculo: enviado.vinculo,
+      telefone: enviado.telefone || perfil.whatsapp,
+      mensagem: enviado.mensagem,
+      provas: validas,
+    });
+
+    if (error) {
+      // 23505 = índice único: alguém já tem pedido aberto/aprovado.
+      if (error.code === "23505") {
+        erros.push("Já existe um pedido em aberto ou aprovado para esta página.");
+      } else {
+        console.error("Falha ao registrar reivindicacao:", error);
+        erros.push("Não conseguimos registrar agora. Tente de novo em instantes.");
+      }
+    } else {
+      return Astro.redirect("/conta/reivindicacoes?enviada=1", 303);
+    }
+  }
+}
+
+const valor = (chave: string, padrao = "") =>
+  Astro.request.method === "POST" ? (enviado[chave] ?? "") : padrao;
+
+/**
+ * Campo fica de fora porque a URL da ficha dele é aninhada
+ * (/campos/[uf]/[cidade]/[slug]) e este contexto só tem o slug.
+ */
+const voltarPara =
+  tipo === "loja"
+    ? `/lojas/${ficha.id}`
+    : tipo === "armeiro"
+      ? `/armeiros/${ficha.id}`
+      : "/campos";
 ---
 
-<EmBreve
-  titulo="Reivindicar página"
-  descricao="Assuma o controle da página do seu campo ou da sua loja para corrigir os dados e publicar suas operações."
-  entrega="Entrega 1"
-/>
+<Base
+  titulo={`Reivindicar ${ficha.nome}`}
+  descricao={`Assuma a página de ${ficha.nome} na Comunidade Airsoft.`}
+  semIndexar={true}
+>
+  <div class="mx-auto max-w-[62ch] px-5 py-16 md:px-12 md:py-20">
+    <p class="rotulo">Reivindicação de {entidade.rotulo}</p>
+    <h1
+      class="mt-4 font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-5xl"
+    >
+      {ficha.nome}
+    </h1>
+
+    {
+      jaFeito ? (
+        <>
+          <p class="mt-6 border border-borda-forte bg-papel/60 px-5 py-4 leading-relaxed text-texto">
+            {jaFeito.status === "aprovada"
+              ? "Esta página já é sua. Você pode acompanhar tudo no seu painel."
+              : "Você já enviou um pedido para esta página e ele está na fila de análise. Não precisa enviar de novo."}
+          </p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <Botao href="/conta/reivindicacoes" seta={true}>
+              Ver meus pedidos
+            </Botao>
+            <Botao href={voltarPara} variante="secundario">
+              Voltar para a ficha
+            </Botao>
+          </div>
+        </>
+      ) : (
+        <>
+          <p class="mt-5 text-lg leading-relaxed text-texto-2">
+            Todo pedido passa por conferência manual antes de valer — nunca
+            aprovamos automaticamente. Quanto mais fácil for confirmar que o
+            local é seu, mais rápido sai a resposta.
+          </p>
+
+          {erros.length > 0 && (
+            <div class={`mt-8 ${ERRO_CAIXA}`}>
+              <ul class="list-disc space-y-1 pl-5">
+                {erros.map((erro) => (
+                  <li class="text-alerta-texto">{erro}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <form method="POST" class="mt-10 space-y-8">
+            <div>
+              <label for="vinculo" class={ROTULO_CAMPO}>
+                Sua relação com o local
+              </label>
+              <select id="vinculo" name="vinculo" required class={SELECAO}>
+                <option value="">Escolha</option>
+                {VINCULOS.map((v) => (
+                  <option value={v.valor} selected={valor("vinculo") === v.valor}>
+                    {v.rotulo}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label for="telefone" class={ROTULO_CAMPO}>
+                Telefone para contato
+              </label>
+              <p class={AJUDA_CAMPO}>
+                Deixe em branco para usarmos o WhatsApp do seu perfil.
+              </p>
+              <input
+                id="telefone"
+                name="telefone"
+                type="tel"
+                inputmode="tel"
+                placeholder={formatarWhatsapp(perfil.whatsapp)}
+                value={valor("telefone")}
+                class={ENTRADA}
+              />
+            </div>
+
+            <div>
+              <label for="mensagem" class={ROTULO_CAMPO}>
+                Como podemos confirmar?
+              </label>
+              <p class={AJUDA_CAMPO}>
+                Diga o que nos ajuda a checar: em qual número ou perfil oficial
+                podemos falar com você, seu nome no CNPJ, há quanto tempo toca o
+                local. Quanto mais concreto, mais rápido.
+              </p>
+              <textarea
+                id="mensagem"
+                name="mensagem"
+                required
+                rows="5"
+                minlength={MENSAGEM_MINIMA}
+                maxlength="1200"
+                class={ENTRADA}
+              >{valor("mensagem")}</textarea>
+            </div>
+
+            <div>
+              <label for="provas" class={ROTULO_CAMPO}>Links de comprovação</label>
+              <p class={AJUDA_CAMPO}>
+                Opcional, mas ajuda muito. Um link por linha: post ou perfil
+                oficial do local, página do site, comprovante em nuvem.
+              </p>
+              <textarea
+                id="provas"
+                name="provas"
+                rows="3"
+                maxlength="1000"
+                placeholder="https://instagram.com/p/..."
+                class={ENTRADA}
+              >{valor("provas")}</textarea>
+            </div>
+
+            <label class={LINHA_CAIXA}>
+              <input
+                type="checkbox"
+                name="veracidade"
+                required
+                class={CAIXA}
+              />
+              <span class="text-[15px] leading-snug text-texto">
+                Declaro que as informações são verdadeiras e que sou responsável
+                pelo local ou fui autorizado por quem é. Declaração falsa leva à
+                perda do acesso.
+              </span>
+            </label>
+
+            <div class="flex flex-wrap gap-3">
+              <Botao tipo="submit" seta={true}>
+                Enviar para análise
+              </Botao>
+              <Botao href={voltarPara} variante="secundario">
+                Cancelar
+              </Botao>
+            </div>
+          </form>
+        </>
+      )
+    }
+  </div>
+</Base>

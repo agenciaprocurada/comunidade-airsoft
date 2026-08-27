@@ -1,0 +1,557 @@
+---
+/**
+ * Ficha do armeiro.
+ *
+ * Vive em componente (e não direto na página) porque /armeiros/[slug]
+ * gera duas coisas na mesma rota: a ficha e o hub estadual. Mesma
+ * arquitetura de FichaLoja.astro — ver src/pages/armeiros/[slug].astro.
+ *
+ * O endereço só chega aqui quando o armeiro autorizou: o corte é feito
+ * no loader (src/lib/armeiros-supabase.ts), não neste arquivo. Se você
+ * está procurando o `if` que esconde o endereço, ele não existe de
+ * propósito — o dado não vem.
+ */
+import Base from "../layouts/Base.astro";
+import CapaFicha from "./CapaFicha.astro";
+import Etiqueta from "./Etiqueta.astro";
+import Botao from "./Botao.astro";
+import MapaLocal from "./MapaLocal.astro";
+import SeloVerificacao from "./SeloVerificacao.astro";
+import Trilha from "./Trilha.astro";
+import { linkExterno } from "../lib/link-externo";
+import {
+  NOME_UF,
+  ROTULO_GEARBOX,
+  ROTULO_PLATAFORMA_ARMEIRO,
+  ROTULO_SERVICO_ARMEIRO,
+  ROTULO_TIPO_ARMEIRO,
+  comoAtende,
+  linkWhatsapp,
+} from "../lib/uf";
+
+interface Props {
+  armeiro: any;
+  /** Ficha da loja onde ele atende, quando `loja_id` aponta para uma. */
+  loja?: { id: string; data: { nome: string } } | null;
+}
+
+const { armeiro, loja = null } = Astro.props;
+const d = armeiro.data;
+
+const nomeUf = NOME_UF[d.uf] ?? d.uf;
+const atendimento = comoAtende(d.atende_presencial, d.atende_envio);
+
+const titulo = `${d.nome} — armeiro de airsoft em ${d.cidade}, ${d.uf}`;
+
+/**
+ * Meta description montada por partes, e não por template com buraco.
+ *
+ * Dois problemas que ela resolve, os dois vistos no HTML gerado:
+ *
+ *  1. Ficha de levantamento pode não ter plataforma. Interpolar o
+ *     array vazio direto na frase produzia ". . Só presencial".
+ *  2. Cortar em 157 no fim partia a última frase no meio ("...(BA).
+ *     AEG, AEP, GBB, Spring / sniper (VSR). S."). Quem sobra de um
+ *     corte assim é sempre a informação mais útil, porque ela está no
+ *     fim. Então quem encolhe é a LISTA de plataformas, não a frase.
+ */
+function metaDescricao(): string {
+  const abre = `${d.nome}: manutenção de airsoft em ${d.cidade} (${d.uf})`;
+  const rotulos = d.plataformas.map(
+    (p: string) => ROTULO_PLATAFORMA_ARMEIRO[p] ?? p,
+  );
+
+  for (let quantas = Math.min(rotulos.length, 4); quantas >= 0; quantas--) {
+    const partes = [abre];
+    if (quantas > 0) partes.push(rotulos.slice(0, quantas).join(", "));
+    partes.push(atendimento);
+    const frase = `${partes.join(". ")}.`;
+    if (frase.length <= 160 || quantas === 0) return frase;
+  }
+
+  return `${abre}.`;
+}
+
+const descricao = metaDescricao();
+
+/**
+ * schema.org: só emite endereço quando ele é público.
+ *
+ * `areaServed` cobre o resto — é o campo certo para "atende o Brasil
+ * inteiro por envio" sem afirmar um ponto de atendimento que não
+ * existe. Emitir cidade como se fosse endereço de loja seria mentira
+ * estruturada, e o Google trata isso como tal.
+ */
+const dadoEstruturado: Record<string, unknown> = {
+  "@context": "https://schema.org",
+  "@type": "ProfessionalService",
+  name: d.nome,
+  // Vazio nas fichas de levantamento: emitir `description: ""` seria
+  // dizer ao Google que a página tem descrição e ela é nada.
+  ...(d.descricao ? { description: d.descricao } : {}),
+  serviceType: "Manutenção e reparo de réplicas de airsoft",
+  ...(d.razao_social ? { legalName: d.razao_social } : {}),
+  ...(d.cnpj ? { taxID: d.cnpj } : {}),
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: d.cidade,
+    addressRegion: d.uf,
+    addressCountry: "BR",
+    ...(d.endereco_publico && d.endereco ? { streetAddress: d.endereco } : {}),
+    ...(d.endereco_publico && d.cep ? { postalCode: d.cep } : {}),
+  },
+  ...(d.atende_envio
+    ? { areaServed: { "@type": "Country", name: "Brasil" } }
+    : { areaServed: { "@type": "City", name: d.cidade } }),
+  ...(d.contato.site ? { url: d.contato.site } : {}),
+  ...(d.contato.telefone ? { telephone: d.contato.telefone } : {}),
+  ...(d.horario ? { openingHours: d.horario } : {}),
+};
+
+const temContato = Object.values(d.contato).some(Boolean);
+const temCondicoes =
+  d.prazo_medio || d.garantia || d.precos || d.formas_pagamento || d.emite_nota != null;
+---
+
+<Base
+  titulo={titulo}
+  descricao={descricao}
+  dadosEstruturados={[dadoEstruturado]}
+  imagem={d.foto_url}
+>
+  <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
+    <Trilha
+      itens={[
+        { href: "/armeiros", texto: "Armeiros" },
+        { href: `/armeiros/${d.uf.toLowerCase()}`, texto: nomeUf },
+        { texto: d.nome },
+      ]}
+    />
+
+    <div class="mt-8 grid gap-12 lg:grid-cols-[1fr_360px]">
+      <div>
+        <CapaFicha url={d.foto_url} alt={`${d.nome}, armeiro de airsoft`} />
+
+        <header class="border-b border-borda pb-8">
+          <h1
+            class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"
+          >
+            {d.nome}
+          </h1>
+          <p class="mt-3 font-dado text-xs uppercase tracking-[0.18em] text-oliva-400">
+            {d.cidade} · {nomeUf}
+            <span aria-hidden="true" class="text-borda-forte"> · </span>
+            {ROTULO_TIPO_ARMEIRO[d.tipo] ?? d.tipo}
+          </p>
+
+          <div class="mt-6">
+            <SeloVerificacao
+              verificado={d.verificado}
+              verificadoEm={d.verificado_em}
+            />
+          </div>
+
+          <div class="mt-6 flex flex-wrap gap-2">
+            <Etiqueta tom="info">{atendimento}</Etiqueta>
+            {d.desde && <Etiqueta>Atende desde {d.desde}</Etiqueta>}
+            {d.emite_nota && <Etiqueta tom="ok">Emite nota</Etiqueta>}
+            {d.cnpj && <Etiqueta tom="ok">CNPJ</Etiqueta>}
+          </div>
+        </header>
+
+        <!--
+          Levantamento nao traz texto de apresentacao, e inventar um
+          seria colocar palavra na boca da pessoa. Sem descricao e sem
+          loja, a secao inteira nao existe — em vez de um <p> vazio.
+        -->
+        <section class="py-8" hidden={!d.descricao && !loja}>
+          {d.descricao && (
+            <p class="max-w-[65ch] leading-relaxed text-texto">{d.descricao}</p>
+          )}
+          {
+            loja && (
+              <p class="mt-4 max-w-[65ch] leading-relaxed text-texto-2">
+                Atende dentro da{" "}
+                <a href={`/lojas/${loja.id}`} class="text-oliva-500 underline">
+                  {loja.data.nome}
+                </a>
+                .
+              </p>
+            )
+          }
+        </section>
+
+        <!--
+          Plataforma antes de servico, sempre. E o corte que elimina a
+          maior parte da lista: nao adianta o cara fazer shimming
+          impecavel se ele nao abre a sua V7.
+        -->
+        <section class="border-t border-borda py-8">
+          <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+            O que ele abre
+          </h2>
+          {
+            d.plataformas.length > 0 ? (
+              <div class="flex flex-wrap gap-2">
+                {d.plataformas.map((p: string) => (
+                  <Etiqueta tom="info">{ROTULO_PLATAFORMA_ARMEIRO[p] ?? p}</Etiqueta>
+                ))}
+              </div>
+            ) : (
+              <p class="max-w-[60ch] border-l-2 border-borda-forte bg-papel p-4 leading-relaxed text-texto-2">
+                Ainda não sabemos quais réplicas ele atende — o levantamento de
+                onde esta ficha veio não informa. Pergunte direto antes de
+                combinar qualquer serviço.
+              </p>
+            )
+          }
+          {
+            d.gearboxes.length > 0 && (
+              <>
+                <h3 class="rotulo mb-3 mt-6">Versões de gearbox</h3>
+                <div class="flex flex-wrap gap-2">
+                  {d.gearboxes.map((g: string) => (
+                    <Etiqueta>{ROTULO_GEARBOX[g] ?? g}</Etiqueta>
+                  ))}
+                </div>
+              </>
+            )
+          }
+          {
+            d.plataformas.length > 0 && (
+              <p class="mt-4 max-w-[60ch] text-sm text-texto-2">
+                Confirme o modelo exato da sua réplica com ele antes de mandar —
+                dentro de uma mesma versão de gearbox existem variações que
+                mudam o serviço.
+              </p>
+            )
+          }
+        </section>
+
+        <section class="border-t border-borda py-8">
+          <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+            Serviços
+          </h2>
+          {
+            d.servicos.length > 0 ? (
+              <div class="flex flex-wrap gap-2">
+                {d.servicos.map((s: string) => (
+                  <Etiqueta>{ROTULO_SERVICO_ARMEIRO[s] ?? s}</Etiqueta>
+                ))}
+              </div>
+            ) : (
+              <p class="max-w-[60ch] border-l-2 border-borda-forte bg-papel p-4 leading-relaxed text-texto-2">
+                Serviços não informados no levantamento. Combine direto com ele
+                o que precisa ser feito.
+              </p>
+            )
+          }
+        </section>
+
+        {
+          d.marcas.length > 0 && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                Marcas com que trabalha
+              </h2>
+              <div class="flex flex-wrap gap-2">
+                {d.marcas.map((m: string) => (
+                  <Etiqueta>{m}</Etiqueta>
+                ))}
+              </div>
+            </section>
+          )
+        }
+
+        {
+          temCondicoes && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                Como funciona o serviço
+              </h2>
+              <dl class="grid max-w-2xl gap-px border border-borda bg-borda sm:grid-cols-2">
+                {d.prazo_medio && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Prazo médio</dt>
+                    <dd class="text-base">{d.prazo_medio}</dd>
+                  </div>
+                )}
+                {d.garantia && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Garantia</dt>
+                    <dd class="text-base">{d.garantia}</dd>
+                  </div>
+                )}
+                {d.precos && (
+                  <div class="bg-papel p-4 sm:col-span-2">
+                    <dt class="rotulo mb-1">Valores</dt>
+                    <dd class="text-base">{d.precos}</dd>
+                  </div>
+                )}
+                {d.formas_pagamento && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Pagamento</dt>
+                    <dd class="text-base">{d.formas_pagamento}</dd>
+                  </div>
+                )}
+                {d.emite_nota != null && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Nota fiscal</dt>
+                    <dd class="text-base">{d.emite_nota ? "Emite" : "Não emite"}</dd>
+                  </div>
+                )}
+              </dl>
+              <p class="mt-4 max-w-[60ch] text-sm text-texto-2">
+                Condições declaradas pelo armeiro. Combine tudo por escrito antes
+                de entregar o equipamento — a Comunidade Airsoft não intermedia o
+                serviço, não cobra comissão e não participa do pagamento.
+              </p>
+            </section>
+          )
+        }
+
+        {
+          d.formacao && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                Formação declarada
+              </h2>
+              <p class="max-w-[60ch] leading-relaxed text-texto">{d.formacao}</p>
+              <p class="mt-4 max-w-[60ch] text-sm text-texto-2">
+                Informação passada pelo próprio armeiro. Não emitimos nem
+                validamos certificado de ninguém: quem confere o curso é a
+                instituição que o emitiu.
+              </p>
+            </section>
+          )
+        }
+
+        {
+          (d.razao_social || d.cnpj) && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                Dados da empresa
+              </h2>
+              <dl class="grid max-w-2xl gap-px border border-borda bg-borda sm:grid-cols-2">
+                {d.razao_social && (
+                  <div class="bg-papel p-4 sm:col-span-2">
+                    <dt class="rotulo mb-1">Razão social</dt>
+                    <dd class="text-base">{d.razao_social}</dd>
+                  </div>
+                )}
+                {d.cnpj && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">CNPJ</dt>
+                    <dd class="font-dado text-base tracking-[0.06em]">{d.cnpj}</dd>
+                  </div>
+                )}
+                {d.situacao_cadastral && (
+                  <div class="bg-papel p-4">
+                    <dt class="rotulo mb-1">Situação na Receita</dt>
+                    <dd class="text-base">{d.situacao_cadastral}</dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+          )
+        }
+
+        {
+          d.observacoes && (
+            <section class="border-t border-borda py-8">
+              <h2 class="mb-5 font-display text-2xl font-bold uppercase">
+                Ressalvas do cadastro
+              </h2>
+              <p class="max-w-[60ch] border-l-2 border-alerta bg-alerta-bg p-4 text-sm leading-relaxed text-alerta-texto">
+                {d.observacoes}
+              </p>
+            </section>
+          )
+        }
+      </div>
+
+      <aside class="lg:sticky lg:top-8 lg:self-start">
+        <div class="border border-borda bg-papel">
+          <div class="border-b border-borda p-5">
+            <div class="rotulo mb-2">Atendimento</div>
+            <p class="text-base">{atendimento}</p>
+            {
+              d.raio_atendimento && (
+                <p class="mt-1 text-base text-texto-2">{d.raio_atendimento}</p>
+              )
+            }
+            {
+              d.atende_envio && (
+                <p class="mt-2 text-sm leading-relaxed text-texto-2">
+                  Recebe réplica pelo correio. O frete de ida e volta costuma
+                  ser por conta de quem manda — confirme antes de postar.
+                </p>
+              )
+            }
+          </div>
+
+          {
+            d.endereco_publico && d.endereco && (
+              <div class="border-b border-borda p-5">
+                <div class="rotulo mb-2">Endereço</div>
+                <p class="text-base">{d.endereco}</p>
+                <p class="text-base text-texto-2">
+                  {d.bairro && <>{d.bairro} · </>}
+                  {d.cidade} — {d.uf}
+                </p>
+                {d.cep && (
+                  <p class="mt-1 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+                    CEP {d.cep}
+                  </p>
+                )}
+              </div>
+            )
+          }
+
+          {
+            !d.endereco_publico && (
+              <div class="border-b border-borda p-5">
+                <div class="rotulo mb-2">Onde fica</div>
+                <p class="text-base">
+                  {d.cidade} — {d.uf}
+                </p>
+                <p class="mt-2 text-sm leading-relaxed text-texto-2">
+                  Este armeiro não divulga endereço aberto. Combine o ponto de
+                  entrega direto com ele.
+                </p>
+              </div>
+            )
+          }
+
+          {
+            d.horario && (
+              <div class="border-b border-borda p-5">
+                <div class="rotulo mb-2">Horário</div>
+                <p class="text-base">{d.horario}</p>
+              </div>
+            )
+          }
+
+          <div class="p-5">
+            <div class="rotulo mb-3">Contato</div>
+            {
+              temContato ? (
+                <ul class="flex flex-col gap-2">
+                  {d.contato.whatsapp && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        {...linkExterno(linkWhatsapp(d.contato.whatsapp), "armeiro")}
+                      >
+                        WhatsApp
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.instagram && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        {...linkExterno(`https://instagram.com/${d.contato.instagram.replace("@", "")}`, "armeiro")}
+                      >
+                        {d.contato.instagram}
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.telefone && <li>{d.contato.telefone}</li>}
+                  {d.contato.site && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        {...linkExterno(d.contato.site, "armeiro")}
+                      >
+                        Site
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.facebook && (
+                    <li>
+                      <a
+                        class="text-oliva-500 underline"
+                        {...linkExterno(d.contato.facebook, "armeiro")}
+                      >
+                        Facebook
+                      </a>
+                    </li>
+                  )}
+                  {d.contato.email && (
+                    <li class="truncate">
+                      <a
+                        class="text-oliva-500 underline"
+                        href={`mailto:${d.contato.email}`}
+                      >
+                        {d.contato.email}
+                      </a>
+                    </li>
+                  )}
+                </ul>
+              ) : (
+                <p class="text-base text-texto-2">
+                  Ainda não temos contato confirmado deste armeiro.
+                </p>
+              )
+            }
+          </div>
+        </div>
+
+        {
+          d.endereco_publico && d.endereco && (
+            <div class="mt-5 border border-borda bg-papel">
+              <MapaLocal
+                nome={d.nome}
+                endereco={d.endereco}
+                bairro={d.bairro}
+                cidade={d.cidade}
+                uf={d.uf}
+                lat={d.lat}
+                lng={d.lng}
+              />
+            </div>
+          )
+        }
+
+        {
+          !d.verificado && (
+            <div class="mt-5 border border-oliva-300 bg-oliva-050 p-5">
+              <h2 class="font-display text-xl font-bold uppercase">
+                É você este armeiro?
+              </h2>
+              <p class="mt-2 text-base leading-relaxed text-texto-2">
+                Assuma o controle da página para corrigir os dados, ajustar
+                prazos e escolher o que fica visível.
+              </p>
+              <Botao
+                href={`/reivindicar?tipo=armeiro&id=${armeiro.id}`}
+                class="mt-4 w-full"
+              >
+                Reivindicar esta página
+              </Botao>
+            </div>
+          )
+        }
+
+        <a
+          href={`/reportar?tipo=armeiro&id=${armeiro.id}`}
+          class="mt-4 block text-center text-sm text-texto-2 underline hover:text-tinta"
+        >
+          Reportar informação desatualizada
+        </a>
+
+        <div class="mt-6 border-t border-borda pt-4">
+          <div class="rotulo mb-2">Como este cadastro chegou aqui</div>
+          <p class="text-sm leading-relaxed text-texto-2">
+            {
+              d.fonte === "submissao"
+                ? "Cadastro enviado pelo próprio armeiro. Ainda não conferimos as informações."
+                : "Indicação da comunidade, ainda sem confirmação com o armeiro."
+            }
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Base>

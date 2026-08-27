@@ -5,6 +5,7 @@ import Etiqueta from "../../../../components/Etiqueta.astro";
 import Botao from "../../../../components/Botao.astro";
 import SeloVerificacao from "../../../../components/SeloVerificacao.astro";
 import Trilha from "../../../../components/Trilha.astro";
+import CapaFicha from "../../../../components/CapaFicha.astro";
 import { linkExterno } from "../../../../lib/link-externo";
 import MapaLocal from "../../../../components/MapaLocal.astro";
 import {
@@ -75,7 +76,12 @@ const dadoEstruturado: Record<string, unknown> = {
 const temContato = Object.values(d.contato).some(Boolean);
 ---
 
-<Base titulo={titulo} descricao={descricao} dadosEstruturados={[dadoEstruturado]}>
+<Base
+  titulo={titulo}
+  descricao={descricao}
+  dadosEstruturados={[dadoEstruturado]}
+  imagem={d.foto_url}
+>
   <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
     <Trilha
       itens={[
@@ -91,6 +97,8 @@ const temContato = Object.values(d.contato).some(Boolean);
 
     <div class="mt-8 grid gap-12 lg:grid-cols-[1fr_360px]">
       <div>
+        <CapaFicha url={d.foto_url} alt={`${d.nome}, campo de ${termo} em ${d.cidade}`} />
+
         <header class="border-b border-borda pb-8">
           <h1
             class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"

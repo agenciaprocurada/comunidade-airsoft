@@ -1,0 +1,202 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import BuscaArmeiros from "../../components/BuscaArmeiros.astro";
+import Botao from "../../components/Botao.astro";
+import Trilha from "../../components/Trilha.astro";
+import { NOME_UF } from "../../lib/uf";
+
+const armeiros = await getCollection(
+  "armeiros",
+  ({ data }) => data.status === "publicado",
+);
+
+const estados = [...new Set(armeiros.map((a) => a.data.uf).filter(Boolean))]
+  .map((uf) => ({
+    sigla: uf as string,
+    nome: NOME_UF[uf as string] ?? (uf as string),
+    total: armeiros.filter((a) => a.data.uf === uf).length,
+  }))
+  .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+const comEnvio = armeiros.filter((a) => a.data.atende_envio).length;
+const cidades = new Set(armeiros.map((a) => `${a.data.cidade_slug}-${a.data.uf}`)).size;
+
+const titulo = "Armeiro de airsoft: encontre quem faz manutenção perto de você";
+
+/**
+ * A descrição muda com a lista vazia porque o diretório NASCE vazio —
+ * ele enche por auto-cadastro, não por levantamento. Anunciar "0
+ * armeiros" no Google seria pedir para ninguém clicar.
+ */
+const descricao = armeiros.length
+  ? `${armeiros.length} ${
+      armeiros.length === 1 ? "armeiro" : "armeiros"
+    } de airsoft em ${cidades} ${cidades === 1 ? "cidade" : "cidades"} do Brasil: o que cada um abre (AEG, GBB, GBBR, HPA, sniper), os serviços que faz e o contato direto.`
+  : "Diretório de armeiros de airsoft do Brasil: quem faz manutenção, upgrade e conserto de réplica, o que cada um abre e quem recebe pelo correio.";
+
+/** ItemList ajuda o Google a entender a página como diretório, não como artigo. */
+const dadoEstruturado = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: titulo,
+  numberOfItems: armeiros.length,
+  itemListElement: armeiros.map((armeiro, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    name: armeiro.data.nome,
+    url: new URL(`/armeiros/${armeiro.id}`, Astro.site).href,
+  })),
+};
+---
+
+<Base
+  titulo={titulo}
+  descricao={descricao}
+  semIndexar={armeiros.length === 0}
+  dadosEstruturados={armeiros.length ? [dadoEstruturado] : []}
+>
+  <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
+    <Trilha itens={[{ texto: "Armeiros" }]} />
+
+    <header class="mt-8 border-b border-borda pb-8">
+      <h1
+        class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"
+      >
+        Armeiros de<br />airsoft no Brasil
+      </h1>
+      <p class="mt-4 max-w-[60ch] text-lg leading-relaxed text-texto-2">
+        {descricao}
+      </p>
+      <p class="mt-4 max-w-[60ch] text-base leading-relaxed text-texto-2">
+        Não intermediamos serviço e não recebemos comissão. O contato é direto
+        com o armeiro, e cada ficha diz de onde veio a informação.
+      </p>
+    </header>
+
+    <!--
+      O ramo de baixo e o estado vazio de verdade, e nao um "em breve":
+      este diretorio so existe se armeiro se cadastrar, entao a lista
+      vazia tem UMA tarefa — converter quem chegou aqui em cadastro.
+    -->
+    {
+      armeiros.length > 0 ? (
+        <BuscaArmeiros armeiros={armeiros} />
+      ) : (
+        <section class="moldura-tatica mt-9 border border-borda bg-papel p-8 md:p-10">
+          <p class="rotulo">Lista aberta</p>
+          <h2 class="mt-3 font-display text-2xl font-bold uppercase md:text-3xl">
+            O diretório está começando agora
+          </h2>
+          <p class="mt-4 max-w-[60ch] leading-relaxed text-texto-2">
+            Armeiro não aparece no Google Maps nem tem vitrine na rua: a maioria
+            trabalha em bancada própria e é achada no boca a boca do grupo. Por
+            isso esta lista não foi levantada — ela é construída por quem faz o
+            serviço e por quem já foi bem atendido.
+          </p>
+          <div class="mt-7">
+            <Botao href="/armeiros/cadastrar">Sou armeiro, quero aparecer</Botao>
+          </div>
+          <p class="mt-5 max-w-[60ch] text-sm leading-relaxed text-texto-2">
+            Não é armeiro, mas conhece um bom? Mande esta página para ele — o
+            cadastro é dele, e leva uns dois minutos.
+          </p>
+        </section>
+      )
+    }
+
+    {
+      estados.length > 0 && (
+        <nav aria-label="Estados" class="mt-12 border-t border-borda pt-8">
+          <h2 class="rotulo mb-3">Armeiros por estado</h2>
+          <ul class="flex flex-wrap gap-2">
+            {estados.map((estado) => (
+              <li>
+                <a
+                  href={`/armeiros/${estado.sigla.toLowerCase()}`}
+                  class="inline-block border border-borda bg-papel px-4 py-2 text-base transition-colors hover:border-oliva-500 hover:text-oliva-500"
+                >
+                  {estado.nome}
+                  <span class="ml-2 font-dado text-[11px] text-oliva-400">
+                    {estado.total}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          {comEnvio > 0 && (
+            <p class="mt-4 max-w-[60ch] text-sm leading-relaxed text-texto-2">
+              O estado é onde o armeiro fica. Se não houver ninguém no seu, use
+              o filtro <strong class="text-tinta">atende por envio</strong>:{" "}
+              {comEnvio === 1
+                ? "1 armeiro recebe"
+                : `${comEnvio} armeiros recebem`}{" "}
+              réplica pelo correio de qualquer lugar do país.
+            </p>
+          )}
+        </nav>
+      )
+    }
+
+    {
+      armeiros.length > 0 && (
+        <section class="mt-12 grid gap-6 border-t border-borda pt-8 md:grid-cols-2">
+          <div class="border border-borda bg-papel p-6">
+            <h2 class="font-display text-xl font-bold uppercase">
+              Faz manutenção?
+            </h2>
+            <p class="mt-3 leading-relaxed text-texto-2">
+              Cadastro gratuito. Você escolhe o que fica visível — inclusive se
+              o endereço aparece ou não.
+            </p>
+            <Botao href="/armeiros/cadastrar" class="mt-5">
+              Cadastrar meu perfil
+            </Botao>
+          </div>
+          <div class="border border-borda bg-papel p-6">
+            <h2 class="font-display text-xl font-bold uppercase">
+              Conhece um bom armeiro?
+            </h2>
+            <p class="mt-3 leading-relaxed text-texto-2">
+              Mande esta página para ele. O cadastro é dele — assim a
+              informação vem de quem faz o serviço, não de terceiro.
+            </p>
+            <p class="mt-5 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+              comunidadeairsoft.com.br/armeiros
+            </p>
+          </div>
+        </section>
+      )
+    }
+
+    <section class="mt-12 border-t border-borda pt-8">
+      <h2 class="mb-4 font-display text-2xl font-bold uppercase">
+        Antes de entregar sua réplica
+      </h2>
+      <p class="max-w-[65ch] leading-relaxed text-texto-2">
+        Combine por escrito o que será feito, o prazo e o valor — e confirme se
+        o armeiro trabalha com a sua plataforma. Uma gearbox V2 e uma GBBR são
+        serviços completamente diferentes, e quase ninguém faz tudo. Se for
+        mandar pelo correio, alinhe quem paga o frete de ida e de volta.
+      </p>
+      <ul class="mt-5 flex flex-wrap gap-3">
+        <li>
+          <a
+            href="/guias"
+            class="inline-block border border-borda bg-papel px-4 py-2 text-base transition-colors hover:border-oliva-500 hover:text-oliva-500"
+          >
+            Ler os guias
+          </a>
+        </li>
+        <li>
+          <a
+            href="/lojas"
+            class="inline-block border border-borda bg-papel px-4 py-2 text-base transition-colors hover:border-oliva-500 hover:text-oliva-500"
+          >
+            Onde comprar peça de reposição
+          </a>
+        </li>
+      </ul>
+    </section>
+  </div>
+</Base>

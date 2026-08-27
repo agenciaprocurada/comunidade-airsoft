@@ -1,0 +1,942 @@
+---
+import Base from "../../layouts/Base.astro";
+import Logo from "../../components/Logo.astro";
+import { ENTRADA } from "../../lib/estilos-form";
+import {
+  CORES,
+  GRADE_MAX,
+  GRADE_MIN,
+  GRADE_PADRAO,
+  TRACOS,
+  ZOOM_MIN,
+  ZOOM_PADRAO,
+} from "../../lib/mapa";
+import { GRUPOS_SIMBOLOS, SIMBOLOS } from "../../lib/simbolos";
+
+/**
+ * Editor de mapa de operação — uma janela só.
+ *
+ * A primeira versão era um assistente de três passos (encontrar,
+ * alinhar, desenhar) numa página de conteúdo. Funcionava e era ruim de
+ * usar: o mapa ficava com 638 px numa tela de 1600, começava depois de
+ * 659 px de rolagem, e trocar o local exigia voltar dois passos.
+ *
+ * Agora é uma tela de trabalho: barra de comando no topo, ferramentas à
+ * esquerda, camadas e ajustes à direita, símbolos embaixo, e o mapa
+ * ocupando o resto. Reposicionar o satélite virou um painel que abre
+ * sobre a tela, não um passo para trás.
+ *
+ * Continua ESTÁTICA e indexável, e a ferramenta inteira funciona sem
+ * conta — só guardar exige login. O texto de SEO ficou depois do
+ * editor: quem chegou do Google rola para ler, quem veio trabalhar já
+ * está na ferramenta.
+ *
+ * Fabric e Leaflet NÃO entram no bundle desta página: `ferramenta.ts`
+ * os carrega por `import()` quando são necessários.
+ */
+
+const CHAVE_NAVEGADOR = import.meta.env.PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? "";
+
+const TITULO = "Criador de mapa de operação";
+const DESCRICAO =
+  "Monte o mapa do seu campo de airsoft sobre a imagem de satélite: grade de setores, " +
+  "áreas marcadas, rotas e símbolos. Gratuito, direto no navegador.";
+
+/** Barra da esquerda. `atalho` aparece na dica e vale no teclado. */
+const FERRAMENTAS = [
+  { acao: "selecionar", rotulo: "Selecionar", atalho: "V", icone: "M5 3l14 8-6 1.5L10 19z" },
+  // A mão existe para toque e para quem não conhece o atalho; no
+  // desktop, espaço+arraste e o botão do meio fazem o mesmo sem
+  // trocar de ferramenta.
+  { acao: "mover", rotulo: "Mover", atalho: "H", icone: "M12 4v16M4 12h16M9 7l3-3 3 3M9 17l3 3 3-3M7 9l-3 3 3 3M17 9l3 3-3 3" },
+  { acao: "area", rotulo: "Área", atalho: "A", icone: "M4 8l6-4 10 5-3 10-9 2z" },
+  { acao: "linha", rotulo: "Linha", atalho: "L", icone: "M4 20L20 4M4 20h4M20 4v4" },
+  { acao: "rota", rotulo: "Rota", atalho: "R", icone: "M4 19c6 0 4-7 9-7h6M15 8l4 4-4 4" },
+  { acao: "texto", rotulo: "Texto", atalho: "T", icone: "M5 5h14M12 5v14M9 19h6" },
+  { acao: "marcacao", rotulo: "Ponto", atalho: "P", icone: "M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11zM12 8v4M12 14.5v.5" },
+] as const;
+
+const ACOES = [
+  { acao: "desfazer", rotulo: "Desfazer", atalho: "Ctrl+Z", icone: "M9 7L4 12l5 5M4 12h10a5 5 0 0 1 0 10h-2" },
+  { acao: "refazer", rotulo: "Refazer", atalho: "Ctrl+Y", icone: "M15 7l5 5-5 5M20 12H10a5 5 0 0 0 0 10h2" },
+  { acao: "excluir", rotulo: "Excluir", atalho: "Del", icone: "M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6" },
+] as const;
+
+/** Classe comum dos botões da barra vertical. Compactos de propósito:
+ *  são 10 na coluna, e cada pixel de altura aqui é altura que a barra
+ *  precisa rolar em notebook baixo. */
+const BOTAO_LATERAL =
+  "group flex w-full flex-col items-center gap-0.5 border border-transparent px-1 py-1.5 " +
+  "text-[10px] font-dado uppercase tracking-[0.1em] text-texto-2 transition-colors duration-150 " +
+  "hover:border-borda-forte hover:bg-oliva-050 hover:text-tinta " +
+  "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-oliva-300 " +
+  "aria-pressed:border-oliva-700 aria-pressed:bg-oliva-050 aria-pressed:text-oliva-300 " +
+  "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-transparent " +
+  "disabled:hover:bg-transparent";
+
+const ROTULO_PAINEL =
+  "font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2";
+
+/**
+ * Aba de painel encaixado, à la Photoshop: faixa escura, aba ativa com
+ * o fundo do painel e texto oliva. `flex-1 truncate` divide a faixa
+ * por igual e corta rótulo comprido em vez de quebrar a linha.
+ */
+const ABA_PAINEL =
+  "flex-1 min-w-0 truncate border-b-2 border-transparent px-1 py-2.5 font-dado text-[10px] " +
+  "uppercase tracking-[0.1em] text-texto-2 transition-colors duration-150 " +
+  "hover:text-tinta aria-pressed:border-oliva-500 aria-pressed:text-oliva-300 " +
+  "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-oliva-300";
+
+/** Linha rótulo + valor dos controles deslizantes, como no mockup. */
+const LINHA_CONTROLE = "flex items-baseline justify-between gap-3";
+const VALOR_CONTROLE = "font-dado text-[0.8125rem] text-oliva-300";
+---
+
+<Base titulo={TITULO} descricao={DESCRICAO} semCasca={true}>
+  <div data-editor data-chave={CHAVE_NAVEGADOR}>
+    <!-- ============================================================
+         Barra do aplicativo — o editor tem casca própria (semCasca no
+         Base): navegação do site aqui seria ruído numa tela de
+         trabalho. "Sair do editor" é o caminho de volta.
+         ============================================================ -->
+    <header class="flex items-center gap-4 border-b border-borda bg-fundo px-4 py-2.5 md:px-6">
+      <a href="/" class="shrink-0" aria-label="Comunidade Airsoft — início">
+        <Logo class="h-8 w-auto" />
+      </a>
+      <span class="hidden font-dado text-[11px] uppercase tracking-[0.2em] text-oliva-300 sm:block">
+        Editor de mapas
+      </span>
+
+      <div class="ml-auto flex items-center gap-2">
+        <a href="#ajuda" class="botao-barra">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 1 1 3.6 2.4c-.8.35-1.1.9-1.1 1.8M12 16.6v.6" stroke-linecap="square"/></svg>
+          Ajuda
+        </a>
+        <a href="/" class="botao-barra">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M14 4h6v16h-6M13 12H4M8 8l-4 4 4 4"/></svg>
+          Sair do editor
+        </a>
+        <button type="button" class="botao-barra" data-telacheia>
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+          Tela cheia
+        </button>
+      </div>
+    </header>
+
+    <!-- ============================================================
+         Barra de comando — voltar, nome do mapa, busca, ações
+         ============================================================ -->
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-borda px-4 py-2.5 md:px-6">
+      <a href="/conta/mapas" class="botao-barra shrink-0">
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+        Meus mapas
+      </a>
+
+      <!--
+        O nome do mapa É o título da tela, editável no lugar — como um
+        documento. O lápis só dá o foco: o campo já é sempre editável.
+      -->
+      <div class="flex min-w-0 items-center gap-1.5">
+        <input
+          type="text"
+          maxlength="80"
+          placeholder="Mapa sem nome"
+          aria-label="Nome do mapa"
+          class="titulo-mapa"
+          data-nome-mapa
+        />
+        <button type="button" class="shrink-0 p-1 text-texto-2 transition-colors hover:text-oliva-300" data-editar-nome aria-label="Renomear mapa">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M4 20l.8-3.2L15.6 6l2.4 2.4L7.2 19.2zM14 7.6l2.4 2.4M17 4.6l2.4 2.4"/></svg>
+        </button>
+      </div>
+
+      <form class="relative mx-auto min-w-[15rem] max-w-[34rem] flex-1" data-busca>
+        <label class="sr-only" for="busca-local">Endereço, nome do sítio ou coordenada</label>
+        <svg viewBox="0 0 24 24" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-texto-2" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4" stroke-linecap="square"/></svg>
+        <input
+          id="busca-local"
+          name="q"
+          type="search"
+          autocomplete="off"
+          enterkeyhint="search"
+          placeholder="Buscar endereço, sítio, CEP ou coordenada…"
+          class={`${ENTRADA} !mt-0 !py-2 !pl-9 !pr-9`}
+        />
+        <button type="button" class="absolute right-2 top-1/2 hidden -translate-y-1/2 p-1 text-texto-2 hover:text-tinta" data-limpar-busca aria-label="Limpar busca">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <!--
+          A lista flutua em z-[1200]: a pilha do Leaflet vai até 1000 no
+          `.leaflet-top`, e empatar com ela perde pela ordem do DOM.
+        -->
+        <ul
+          class="absolute inset-x-0 top-[calc(100%+0.35rem)] z-[1200] hidden max-h-[24rem] overflow-y-auto rounded-lg border border-borda-forte bg-papel shadow-[0_18px_50px_-12px_rgba(0,0,0,0.9)]"
+          data-resultados
+        >
+        </ul>
+      </form>
+
+      <button type="button" class="botao-barra shrink-0" data-abrir-local title="Arrastar o satélite até o terreno">
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><path d="M12 2v3.4M12 18.6V22M2 12h3.4M18.6 12H22" stroke-linecap="square"/></svg>
+        Reposicionar
+      </button>
+
+      <button type="button" class="botao-salvar shrink-0" data-salvar>
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/></svg>
+        Salvar mapa
+      </button>
+
+      <div class="relative shrink-0">
+        <button type="button" class="botao-barra !px-2" data-menu aria-haspopup="menu" aria-expanded="false" aria-label="Mais ações">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+        </button>
+        <div
+          class="absolute right-0 top-[calc(100%+6px)] z-[1300] hidden w-52 overflow-hidden rounded-lg border border-borda-forte bg-papel py-1 shadow-[0_18px_50px_-12px_rgba(0,0,0,0.9)]"
+          data-menu-lista
+          role="menu"
+        >
+          <button type="button" class="item-menu" data-novo role="menuitem">Novo mapa</button>
+          <button type="button" class="item-menu" data-duplicar role="menuitem">Duplicar mapa</button>
+          <a href="/conta/mapas" class="item-menu" role="menuitem">Meus mapas</a>
+          <span class="my-1 block h-px bg-borda"></span>
+          <button type="button" class="item-menu" data-baixar role="menuitem">Exportar PNG</button>
+          <button type="button" class="item-menu" data-imprimir role="menuitem">PDF / Imprimir</button>
+          <span class="my-1 block h-px bg-borda"></span>
+          <button type="button" class="item-menu !text-alerta-texto" data-excluir role="menuitem">Excluir mapa</button>
+        </div>
+      </div>
+    </div>
+
+    <p
+      class="mx-4 mt-3 hidden rounded-lg border border-alerta bg-alerta-bg px-4 py-2.5 text-[0.9375rem] leading-snug text-alerta-texto md:mx-6"
+      data-aviso
+      role="status"
+    >
+    </p>
+
+    <!-- ============================================================
+         Área de trabalho
+         ============================================================ -->
+    <!--
+      Altura fixa na LINHA, não em cada coluna.
+
+      Sem isto o grid assume a altura do item mais alto — a coluna de
+      ajustes, que tem uns 850 px — e a paleta de símbolos era empurrada
+      para fora da janela. O efeito colateral era pior que o vazio:
+      clicar num símbolo dava foco a um botão fora da viewport, o
+      navegador rolava a página, e o mapa saía de vista bem na hora de
+      posicionar o que acabou de ser criado.
+
+      Agora as colunas rolam por dentro e a tela inteira cabe.
+
+      `grid-rows-[minmax(0,1fr)]` é a metade que faltava — e faltou uma
+      vez, com painel por cima de painel em janela baixa. Fixar a altura
+      do CONTÊINER não fixa a da LINHA: linha implícita de grid é
+      dimensionada pelo conteúdo (`auto`), então as colunas cresciam até
+      669px dentro de um contêiner de 416px e vazavam por cima da seção
+      de símbolos. Com a linha em minmax(0,1fr), ela ocupa exatamente o
+      espaço do contêiner e cada coluna rola por dentro.
+    -->
+    <div
+      class="grid gap-3 px-4 py-3 md:px-6 xl:h-[clamp(26rem,72vh,52rem)] xl:grid-cols-[4.5rem_minmax(0,1fr)_19rem] xl:grid-rows-[minmax(0,1fr)]"
+    >
+      <!-- ----- Ferramentas ----- -->
+      <!--
+        `xl:overflow-y-auto`, nunca visible: numa janela baixa a barra
+        tem mais botões do que altura, e com overflow solto ela pintava
+        por cima da paleta de símbolos. Rolar dentro da própria barra é
+        o comportamento certo — e com os botões compactos quase nunca é
+        necessário.
+      -->
+      <div
+        class="flex gap-1 overflow-x-auto border border-borda bg-papel/50 p-1 xl:flex-col xl:gap-0.5 xl:overflow-y-auto xl:overflow-x-hidden"
+        role="toolbar"
+        aria-label="Ferramentas de desenho"
+      >
+        {
+          FERRAMENTAS.map((f) => (
+            <button
+              type="button"
+              class={`${BOTAO_LATERAL} shrink-0`}
+              data-ferramenta={f.acao}
+              aria-pressed={f.acao === "selecionar" ? "true" : "false"}
+              title={`${f.rotulo} (${f.atalho})`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                   stroke-linecap="square" aria-hidden="true" class="h-4 w-4">
+                <path d={f.icone} />
+              </svg>
+              {f.rotulo}
+            </button>
+          ))
+        }
+
+        <span class="my-1 hidden h-px w-full bg-borda xl:block"></span>
+
+        {
+          ACOES.map((a) => (
+            <button
+              type="button"
+              class={`${BOTAO_LATERAL} shrink-0`}
+              data-acao={a.acao}
+              title={`${a.rotulo} (${a.atalho})`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                   stroke-linecap="square" aria-hidden="true" class="h-4 w-4">
+                <path d={a.icone} />
+              </svg>
+              {a.rotulo}
+            </button>
+          ))
+        }
+      </div>
+
+      <!-- ----- Palco ----- -->
+      <div class="flex min-h-0 min-w-0 flex-col xl:overflow-hidden">
+        <!--
+          O palco é RECORTADO na proporção do documento (dimensionarPalco
+          na ferramenta): o maior retângulo 4:3 — ou o formato escolhido —
+          que cabe no espaço. Assim "ajustar" enche a moldura por inteiro
+          e a foto ocupa toda a área visível, sem faixa de mesa nas
+          laterais. A moldura externa só centraliza.
+        -->
+        <div class="relative flex min-h-0 flex-1 items-center justify-center" data-moldura-palco>
+        <div
+          class="relative overflow-hidden border border-borda-forte bg-[#070a06]"
+          style="min-height: 14rem; min-width: 16rem"
+          data-palco
+        >
+          <!--
+            O canvas preenche o palco. O documento vive DENTRO dele, pela
+            matriz de viewport do Fabric — é isso que dá zoom nítido e
+            deslocamento por arrasto. `absolute inset-0` porque o Fabric
+            embrulha o canvas num container próprio ao montar.
+          -->
+          <canvas class="absolute inset-0" data-canvas></canvas>
+
+          <div
+            class="pointer-events-none absolute inset-0 hidden place-content-center bg-black/70 text-center"
+            data-carregando
+          >
+            <p class="font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-300">
+              Carregando satélite…
+            </p>
+          </div>
+
+          <!-- Faixa-guia do modo de enquadrar. Aparece só com ele ativo. -->
+          <div
+            class="pointer-events-none absolute left-1/2 top-2 z-10 hidden max-w-[92%] -translate-x-1/2 border border-oliva-700 bg-fundo/90 px-3 py-1.5 text-center font-dado text-[10px] uppercase tracking-[0.12em] leading-relaxed text-oliva-300"
+            data-faixa-encaixe
+          >
+            Arraste para posicionar a foto · role o mouse para dimensionar · a grade não se move
+          </div>
+        </div>
+        </div>
+
+        <!-- Rodapé do palco: zoom da vista e dica da ferramenta -->
+        <div class="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <div class="flex items-center gap-1">
+            <button type="button" class="botao-hud" data-vista="menos" aria-label="Afastar">−</button>
+            <span class="w-14 text-center font-dado text-[0.8125rem] text-texto-2" data-vista-valor>
+              100%
+            </span>
+            <button type="button" class="botao-hud" data-vista="mais" aria-label="Aproximar">+</button>
+            <button type="button" class="botao-hud" data-vista="ajustar">Ajustar</button>
+          </div>
+
+          <p class="text-[0.8125rem] leading-snug text-texto-2" data-dica>
+            Clique para selecionar e arraste para mover.
+          </p>
+
+          <p
+            class="font-dado text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2"
+            data-resumo-local
+          >
+          </p>
+
+
+        </div>
+      </div>
+
+      <!--
+        Encaixe de painéis com abas, no espírito do Photoshop.
+
+        DOIS grupos empilhados, não um só, e a divisão não é estética:
+        quem está soltando símbolos precisa de cor e traço AO MESMO
+        TEMPO — num grupo único, cada troca de aba esconderia o outro
+        painel e o fluxo viraria pingue-pongue. Em cima fica o CONTEÚDO
+        do mapa (camadas e os três grupos de símbolos); embaixo, os
+        AJUSTES (traço, grade, satélite).
+
+        A antiga faixa inferior da página morreu aqui: tudo que vivia
+        nela virou aba, e a altura que ela ocupava voltou para o mapa.
+      -->
+      <div class="flex min-h-0 min-w-0 flex-col gap-3">
+        <!-- Grupo de cima: o que está NO mapa -->
+        <section class="flex min-h-0 flex-1 flex-col border border-borda bg-papel/50" data-grupo-abas>
+          <div class="flex shrink-0 border-b border-borda bg-fundo/70" role="tablist">
+            <button type="button" class={ABA_PAINEL} data-aba="camadas" aria-pressed="true">
+              Camadas <span data-conta-camadas>0</span>
+            </button>
+            {
+              GRUPOS_SIMBOLOS.map((grupo) => (
+                <button type="button" class={ABA_PAINEL} data-aba={grupo.chave} aria-pressed="false">
+                  {grupo.rotulo}
+                </button>
+              ))
+            }
+          </div>
+
+          <div class="min-h-0 flex-1 overflow-y-auto" data-painel-aba="camadas">
+            <ul data-camadas></ul>
+            <div class="flex flex-col items-center gap-3 px-6 py-10 text-center" data-camadas-vazio>
+              <svg viewBox="0 0 24 24" class="h-9 w-9 text-texto-2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3l9 5-9 5-9-5z" />
+                <path d="M3 12.5l9 5 9-5M3 17l9 5 9-5" opacity="0.55" />
+              </svg>
+              <p class="max-w-[26ch] text-[0.8125rem] leading-relaxed text-texto-2">
+                Nada desenhado ainda. Escolha uma ferramenta à esquerda e clique no
+                mapa para criar áreas, rotas ou pontos.
+              </p>
+            </div>
+          </div>
+
+          {
+            GRUPOS_SIMBOLOS.map((grupo) => (
+              <div
+                class="hidden min-h-0 flex-1 space-y-1 overflow-y-auto p-2"
+                data-painel-aba={grupo.chave}
+              >
+                {grupo.itens.map((chave) => {
+                  const s = SIMBOLOS[chave];
+                  return (
+                    <button
+                      type="button"
+                      class="flex w-full items-center gap-2.5 border border-borda bg-papel px-2.5 py-2 text-left text-[0.875rem] leading-none text-tinta transition-colors duration-150 hover:border-oliva-500 hover:bg-oliva-050 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-oliva-300"
+                      data-simbolo={chave}
+                    >
+                      <span
+                        class="grid h-6 w-6 shrink-0 place-content-center rounded-full"
+                        style={`background:${s.cor}`}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#0b0d09" stroke-width="1.8"
+                             stroke-linecap="square" aria-hidden="true" class="h-4 w-4">
+                          <path d={s.desenho} />
+                        </svg>
+                      </span>
+                      {s.rotulo}
+                    </button>
+                  );
+                })}
+              </div>
+            ))
+          }
+        </section>
+
+        <!-- Grupo de baixo: como o mapa é desenhado -->
+        <section class="flex min-h-0 flex-1 flex-col border border-borda bg-papel/50" data-grupo-abas>
+          <div class="flex shrink-0 border-b border-borda bg-fundo/70" role="tablist">
+            <button type="button" class={ABA_PAINEL} data-aba="traco" aria-pressed="true">
+              Traço
+            </button>
+            <button type="button" class={ABA_PAINEL} data-aba="grade" aria-pressed="false">
+              Grade
+            </button>
+            <button type="button" class={ABA_PAINEL} data-aba="satelite" aria-pressed="false">
+              Satélite
+            </button>
+          </div>
+
+          <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-3" data-painel-aba="traco">
+            <div class="flex flex-wrap gap-2">
+              {
+                CORES.map((c, i) => (
+                  <button
+                    type="button"
+                    class="h-8 w-8 border-2 border-transparent transition-transform hover:scale-110 aria-pressed:border-tinta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oliva-300"
+                    style={`background:${c.valor}`}
+                    data-cor={c.valor}
+                    aria-pressed={i === 0 ? "true" : "false"}
+                    title={c.rotulo}
+                  >
+                    <span class="sr-only">{c.rotulo}</span>
+                  </button>
+                ))
+              }
+            </div>
+
+            <div class="grid grid-cols-2 gap-1">
+              {
+                Object.entries(TRACOS).map(([chave, t]) => (
+                  <button type="button" class="botao-hud" data-traco={chave}
+                          aria-pressed={chave === "tracejado" ? "true" : "false"}>
+                    {t.rotulo}
+                  </button>
+                ))
+              }
+            </div>
+
+            <div>
+              <label class="block text-[0.8125rem] text-texto-2" for="espessura">
+                Espessura <span class="font-dado" data-espessura-valor>3</span>
+              </label>
+              <input id="espessura" type="range" min="1" max="10" value="3"
+                     class="mt-2 w-full accent-oliva-500" data-espessura />
+            </div>
+
+            <button type="button" class="botao-barra w-full" data-circulo>
+              Adicionar círculo
+            </button>
+          </div>
+
+          <div class="hidden min-h-0 flex-1 space-y-4 overflow-y-auto p-3.5" data-painel-aba="grade">
+
+          <!--
+            Canvas de tamanho FIXO, pedido explícito: quadrado ou
+            retangular, e nada de acompanhar a tela. Retangular = 4:3,
+            que imprime bem e cabe em projetor; o valor gravado é o
+            `paisagem` do enum existente, sem mexer no banco.
+          -->
+          <div class="space-y-2">
+            <span class="block text-[0.8125rem] font-semibold text-tinta">Formato do mapa</span>
+            <div class="grid grid-cols-2 gap-1">
+              <button type="button" class="botao-hud" data-formato="paisagem" aria-pressed="true">
+                Retangular
+              </button>
+              <button type="button" class="botao-hud" data-formato="quadrado" aria-pressed="false">
+                Quadrado
+              </button>
+            </div>
+          </div>
+
+
+          <div class="space-y-2">
+            <label class="flex cursor-pointer items-center justify-between text-[0.9375rem] text-tinta">
+              Mostrar grade
+              <input type="checkbox" checked class="accent-oliva-500" data-grade-ligada />
+            </label>
+            <label class="flex cursor-pointer items-center justify-between text-[0.9375rem] text-tinta">
+              Letras (A–J)
+              <input type="checkbox" checked class="accent-oliva-500" data-grade-letras />
+            </label>
+            <label class="flex cursor-pointer items-center justify-between text-[0.9375rem] text-tinta">
+              Números (1–10)
+              <input type="checkbox" checked class="accent-oliva-500" data-grade-numeros />
+            </label>
+            <label class="flex cursor-pointer items-center justify-between text-[0.9375rem] text-tinta">
+              Marca na célula
+              <input type="checkbox" checked class="accent-oliva-500" data-grade-rotulos />
+            </label>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[0.8125rem] text-texto-2" for="colunas">Colunas</label>
+              <input id="colunas" type="number" min={GRADE_MIN} max={GRADE_MAX}
+                     value={GRADE_PADRAO.colunas} class={ENTRADA} data-grade-colunas />
+            </div>
+            <div>
+              <label class="block text-[0.8125rem] text-texto-2" for="linhas">Linhas</label>
+              <input id="linhas" type="number" min={GRADE_MIN} max={GRADE_MAX}
+                     value={GRADE_PADRAO.linhas} class={ENTRADA} data-grade-linhas />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[0.8125rem] text-texto-2" for="opacidade">Intensidade da grade</label>
+            <input id="opacidade" type="range" min="15" max="100"
+                   value={GRADE_PADRAO.opacidade * 100}
+                   class="mt-2 w-full accent-oliva-500" data-grade-opacidade />
+          </div>
+          </div>
+
+          <div class="hidden min-h-0 flex-1 space-y-5 overflow-y-auto p-3.5" data-painel-aba="satelite">
+
+          <!--
+            Fundo do mapa: satélite (padrão) ou uma imagem que o usuário
+            envia — planta do campo, foto de drone. Com imagem própria,
+            escala, norte, aproximação e busca somem: seriam mentira
+            sobre uma imagem sem georreferência.
+          -->
+          <div class="space-y-2">
+            <span class="block text-[0.8125rem] font-semibold text-tinta">Fundo do mapa</span>
+            <div class="grid grid-cols-2 gap-1">
+              <button type="button" class="botao-hud" data-fundo="satelite" aria-pressed="true">
+                Satélite
+              </button>
+              <button type="button" class="botao-hud" data-fundo="imagem" aria-pressed="false">
+                Minha imagem
+              </button>
+            </div>
+            <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" data-arquivo-imagem />
+            <p class="hidden truncate text-[0.75rem] leading-snug text-oliva-300" data-info-imagem></p>
+          </div>
+
+          <div class="border-t border-borda pt-4">
+            <div class={LINHA_CONTROLE}>
+              <label class="text-[0.9375rem] text-tinta" for="rotacao">Rotação</label>
+              <span class={VALOR_CONTROLE} data-rotacao-valor>0°</span>
+            </div>
+            <input id="rotacao" type="range" min="0" max="359" value="0"
+                   class="mt-2 w-full accent-oliva-500" data-rotacao />
+            <div class="mt-2 grid grid-cols-4 gap-1">
+              {[0, 90, 180, 270].map((g) => (
+                <button type="button" class="botao-hud" data-rotacao-atalho={g}>{g}°</button>
+              ))}
+            </div>
+          </div>
+
+          <div data-so-satelite>
+            <div class={LINHA_CONTROLE}>
+              <label class="text-[0.9375rem] text-tinta" for="zoom">Aproximação</label>
+              <span class={VALOR_CONTROLE} data-zoom-valor>{ZOOM_PADRAO}</span>
+            </div>
+            <input id="zoom" type="range" min={ZOOM_MIN} max="19" value={ZOOM_PADRAO}
+                   class="mt-2 w-full accent-oliva-500" data-zoom />
+          </div>
+
+          <div>
+            <div class={LINHA_CONTROLE}>
+              <label class="text-[0.9375rem] text-tinta" for="veu">Escurecer imagem</label>
+              <span class={VALOR_CONTROLE} data-veu-valor>18%</span>
+            </div>
+            <input id="veu" type="range" min="0" max="70" value="18"
+                   class="mt-2 w-full accent-oliva-500" data-veu />
+          </div>
+
+          <!--
+            O encaixe é um interruptor, como no mockup: ligado, arraste e
+            roda mexem na FOTO sob a grade imóvel; desligado, o fundo é
+            chão parado e as ferramentas voltam ao normal.
+          -->
+          <div class="space-y-2 border-t border-borda pt-4">
+            <label class="flex cursor-pointer items-center justify-between gap-3">
+              <span class="text-[0.9375rem] font-semibold text-tinta">
+                Encaixe da foto sob a grade
+              </span>
+              <span class="interruptor">
+                <input type="checkbox" data-encaixe-toggle />
+                <span aria-hidden="true"></span>
+              </span>
+            </label>
+            <button type="button" class="botao-hud w-full" data-base-reset>Centralizar foto</button>
+            <p class="text-[0.75rem] leading-snug text-texto-2">
+              Ligado: arraste move a foto e a roda dimensiona; a grade e o desenho
+              ficam parados.
+            </p>
+          </div>
+
+          <div class="space-y-2 border-t border-borda pt-4" data-so-satelite>
+            <label class="flex cursor-pointer items-center justify-between text-[0.9375rem] text-tinta">
+              Barra de escala
+              <input type="checkbox" checked class="accent-oliva-500" data-escala />
+            </label>
+            <label class="flex cursor-pointer items-center justify-between text-[0.9375rem] text-tinta">
+              Rosa dos ventos
+              <input type="checkbox" checked class="accent-oliva-500" data-norte />
+            </label>
+          </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         Painel de reposicionamento — abre sobre a tela
+         ============================================================ -->
+    <div
+      class="fixed inset-0 z-[2000] hidden place-content-center bg-fundo/85 p-4 backdrop-blur-sm"
+      data-modal-local
+      role="dialog"
+      aria-modal="true"
+      aria-label="Reposicionar o satélite"
+    >
+      <div class="flex max-h-[92vh] w-full max-w-[62rem] flex-col border border-borda-forte bg-fundo">
+        <div class="flex items-center justify-between border-b border-borda px-4 py-3">
+          <h2 class="text-[1.0625rem] font-semibold text-tinta">Reposicionar o satélite</h2>
+          <button type="button" class="botao-hud" data-fechar-local>Fechar</button>
+        </div>
+
+        <p class="px-4 pt-3 text-[0.9375rem] leading-snug text-texto-2">
+          Arraste e dê zoom até o terreno caber na moldura. O que estiver dentro dela
+          vira a imagem do mapa.
+        </p>
+
+        <div class="relative m-4 border border-borda-forte bg-papel-2">
+          <div class="h-[52vh] w-full" data-mapa-vivo></div>
+
+          <div
+            class="pointer-events-none absolute left-1/2 top-1/2 z-[650] aspect-square -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-oliva-300/90 shadow-[0_0_0_9999px_rgba(11,13,9,0.5)]"
+            data-visor
+            aria-hidden="true"
+          >
+            <span class="absolute left-1/2 top-1/2 h-6 w-px -translate-x-1/2 -translate-y-1/2 bg-oliva-300/80"></span>
+            <span class="absolute left-1/2 top-1/2 h-px w-6 -translate-x-1/2 -translate-y-1/2 bg-oliva-300/80"></span>
+          </div>
+
+          <p
+            class="absolute inset-0 z-[400] hidden place-content-center bg-papel-2 px-8 text-center text-[0.9375rem] leading-relaxed text-texto-2"
+            data-mapa-indisponivel
+          >
+            O mapa arrastável não carregou. Cole a coordenada no campo de busca —
+            no Google Maps, clique com o botão direito no lugar e copie os números.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 border-t border-borda px-4 py-3">
+          <p class="font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2" data-area-visor></p>
+          <div class="ml-auto flex gap-2">
+            <button type="button" class="botao-barra" data-fechar-local>Cancelar</button>
+            <button type="button" class="botao-salvar" data-confirmar-local>Usar este enquadramento</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         Conteúdo indexável — depois da ferramenta, de propósito
+         ============================================================ -->
+    <section class="border-t border-borda px-4 py-10 md:px-6" id="ajuda">
+      <h2 class="font-display text-[1.6rem] font-extrabold uppercase leading-tight tracking-[-0.01em] text-tinta">
+        Como montar o mapa do seu campo
+      </h2>
+
+      <div class="mt-6 grid gap-8 md:grid-cols-3">
+        <div>
+          <div class={ROTULO_PAINEL}>Encontrar</div>
+          <p class="mt-2 text-[0.9375rem] leading-relaxed text-texto-2">
+            Busque pelo nome do sítio, pelo endereço ou cole a coordenada. Em
+            "Reposicionar satélite" você arrasta até o terreno de jogo caber inteiro —
+            com a mata, as trincheiras e o estacionamento.
+          </p>
+        </div>
+        <div>
+          <div class={ROTULO_PAINEL}>Alinhar</div>
+          <p class="mt-2 text-[0.9375rem] leading-relaxed text-texto-2">
+            Gire a imagem para bater com a leitura de quem está em campo. Norte para
+            cima quase nunca é o mais útil: o que orienta é a entrada, a estrada ou a
+            linha de safe. A rosa dos ventos gira junto e continua apontando o norte real.
+          </p>
+        </div>
+        <div>
+          <div class={ROTULO_PAINEL}>Desenhar</div>
+          <p class="mt-2 text-[0.9375rem] leading-relaxed text-texto-2">
+            Marque áreas clicando ponto a ponto, trace rotas com seta e solte os
+            símbolos de safe, respawn e CQB. A quadrícula usa letra na coluna e número
+            na linha — o mesmo "B4" que já se fala no rádio.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-8 max-w-[46rem] space-y-3 text-[0.9375rem] leading-relaxed text-texto-2">
+        <p>
+          <strong class="text-tinta">A escala é de verdade.</strong> A barra no canto é
+          calculada a partir da latitude e do zoom, então dá para dizer no briefing que
+          o setor tem 80 metros e estar certo.
+        </p>
+        <p>
+          <strong class="text-tinta">Baixar não precisa de conta.</strong> Salvar guarda
+          o mapa no seu painel para editar depois e anexar a uma operação.
+        </p>
+      </div>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { iniciarEditor } from "../../scripts/mapa/ferramenta";
+  iniciarEditor();
+</script>
+
+<style>
+  /* ============================================================
+     Botões da tela.
+
+     Ficam em CSS e não em classes de utilitário porque são usados em
+     dezenas de lugares aqui e a string do Tailwind ficaria maior que a
+     marcação. Continuam falando o dialeto de produto do DS: uma
+     família de texto, borda reta, oliva no foco.
+     ============================================================ */
+  .botao-barra,
+  .botao-hud,
+  .botao-salvar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border: 1px solid var(--color-borda-forte);
+    /* Arredondado por pedido do mockup do editor — exceção consciente
+       ao DS do site, restrita a esta tela de aplicativo. */
+    border-radius: 8px;
+    font-size: 0.875rem;
+    line-height: 1;
+    padding: 0.55rem 0.85rem;
+    cursor: pointer;
+    transition:
+      background-color 150ms,
+      border-color 150ms,
+      color 150ms;
+  }
+
+  /* Nome do mapa como título de documento: display, sem moldura até o
+     foco, largura contida. */
+  .titulo-mapa {
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    color: var(--color-tinta);
+    font-family: var(--font-display, inherit);
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    min-width: 0;
+    width: clamp(9rem, 22vw, 18rem);
+    padding: 0.15rem 0;
+  }
+
+  .titulo-mapa:focus {
+    outline: none;
+    border-bottom-color: var(--color-oliva-500);
+  }
+
+  .titulo-mapa::placeholder {
+    color: var(--color-texto-2);
+  }
+
+  /* Itens do menu ⋮ */
+  .item-menu {
+    display: block;
+    width: 100%;
+    padding: 0.55rem 0.9rem;
+    text-align: left;
+    font-size: 0.875rem;
+    color: var(--color-tinta);
+    cursor: pointer;
+    transition: background-color 120ms;
+  }
+
+  .item-menu:hover {
+    background: var(--color-oliva-050);
+  }
+
+  /* Interruptor (toggle), no oliva do DS. */
+  .interruptor {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .interruptor input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .interruptor > span {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: var(--color-borda-forte);
+    transition: background-color 150ms;
+    pointer-events: none;
+  }
+
+  .interruptor > span::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--color-tinta);
+    transition: transform 150ms;
+  }
+
+  .interruptor input:checked + span {
+    background: var(--color-oliva-500);
+  }
+
+  .interruptor input:checked + span::after {
+    transform: translateX(18px);
+    background: var(--color-fundo);
+  }
+
+  .interruptor input:focus-visible + span {
+    outline: 2px solid var(--color-oliva-300);
+    outline-offset: 2px;
+  }
+
+  .botao-barra {
+    background: var(--color-papel);
+    color: var(--color-tinta);
+  }
+
+  .botao-barra:hover {
+    border-color: var(--color-oliva-500);
+    background: var(--color-oliva-050);
+    color: var(--color-oliva-300);
+  }
+
+  .botao-hud {
+    background: transparent;
+    border-color: var(--color-borda);
+    color: var(--color-texto-2);
+    font-family: var(--font-dado, ui-monospace), monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.45rem 0.6rem;
+  }
+
+  .botao-hud:hover {
+    border-color: var(--color-borda-forte);
+    background: var(--color-oliva-050);
+    color: var(--color-tinta);
+  }
+
+  .botao-hud[aria-pressed="true"] {
+    border-color: var(--color-oliva-700);
+    background: var(--color-oliva-050);
+    color: var(--color-oliva-300);
+  }
+
+  .botao-salvar {
+    background: var(--color-oliva-500);
+    border-color: var(--color-oliva-500);
+    color: var(--color-fundo);
+    font-weight: 600;
+  }
+
+  .botao-salvar:hover {
+    background: var(--color-oliva-400);
+    border-color: var(--color-oliva-400);
+  }
+
+  .botao-barra:focus-visible,
+  .botao-hud:focus-visible,
+  .botao-salvar:focus-visible {
+    outline: 2px solid var(--color-oliva-300);
+    outline-offset: 2px;
+  }
+
+  /* O canvas é dimensionado em pixels de documento; sem isto ele
+     estoura o container em vez de rolar dentro dele. */
+  canvas {
+    display: block;
+    max-width: none;
+  }
+
+  /* Impressão: só o mapa vai para o papel. É o que faz o botão
+     "PDF / Imprimir" funcionar sem uma biblioteca de 350 KB. */
+  @media print {
+    :global(body > *:not(main)),
+    :global(main > div > *:not([data-area-impressao])) {
+      display: none !important;
+    }
+  }
+</style>

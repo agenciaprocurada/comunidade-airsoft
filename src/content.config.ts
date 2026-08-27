@@ -3,6 +3,7 @@ import { glob } from "astro/loaders";
 import { z } from "astro/zod";
 import { carregarCampos } from "./lib/campos-supabase";
 import { carregarLojas } from "./lib/lojas-supabase";
+import { carregarArmeiros } from "./lib/armeiros-supabase";
 
 /* ============================================================
    Estruturas compartilhadas
@@ -22,6 +23,8 @@ const verificacao = {
   verificado_em: z.coerce.date().optional(),
   /** De onde veio o dado: instagram | maps | facebook | submissao | proprietario */
   fonte: z.string().optional(),
+  /** Capa da ficha, no bucket `diretorio` do Storage. */
+  foto_url: z.string().url().optional(),
   /** Preenchido quando o dono reivindica a página. */
   reivindicado_por: z.string().optional(),
 };
@@ -121,10 +124,6 @@ const campos = defineCollection({
         facebook: z.string().url().optional(),
       })
       .default({}),
-
-    fotos: z
-      .array(z.object({ src: z.string(), alt: z.string() }))
-      .default([]),
   }),
 });
 
@@ -204,6 +203,117 @@ const lojas = defineCollection({
 });
 
 /* ============================================================
+   Armeiros — diretório de manutenção
+
+   Fonte: tabela `armeiros` no Supabase (src/lib/armeiros-supabase.ts).
+   Ao contrário de campos e lojas, esta lista não veio de levantamento
+   pronto: ela nasce vazia e enche por auto-cadastro. Por isso o loader
+   tolera zero registros.
+   ============================================================ */
+
+const armeiros = defineCollection({
+  loader: carregarArmeiros,
+  schema: z.object({
+    nome: z.string(),
+    descricao: z.string(),
+    tipo: z.enum(["autonomo", "oficina", "loja"]),
+    ...verificacao,
+
+    /**
+     * Cidade e UF são obrigatórias; endereço não é.
+     *
+     * `localizacao` não serve aqui porque lá `endereco`/`lat`/`lng` são
+     * do mesmo nível dos demais. Neste diretório eles são dado sensível:
+     * boa parte dos armeiros trabalha em bancada dentro de casa. O
+     * loader só deixa esses campos passarem quando o armeiro autorizou
+     * (`endereco_publico`), então aqui eles são sempre opcionais — e a
+     * ficha nunca precisa se lembrar de checar.
+     */
+    uf: z.enum(UFS),
+    cidade: z.string(),
+    cidade_slug: z.string().regex(/^[a-z0-9-]+$/),
+    endereco_publico: z.boolean().default(false),
+    endereco: z.string().optional(),
+    bairro: z.string().optional(),
+    cep: z.string().optional(),
+    lat: z.number().min(-34).max(6).optional(),
+    lng: z.number().min(-74).max(-34).optional(),
+
+    atende_presencial: z.boolean().default(false),
+    atende_envio: z.boolean().default(false),
+    raio_atendimento: z.string().optional(),
+
+    /**
+     * Vocabulário fechado — espelha as constraints do schema.
+     *
+     * Sem `.min(1)`: por decisão de produto (25/08/2026), o diretório
+     * publica também as fichas do levantamento que não trazem
+     * plataforma declarada, porque a fonte não informou. Se isto
+     * voltasse a exigir 1 item, o BUILD quebraria ao carregar essas
+     * fichas — o content collection valida tudo que a RLS deixa passar.
+     *
+     * A consequência a conhecer: ficha sem plataforma some de todo
+     * filtro por plataforma na busca. Card, ficha e busca tratam esse
+     * caso explicitamente em vez de renderizar bloco vazio.
+     */
+    plataformas: z
+      .array(z.enum(["aeg", "aep", "gbb", "gbbr", "hpa", "spring", "ptw"]))
+      .default([]),
+
+    /** Versão da gearbox. Detalhe fino e opcional: só o armeiro declara. */
+    gearboxes: z.array(z.enum(["v2", "v3", "v6", "v7"])).default([]),
+
+    /** Mesma razão de `plataformas` acima. */
+    servicos: z
+      .array(
+        z.enum([
+          "manutencao", "reparo", "upgrade", "shimming", "aoe",
+          "hop-up", "eletronica", "solda", "customizacao", "pintura",
+        ]),
+      )
+      .default([]),
+
+    marcas: z.array(z.string()).default([]),
+
+    prazo_medio: z.string().optional(),
+    garantia: z.string().optional(),
+    emite_nota: z.boolean().optional(),
+    precos: z.string().optional(),
+    formas_pagamento: z.string().optional(),
+    horario: z.string().optional(),
+
+    /** Ano em que começou a atender. Proxy honesto de experiência. */
+    desde: z.number().int().min(1990).max(2100).optional(),
+    /** Curso declarado pelo armeiro. A ficha exibe como declarado. */
+    formacao: z.string().optional(),
+
+    /** Slug da loja onde atende, quando é o caso. */
+    loja_id: z.string().optional(),
+
+    razao_social: z.string().optional(),
+    cnpj: z.string().optional(),
+    situacao_cadastral: z.string().optional(),
+
+    google_nota: z.number().min(0).max(5).optional(),
+    google_avaliacoes: z.number().int().nonnegative().optional(),
+    confianca: z.enum(["alta", "media", "baixa"]).optional(),
+
+    observacoes: z.string().optional(),
+
+    contato: z
+      .object({
+        whatsapp: z.string().optional(),
+        telefone: z.string().optional(),
+        email: z.string().email().optional(),
+        instagram: z.string().optional(),
+        site: z.string().url().optional(),
+        facebook: z.string().url().optional(),
+      })
+      .default({}),
+  }),
+});
+
+/* ============================================================
    Guias — conteúdo editorial de SEO (doc §5.2)
    ============================================================ */
 
@@ -260,5 +370,5 @@ const guias = defineCollection({
     }),
 });
 
-export const collections = { campos, lojas, guias };
+export const collections = { campos, lojas, armeiros, guias };
 export { UFS };

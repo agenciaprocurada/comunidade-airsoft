@@ -24,6 +24,7 @@ const FORA_DO_SITEMAP = [
   '/reivindicar',
   '/reportar',
   '/enviar-campo',
+  '/armeiros/cadastrar',
   '/entrar',
   // placeholders — remover conforme cada um vira página de verdade
   '/operacoes',
@@ -38,7 +39,9 @@ const FORA_DO_SITEMAP = [
  * por não constarem na lista fixa. Prefixo cobre a próxima tela sem depender de
  * alguém lembrar de vir aqui.
  */
-const RAMOS_FORA_DO_SITEMAP = ['/conta'];
+// `/convite` guarda os links exclusivos de evento fechado: anunciar
+// isso num sitemap publico seria entregar a chave de porta em porta.
+const RAMOS_FORA_DO_SITEMAP = ['/conta', '/convite'];
 
 // https://astro.build/config
 export default defineConfig({

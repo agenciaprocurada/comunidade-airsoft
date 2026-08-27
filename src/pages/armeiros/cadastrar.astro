@@ -1,0 +1,859 @@
+---
+/**
+ * Auto-cadastro de armeiro.
+ *
+ * É a peça que faz o diretório existir: armeiro não sai de raspagem de
+ * Google Maps nem de consulta na Receita — ele se cadastra ou é
+ * indicado. Por isso esta página é formulário de verdade, e não um
+ * "em breve" com link para o grupo.
+ *
+ * O envio grava direto em `public.armeiros` com status 'rascunho'. Não
+ * há tabela de fila separada porque a RLS já faz esse trabalho: a anon
+ * key do build só enxerga 'publicado', então o rascunho existe no banco
+ * sem existir no site. Publicar continua sendo ato humano.
+ *
+ * As travas de status/fonte/verificado moram na policy de insert, não
+ * aqui — ver db/schema-armeiros.sql. Este arquivo é a boa experiência;
+ * o banco é a garantia.
+ *
+ * Dialeto: PRODUTO. A pessoa está preenchendo uma tarefa longa atrás de
+ * login, não sendo convencida por uma página de campanha. Display fica
+ * só no h1; rótulo, campo e botão vêm de lib/estilos-form.
+ */
+import Base from "../../layouts/Base.astro";
+import CampoErro from "../../components/CampoErro.astro";
+import Trilha from "../../components/Trilha.astro";
+import {
+  DESCRICAO_MINIMA,
+  GEARBOXES,
+  PLATAFORMAS,
+  SERVICOS,
+  TIPOS_ARMEIRO,
+  ehGearbox,
+  ehPlataforma,
+  ehServico,
+  ehTipoArmeiro,
+  slugArmeiro,
+} from "../../lib/armeiro";
+import {
+  ROTULO_GEARBOX,
+  ROTULO_PLATAFORMA_ARMEIRO,
+  ROTULO_SERVICO_ARMEIRO,
+  SIGLAS_UF,
+  slugificar,
+} from "../../lib/uf";
+import {
+  AJUDA_CAMPO,
+  BOTAO_PRIMARIO,
+  BOTAO_SECUNDARIO,
+  CAIXA,
+  CAIXA_ETIQUETA,
+  ENTRADA,
+  ENTRADA_INVALIDA,
+  ERRO_CAIXA,
+  ETIQUETA_CAIXA,
+  LINHA_CAIXA,
+  ROTULO_CAMPO,
+  SELECAO,
+  SELECAO_INVALIDA,
+  TITULO_SECAO,
+} from "../../lib/estilos-form";
+
+export const prerender = false;
+
+// O middleware já garantiu sessão e onboarding mínimo antes daqui.
+const { supabase, usuario, perfil } = Astro.locals;
+
+/**
+ * Envio anterior. O banco também trava (índice único parcial), mas quem
+ * já mandou merece ver o estado do próprio pedido em vez de tomar um
+ * erro seco na segunda tentativa.
+ *
+ * Sem `maybeSingle`: o índice único é parcial (`where status =
+ * 'rascunho'`), então depois de publicado nada impede uma segunda linha
+ * do mesmo dono. `maybeSingle` estouraria justamente aí, e a pessoa
+ * veria o formulário limpo de novo como se nunca tivesse enviado.
+ */
+const { data: registros } = await supabase
+  .from("armeiros")
+  .select("id,nome,status")
+  .eq("criado_por", usuario!.id)
+  .limit(5);
+
+const jaEnviado =
+  registros?.find((r) => r.status === "publicado") ??
+  registros?.find((r) => r.status === "rascunho") ??
+  registros?.[0] ??
+  null;
+
+/** Erro amarrado ao campo — o resumo do topo só leva até ele. */
+type Erro = { campo: string; mensagem: string };
+
+let erros: Erro[] = [];
+let enviado: Record<string, string> = {};
+let marcados = {
+  plataformas: [] as string[],
+  gearboxes: [] as string[],
+  servicos: [] as string[],
+};
+let atendimento = { presencial: false, envio: false };
+let declarou = false;
+
+if (Astro.request.method === "POST" && !jaEnviado) {
+  const dados = await Astro.request.formData();
+  const texto = (chave: string) => (dados.get(chave)?.toString() ?? "").trim();
+  const falhar = (campo: string, mensagem: string) => erros.push({ campo, mensagem });
+
+  enviado = {
+    nome: texto("nome"),
+    tipo: texto("tipo"),
+    uf: texto("uf"),
+    cidade: texto("cidade"),
+    descricao: texto("descricao"),
+    raio_atendimento: texto("raio_atendimento"),
+    prazo_medio: texto("prazo_medio"),
+    garantia: texto("garantia"),
+    desde: texto("desde"),
+    formacao: texto("formacao"),
+    whatsapp: texto("whatsapp"),
+    instagram: texto("instagram"),
+  };
+
+  marcados = {
+    plataformas: dados.getAll("plataformas").map(String).filter(ehPlataforma),
+    gearboxes: dados.getAll("gearboxes").map(String).filter(ehGearbox),
+    servicos: dados.getAll("servicos").map(String).filter(ehServico),
+  };
+
+  // Guardados para repor a marcação. Voltar com o formulário meio
+  // desmarcado é a forma mais rápida de perder quem já se deu ao
+  // trabalho de preencher.
+  atendimento = {
+    presencial: Boolean(dados.get("atende_presencial")),
+    envio: Boolean(dados.get("atende_envio")),
+  };
+  declarou = Boolean(dados.get("veracidade"));
+
+  if (enviado.nome.length < 2) falhar("nome", "Diga o nome com que você atende.");
+  if (!ehTipoArmeiro(enviado.tipo)) falhar("tipo", "Escolha como você atende.");
+  if (!SIGLAS_UF.includes(enviado.uf)) falhar("uf", "Escolha o estado.");
+  if (enviado.cidade.length < 2) falhar("cidade", "Informe a cidade.");
+  if (!atendimento.presencial && !atendimento.envio) {
+    falhar("atendimento", "Diga se você atende presencialmente, por envio, ou os dois.");
+  }
+  if (marcados.plataformas.length === 0) {
+    falhar("plataformas", "Marque pelo menos uma plataforma que você abre.");
+  }
+  if (marcados.servicos.length === 0) {
+    falhar("servicos", "Marque pelo menos um serviço que você faz.");
+  }
+  if (enviado.descricao.length < DESCRICAO_MINIMA) {
+    falhar(
+      "descricao",
+      `Escreva pelo menos ${DESCRICAO_MINIMA} caracteres sobre o seu trabalho — é o que o jogador lê antes de te procurar.`,
+    );
+  }
+
+  const ano = Number(enviado.desde);
+  const anoValido = !enviado.desde || (Number.isInteger(ano) && ano >= 1990 && ano <= 2100);
+  if (!anoValido) falhar("desde", "O ano em que começou a atender está fora do esperado.");
+
+  if (!declarou) {
+    falhar("veracidade", "É obrigatório declarar que as informações são verdadeiras.");
+  }
+
+  if (erros.length === 0) {
+    const cidadeSlug = slugificar(enviado.cidade);
+    const registro = {
+      nome: enviado.nome,
+      descricao: enviado.descricao,
+      tipo: enviado.tipo,
+      uf: enviado.uf,
+      cidade: enviado.cidade,
+      cidade_slug: cidadeSlug,
+      atende_presencial: atendimento.presencial,
+      atende_envio: atendimento.envio,
+      raio_atendimento: enviado.raio_atendimento || null,
+      plataformas: marcados.plataformas,
+      gearboxes: marcados.gearboxes,
+      servicos: marcados.servicos,
+      prazo_medio: enviado.prazo_medio || null,
+      garantia: enviado.garantia || null,
+      desde: enviado.desde ? ano : null,
+      formacao: enviado.formacao || null,
+      contato: {
+        whatsapp: enviado.whatsapp || perfil?.whatsapp || "",
+        instagram: enviado.instagram || "",
+      },
+      // Travados também na policy de insert. Repetidos aqui porque o
+      // PostgREST recusaria o insert sem eles — a policy checa o valor,
+      // não preenche.
+      status: "rascunho",
+      verificado: false,
+      fonte: "submissao",
+      criado_por: usuario!.id,
+    };
+
+    /**
+     * O slug é a chave primária e nasce de nome + cidade, então dois
+     * armeiros homônimos na mesma cidade colidem. A RLS não deixa
+     * consultar rascunho alheio para checar antes, então a colisão é
+     * resolvida no erro: tenta de novo com sufixo.
+     */
+    let salvo = false;
+    for (let tentativa = 0; tentativa < 5 && !salvo; tentativa++) {
+      const base = slugArmeiro(enviado.nome, cidadeSlug);
+      const id = tentativa === 0 ? base : `${base}-${tentativa + 1}`;
+
+      const { error } = await supabase.from("armeiros").insert({ ...registro, id });
+
+      if (!error) {
+        salvo = true;
+        break;
+      }
+
+      // 23505 na PK = slug ocupado; nas demais restrições, é o índice
+      // de "um rascunho por pessoa" e tentar de novo não resolve.
+      if (error.code === "23505" && error.message.includes("pkey")) continue;
+
+      if (error.code === "23505") {
+        falhar("geral", "Você já tem um cadastro aguardando análise.");
+      } else {
+        console.error("Falha ao registrar armeiro:", error);
+        falhar("geral", "Não conseguimos registrar agora. Tente de novo em instantes.");
+      }
+      break;
+    }
+
+    if (salvo) return Astro.redirect("/armeiros/cadastrar?enviado=1", 303);
+    if (erros.length === 0) {
+      falhar(
+        "nome",
+        "Já existe um cadastro com este nome nesta cidade. Acrescente algo que te diferencie no nome.",
+      );
+    }
+  }
+}
+
+const confirmado = Astro.url.searchParams.get("enviado") === "1";
+const publicado = jaEnviado?.status === "publicado";
+const recebido = confirmado || Boolean(jaEnviado);
+
+/**
+ * O caminho do cadastro, dito uma vez e reaproveitado nas duas telas.
+ * É a pergunta que mais chega no grupo depois de enviar — "e agora?".
+ */
+const ETAPAS = [
+  "Você envia. Nada aparece no site na hora.",
+  "A gente confere e fala com você no WhatsApp.",
+  "Sua ficha entra no diretório.",
+];
+
+const concluidas = recebido ? (publicado ? 3 : 1) : 0;
+
+const valor = (chave: string, padrao = "") =>
+  Astro.request.method === "POST" ? (enviado[chave] ?? "") : padrao;
+
+const marcado = (grupo: "plataformas" | "gearboxes" | "servicos", item: string) =>
+  Astro.request.method === "POST" && marcados[grupo].includes(item);
+
+const erroDe = (campo: string) => erros.find((e) => e.campo === campo)?.mensagem;
+
+/** Junta os ids de ajuda e de erro para o `aria-describedby`. */
+const descrito = (...ids: (string | false | undefined)[]) =>
+  ids.filter(Boolean).join(" ") || undefined;
+
+const SECAO = "border-t border-borda pt-8";
+---
+
+<Base
+  titulo="Cadastrar meu perfil de armeiro"
+  descricao="Apareça no diretório de armeiros de airsoft do Brasil."
+  semIndexar={true}
+>
+  <div class="mx-auto max-w-[68ch] px-5 py-14 md:px-12 md:py-20">
+    <Trilha itens={[{ href: "/armeiros", texto: "Armeiros" }, { texto: "Cadastrar" }]} />
+
+    <p class="rotulo mt-8">Cadastro de armeiro</p>
+
+    <h1
+      class="mt-3 font-display text-[1.75rem] font-bold uppercase leading-none tracking-[0.01em] text-tinta md:text-[2rem]"
+    >
+      {
+        recebido
+          ? publicado
+            ? "Seu perfil está no ar"
+            : "Cadastro recebido"
+          : "Apareça no diretório"
+      }
+    </h1>
+
+    <p class="mt-5 max-w-[62ch] text-[1.0625rem] leading-relaxed text-texto">
+      {
+        recebido
+          ? publicado
+            ? "Seu perfil já aparece no diretório. Para corrigir qualquer informação, é só falar com a gente."
+            : "Está na fila de conferência. Não publicamos ninguém sem falar com a pessoa antes."
+          : "Cadastro gratuito e sem comissão: quem procurar fala direto com você."
+      }
+    </p>
+
+    <ol class="mt-6 divide-y divide-borda border border-borda bg-papel/40">
+      {
+        ETAPAS.map((etapa, i) => (
+          <li class="flex items-start gap-3 px-4 py-3 sm:px-5">
+            <span
+              class:list={[
+                "mt-[0.2rem] shrink-0 font-dado text-[0.6875rem] leading-none tracking-[0.1em]",
+                i < concluidas ? "text-oliva-400" : "text-texto-2",
+              ]}
+            >
+              {i < concluidas ? "OK" : `0${i + 1}`}
+            </span>
+            <span
+              class:list={[
+                "text-[0.9375rem] leading-snug",
+                i < concluidas ? "text-texto-2" : "text-texto",
+              ]}
+            >
+              {etapa}
+            </span>
+          </li>
+        ))
+      }
+    </ol>
+
+    {
+      recebido ? (
+        <div class="mt-8 flex flex-wrap gap-3">
+          {publicado && jaEnviado && (
+            <a href={`/armeiros/${jaEnviado.id}`} class={BOTAO_PRIMARIO}>
+              Ver meu perfil
+            </a>
+          )}
+          <a href="/armeiros" class={publicado ? BOTAO_SECUNDARIO : BOTAO_PRIMARIO}>
+            Voltar para o diretório
+          </a>
+        </div>
+      ) : (
+        <>
+          {erros.length > 0 && (
+            <div
+              id="resumo-erros"
+              class={`mt-8 ${ERRO_CAIXA}`}
+              role="alert"
+              tabindex="-1"
+              autofocus
+            >
+              <p class="text-[0.9375rem] font-semibold">
+                {erros.length === 1
+                  ? "Falta um ajuste antes de enviar:"
+                  : `Faltam ${erros.length} ajustes antes de enviar:`}
+              </p>
+              <ul class="mt-2 space-y-1.5">
+                {erros.map((erro) => (
+                  <li class="text-[0.9375rem] leading-snug">
+                    {erro.campo === "geral" ? (
+                      erro.mensagem
+                    ) : (
+                      <a
+                        href={`#${erro.campo}`}
+                        class="underline decoration-alerta/50 underline-offset-4 hover:decoration-alerta"
+                      >
+                        {erro.mensagem}
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <form method="POST" class="mt-10 space-y-10">
+            <section>
+              <h2 class={TITULO_SECAO}>Quem é você</h2>
+
+              <div class="mt-5 space-y-7">
+                <div>
+                  <label class={ROTULO_CAMPO} for="nome">
+                    Nome com que você atende
+                  </label>
+                  <p class={AJUDA_CAMPO} id="nome-ajuda">
+                    Pode ser seu nome, seu nome de guerra ou o nome da oficina.
+                  </p>
+                  <input
+                    id="nome"
+                    name="nome"
+                    type="text"
+                    required
+                    maxlength="80"
+                    value={valor("nome")}
+                    class={erroDe("nome") ? ENTRADA_INVALIDA : ENTRADA}
+                    aria-invalid={erroDe("nome") ? "true" : undefined}
+                    aria-describedby={descrito("nome-ajuda", erroDe("nome") && "nome-erro")}
+                    placeholder="Ex.: Bancada do Léo"
+                  />
+                  <CampoErro id="nome-erro" mensagem={erroDe("nome")} />
+                </div>
+
+                <fieldset
+                  aria-invalid={erroDe("tipo") ? "true" : undefined}
+                  aria-describedby={descrito(erroDe("tipo") && "tipo-erro")}
+                >
+                  <legend class={ROTULO_CAMPO}>Como você atende</legend>
+                  <div class="mt-3 space-y-2">
+                    {TIPOS_ARMEIRO.map((t, i) => (
+                      <label class={LINHA_CAIXA}>
+                        <input
+                          id={i === 0 ? "tipo" : undefined}
+                          type="radio"
+                          name="tipo"
+                          value={t.valor}
+                          required
+                          checked={valor("tipo") === t.valor}
+                          class={CAIXA}
+                        />
+                        <span>
+                          <span class="block text-[0.9375rem] font-semibold text-tinta">
+                            {t.rotulo}
+                          </span>
+                          <span class="mt-0.5 block text-[0.8125rem] leading-snug text-texto-2">
+                            {t.ajuda}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <CampoErro id="tipo-erro" mensagem={erroDe("tipo")} />
+                </fieldset>
+              </div>
+            </section>
+
+            <section class={SECAO}>
+              <h2 class={TITULO_SECAO}>Onde você atende</h2>
+              <p class="mt-1.5 text-[0.9375rem] leading-snug text-texto-2">
+                Seu endereço não entra. A ficha mostra só cidade e estado — se
+                você tiver ponto de atendimento e quiser publicá-lo, avise
+                depois que a gente conversar.
+              </p>
+
+              <div class="mt-5 space-y-7">
+                <div class="grid gap-5 sm:grid-cols-[10rem_1fr]">
+                  <div>
+                    <label class={ROTULO_CAMPO} for="uf">
+                      Estado
+                    </label>
+                    <select
+                      id="uf"
+                      name="uf"
+                      required
+                      autocomplete="address-level1"
+                      class={erroDe("uf") ? SELECAO_INVALIDA : SELECAO}
+                      aria-invalid={erroDe("uf") ? "true" : undefined}
+                      aria-describedby={descrito(erroDe("uf") && "uf-erro")}
+                    >
+                      <option value="">—</option>
+                      {SIGLAS_UF.map((uf) => (
+                        <option value={uf} selected={valor("uf") === uf}>
+                          {uf}
+                        </option>
+                      ))}
+                    </select>
+                    <CampoErro id="uf-erro" mensagem={erroDe("uf")} />
+                  </div>
+                  <div>
+                    <label class={ROTULO_CAMPO} for="cidade">
+                      Cidade
+                    </label>
+                    <input
+                      id="cidade"
+                      name="cidade"
+                      type="text"
+                      required
+                      maxlength="60"
+                      autocomplete="address-level2"
+                      value={valor("cidade")}
+                      class={erroDe("cidade") ? ENTRADA_INVALIDA : ENTRADA}
+                      aria-invalid={erroDe("cidade") ? "true" : undefined}
+                      aria-describedby={descrito(erroDe("cidade") && "cidade-erro")}
+                    />
+                    <CampoErro id="cidade-erro" mensagem={erroDe("cidade")} />
+                  </div>
+                </div>
+
+                <fieldset
+                  aria-invalid={erroDe("atendimento") ? "true" : undefined}
+                  aria-describedby={descrito(
+                    "atendimento-ajuda",
+                    erroDe("atendimento") && "atendimento-erro",
+                  )}
+                >
+                  <legend class={ROTULO_CAMPO}>Como o jogador chega até você</legend>
+                  <p class={AJUDA_CAMPO} id="atendimento-ajuda">
+                    Pode marcar os dois. Receber pelo correio é o que faz você
+                    atender quem mora longe.
+                  </p>
+                  <div class="mt-3 space-y-2">
+                    <label class={LINHA_CAIXA}>
+                      <input
+                        id="atendimento"
+                        type="checkbox"
+                        name="atende_presencial"
+                        checked={atendimento.presencial}
+                        class={CAIXA}
+                      />
+                      <span class="text-[0.9375rem] leading-snug text-tinta">
+                        Atendo presencialmente
+                      </span>
+                    </label>
+                    <label class={LINHA_CAIXA}>
+                      <input
+                        type="checkbox"
+                        name="atende_envio"
+                        checked={atendimento.envio}
+                        class={CAIXA}
+                      />
+                      <span class="text-[0.9375rem] leading-snug text-tinta">
+                        Recebo réplica pelo correio
+                      </span>
+                    </label>
+                  </div>
+                  <CampoErro id="atendimento-erro" mensagem={erroDe("atendimento")} />
+                </fieldset>
+
+                <div>
+                  <label class={ROTULO_CAMPO} for="raio_atendimento">
+                    Região que você cobre
+                  </label>
+                  <p class={AJUDA_CAMPO} id="raio-ajuda">
+                    Opcional. Ajuda quem é do interior a saber se vale a viagem.
+                  </p>
+                  <input
+                    id="raio_atendimento"
+                    name="raio_atendimento"
+                    type="text"
+                    maxlength="120"
+                    value={valor("raio_atendimento")}
+                    class={ENTRADA}
+                    aria-describedby="raio-ajuda"
+                    placeholder="Ex.: Grande Curitiba e litoral"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section class={SECAO}>
+              <h2 class={TITULO_SECAO}>O que você resolve</h2>
+              <p class="mt-1.5 text-[0.9375rem] leading-snug text-texto-2">
+                É o filtro da busca. Marque só o que você realmente trabalha —
+                lista inflada gera contato errado e cliente frustrado.
+              </p>
+
+              <div class="mt-5 space-y-7">
+                <fieldset
+                  aria-invalid={erroDe("plataformas") ? "true" : undefined}
+                  aria-describedby={descrito(erroDe("plataformas") && "plataformas-erro")}
+                >
+                  <legend class={ROTULO_CAMPO}>Plataformas que você abre</legend>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    {PLATAFORMAS.map((p, i) => (
+                      <label class={ETIQUETA_CAIXA}>
+                        <input
+                          id={i === 0 ? "plataformas" : undefined}
+                          type="checkbox"
+                          name="plataformas"
+                          value={p}
+                          checked={marcado("plataformas", p)}
+                          class={CAIXA_ETIQUETA}
+                        />
+                        <span>{ROTULO_PLATAFORMA_ARMEIRO[p]}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <CampoErro id="plataformas-erro" mensagem={erroDe("plataformas")} />
+                </fieldset>
+
+                <fieldset
+                  aria-invalid={erroDe("servicos") ? "true" : undefined}
+                  aria-describedby={descrito(erroDe("servicos") && "servicos-erro")}
+                >
+                  <legend class={ROTULO_CAMPO}>Serviços que você faz</legend>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    {SERVICOS.map((s, i) => (
+                      <label class={ETIQUETA_CAIXA}>
+                        <input
+                          id={i === 0 ? "servicos" : undefined}
+                          type="checkbox"
+                          name="servicos"
+                          value={s}
+                          checked={marcado("servicos", s)}
+                          class={CAIXA_ETIQUETA}
+                        />
+                        <span>{ROTULO_SERVICO_ARMEIRO[s]}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <CampoErro id="servicos-erro" mensagem={erroDe("servicos")} />
+                </fieldset>
+
+                <fieldset>
+                  <legend class={ROTULO_CAMPO}>Versões de gearbox</legend>
+                  <p class={AJUDA_CAMPO} id="gearbox-ajuda">
+                    Opcional, e só você sabe — nenhuma lista pública traz. É o
+                    que faz quem tem uma V7 achar você.
+                  </p>
+                  <div class="mt-3 flex flex-wrap gap-2" aria-describedby="gearbox-ajuda">
+                    {GEARBOXES.map((g) => (
+                      <label class={ETIQUETA_CAIXA}>
+                        <input
+                          type="checkbox"
+                          name="gearboxes"
+                          value={g}
+                          checked={marcado("gearboxes", g)}
+                          class={CAIXA_ETIQUETA}
+                        />
+                        <span>{ROTULO_GEARBOX[g].replace("Gearbox ", "")}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              </div>
+            </section>
+
+            <section class={SECAO}>
+              <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 class={TITULO_SECAO}>Sobre o seu trabalho</h2>
+                <span
+                  id="descricao-contagem"
+                  data-ok="false"
+                  class="font-dado text-[0.6875rem] uppercase leading-none tracking-[0.1em] text-texto-2 data-[ok=true]:text-oliva-400"
+                  aria-live="polite"
+                >
+                  mín. {DESCRICAO_MINIMA} caracteres
+                </span>
+              </div>
+              <p class="mt-1.5 text-[0.9375rem] leading-snug text-texto-2" id="descricao-ajuda">
+                Como você trabalha, o que costuma resolver, o que não faz. É o
+                texto que o jogador lê na sua ficha antes de decidir te mandar a
+                réplica.
+              </p>
+
+              <div class="mt-3">
+                <label class="sr-only" for="descricao">Sobre o seu trabalho</label>
+                <textarea
+                  id="descricao"
+                  name="descricao"
+                  rows="6"
+                  required
+                  minlength={DESCRICAO_MINIMA}
+                  maxlength="1200"
+                  class={`${erroDe("descricao") ? ENTRADA_INVALIDA : ENTRADA} resize-y`}
+                  aria-invalid={erroDe("descricao") ? "true" : undefined}
+                  aria-describedby={descrito(
+                    "descricao-ajuda",
+                    erroDe("descricao") && "descricao-erro",
+                  )}
+                  set:text={valor("descricao")}
+                />
+                <CampoErro id="descricao-erro" mensagem={erroDe("descricao")} />
+              </div>
+            </section>
+
+            <section class={SECAO}>
+              <h2 class={TITULO_SECAO}>Como te procuram</h2>
+
+              <div class="mt-5 grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label class={ROTULO_CAMPO} for="whatsapp">
+                    WhatsApp de contato
+                  </label>
+                  <p class={AJUDA_CAMPO} id="whatsapp-ajuda">
+                    Em branco, usamos o do seu cadastro.
+                  </p>
+                  <input
+                    id="whatsapp"
+                    name="whatsapp"
+                    type="tel"
+                    inputmode="tel"
+                    autocomplete="tel"
+                    maxlength="20"
+                    value={valor("whatsapp")}
+                    class={ENTRADA}
+                    aria-describedby="whatsapp-ajuda"
+                    placeholder={perfil?.whatsapp ?? "(41) 90000-0000"}
+                  />
+                </div>
+                <div>
+                  <label class={ROTULO_CAMPO} for="instagram">
+                    Instagram
+                  </label>
+                  <p class={AJUDA_CAMPO} id="instagram-ajuda">
+                    Opcional, mas ajuda muito.
+                  </p>
+                  <input
+                    id="instagram"
+                    name="instagram"
+                    type="text"
+                    maxlength="40"
+                    autocapitalize="none"
+                    autocorrect="off"
+                    spellcheck="false"
+                    value={valor("instagram")}
+                    class={ENTRADA}
+                    aria-describedby="instagram-ajuda"
+                    placeholder="@bancadadoleo"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section class={SECAO}>
+              <h2 class={TITULO_SECAO}>Detalhes que ajudam a decidir</h2>
+              <p class="mt-1.5 text-[0.9375rem] leading-snug text-texto-2">
+                Tudo opcional. Cada um responde uma pergunta que o jogador faria
+                no WhatsApp antes de fechar.
+              </p>
+
+              <div class="mt-5 space-y-5">
+                <div class="grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <label class={ROTULO_CAMPO} for="prazo_medio">
+                      Prazo médio
+                    </label>
+                    <input
+                      id="prazo_medio"
+                      name="prazo_medio"
+                      type="text"
+                      maxlength="60"
+                      value={valor("prazo_medio")}
+                      class={ENTRADA}
+                      placeholder="Ex.: 3 a 7 dias úteis"
+                    />
+                  </div>
+                  <div>
+                    <label class={ROTULO_CAMPO} for="garantia">
+                      Garantia
+                    </label>
+                    <input
+                      id="garantia"
+                      name="garantia"
+                      type="text"
+                      maxlength="60"
+                      value={valor("garantia")}
+                      class={ENTRADA}
+                      placeholder="Ex.: 30 dias sobre o serviço"
+                    />
+                  </div>
+                </div>
+
+                {/*
+                  "Atende desde" e "Formação" não dividem uma linha da
+                  grade: o primeiro não tem texto de ajuda e o segundo
+                  tem duas linhas, então as duas entradas nunca ficariam
+                  na mesma altura.
+                */}
+                <div class="max-w-[9rem]">
+                  <label class={ROTULO_CAMPO} for="desde">Atende desde</label>
+                  <input
+                    id="desde"
+                    name="desde"
+                    type="number"
+                    inputmode="numeric"
+                    min="1990"
+                    max="2100"
+                    value={valor("desde")}
+                    class={erroDe("desde") ? ENTRADA_INVALIDA : ENTRADA}
+                    aria-invalid={erroDe("desde") ? "true" : undefined}
+                    aria-describedby={descrito(erroDe("desde") && "desde-erro")}
+                    placeholder="2019"
+                  />
+                  <CampoErro id="desde-erro" mensagem={erroDe("desde")} />
+                </div>
+
+                <div>
+                  <label class={ROTULO_CAMPO} for="formacao">Formação</label>
+                  <p class={AJUDA_CAMPO} id="formacao-ajuda">
+                    Curso que você fez, se houver. Aparece como declarado por
+                    você — não validamos certificado.
+                  </p>
+                  <input
+                    id="formacao"
+                    name="formacao"
+                    type="text"
+                    maxlength="120"
+                    value={valor("formacao")}
+                    class={ENTRADA}
+                    aria-describedby="formacao-ajuda"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div class={SECAO}>
+              <label class={LINHA_CAIXA}>
+                <input
+                  id="veracidade"
+                  type="checkbox"
+                  name="veracidade"
+                  required
+                  checked={declarou}
+                  class={CAIXA}
+                  aria-invalid={erroDe("veracidade") ? "true" : undefined}
+                  aria-describedby={descrito(erroDe("veracidade") && "veracidade-erro")}
+                />
+                <span class="text-[0.9375rem] leading-snug text-tinta">
+                  Declaro que as informações são verdadeiras e que sou eu quem
+                  presta o serviço descrito.
+                </span>
+              </label>
+              <CampoErro id="veracidade-erro" mensagem={erroDe("veracidade")} />
+            </div>
+
+            {/*
+              Grudado embaixo no celular: são quinze campos, e a ação
+              principal não pode depender de rolar até o fim para
+              reaparecer. No desktop o bloco cabe na tela e volta a ser
+              um rodapé comum.
+            */}
+            <div
+              class="sticky bottom-0 z-10 -mx-5 flex flex-wrap items-center gap-3 border-t border-borda bg-fundo px-5 py-4 md:static md:mx-0 md:border-0 md:px-0 md:py-0"
+            >
+              <button type="submit" class={BOTAO_PRIMARIO}>Enviar cadastro</button>
+              <a href="/armeiros" class={BOTAO_SECUNDARIO}>Cancelar</a>
+            </div>
+          </form>
+        </>
+      )
+    }
+  </div>
+</Base>
+
+<style>
+  /* O cabeçalho é sticky. Sem isto, o link do resumo de erros rola o
+     campo para debaixo dele e a pessoa não vê o que foi apontado. */
+  form [id] {
+    scroll-margin-top: 6rem;
+  }
+</style>
+
+{/*
+  Contador da descrição. Melhoria progressiva: sem JS o rótulo continua
+  dizendo o mínimo, e a validação de verdade é a do servidor.
+*/}
+<script is:inline define:vars={{ minimo: DESCRICAO_MINIMA, maximo: 1200 }}>
+  (() => {
+    const campo = document.getElementById("descricao");
+    const contador = document.getElementById("descricao-contagem");
+    if (!campo || !contador) return;
+
+    const atualizar = () => {
+      const n = campo.value.trim().length;
+      const ok = n >= minimo;
+      contador.dataset.ok = String(ok);
+      contador.textContent = ok ? `${n} / ${maximo}` : `faltam ${minimo - n} caracteres`;
+    };
+
+    campo.addEventListener("input", atualizar);
+    atualizar();
+  })();
+</script>

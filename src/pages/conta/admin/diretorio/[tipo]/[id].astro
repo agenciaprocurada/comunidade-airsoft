@@ -1,0 +1,358 @@
+---
+import Conta from "../../../../../layouts/Conta.astro";
+import Selo from "../../../../../components/conta/Selo.astro";
+import {
+  AJUDA_CAMPO,
+  BOTAO_PRIMARIO,
+  BOTAO_SECUNDARIO,
+  BOTAO_TEXTO,
+  CAIXA,
+  ENTRADA,
+  ENTRADA_INVALIDA,
+  ERRO_CAMPO,
+  LINHA_CAIXA,
+  ROTULO_CAMPO,
+  SELECAO,
+} from "../../../../../lib/estilos-form";
+import {
+  BUCKET_DIRETORIO,
+  CAMPOS_POR_TIPO,
+  DIRETORIO,
+  caminhoDaFoto,
+  caminhoDaUrl,
+  colunasDoTipo,
+  erroDaFoto,
+  conferirObrigatorios,
+  ehTipoDiretorio,
+  valorParaBanco,
+  valorParaTela,
+  type TipoDiretorio,
+} from "../../../../../lib/diretorio-admin";
+import { NOME_UF } from "../../../../../lib/uf";
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+const { tipo: tipoBruto, id } = Astro.params;
+
+if (!ehTipoDiretorio(tipoBruto)) {
+  const r = await Astro.rewrite("/404");
+  return new Response(r.body, { status: 404, headers: r.headers });
+}
+
+const tipo = tipoBruto as TipoDiretorio;
+const secoes = CAMPOS_POR_TIPO[tipo];
+
+let erroGeral = "";
+let erroDe: Record<string, string> = {};
+/** O que a pessoa acabou de digitar, para não perder o trabalho no erro. */
+let enviado: Record<string, string> | null = null;
+let salvo = Astro.url.searchParams.get("salvo") === "1";
+
+if (Astro.request.method === "POST") {
+  const dados = await Astro.request.formData();
+
+  /*
+   * O que vai para o banco sai da MESMA descrição que desenhou a tela.
+   * Assim não existe campo que aparece no formulário e não é salvo —
+   * o erro clássico de formulário grande escrito à mão.
+   */
+  const mudanca: Record<string, unknown> = {};
+  for (const secao of secoes) {
+    for (const campo of secao.campos) {
+      mudanca[campo.nome] = valorParaBanco(campo, dados.get(campo.nome)?.toString() ?? "");
+    }
+  }
+
+  /*
+   * A capa não passa pelo descritor: é arquivo, não texto.
+   *
+   * Três caminhos: mandou arquivo novo, pediu para tirar, ou não
+   * mexeu. Sem o terceiro, salvar qualquer outro campo apagaria a foto
+   * — o `<input type="file">` volta vazio quando ninguém escolhe nada.
+   */
+  const arquivo = dados.get("foto");
+  const tirarFoto = dados.get("tirar_foto") === "on";
+
+  const { data: atual } = await supabase
+    .from(tipo)
+    .select("foto_url")
+    .eq("id", id!)
+    .maybeSingle<{ foto_url: string | null }>();
+
+  const fotoAntiga = caminhoDaUrl(atual?.foto_url);
+
+  if (arquivo instanceof File && arquivo.size > 0) {
+    const problema = erroDaFoto(arquivo);
+
+    if (problema) {
+      erroDe.foto = problema;
+    } else {
+      const caminho = caminhoDaFoto(tipo, id!, arquivo.name, Date.now());
+      const { error: erroUpload } = await supabase.storage
+        .from(BUCKET_DIRETORIO)
+        .upload(caminho, arquivo, { contentType: arquivo.type, upsert: false });
+
+      if (erroUpload) {
+        console.error("Falha ao enviar a foto:", erroUpload);
+        erroDe.foto = "Não conseguimos enviar a imagem. Tente de novo.";
+      } else {
+        const { data: publica } = supabase.storage.from(BUCKET_DIRETORIO).getPublicUrl(caminho);
+        mudanca.foto_url = publica.publicUrl;
+        // A antiga sai do storage só depois que a nova entrou: se o
+        // upload falhar no meio, a ficha continua com a foto que tinha.
+        if (fotoAntiga) await supabase.storage.from(BUCKET_DIRETORIO).remove([fotoAntiga]);
+      }
+    }
+  } else if (tirarFoto) {
+    mudanca.foto_url = null;
+    if (fotoAntiga) await supabase.storage.from(BUCKET_DIRETORIO).remove([fotoAntiga]);
+  }
+
+  // UF é sempre maiúscula; há check no banco para as três tabelas.
+  if (typeof mudanca.uf === "string") mudanca.uf = mudanca.uf.toUpperCase();
+
+  /*
+   * Confere o obrigatório ANTES do banco. A mensagem do Postgres para
+   * NOT NULL nomeia a coluna, não o rótulo, e derruba o formulário
+   * inteiro — quem está preenchendo não descobre onde errou.
+   */
+  // Mescla, não sobrescreve: `erroDe` já pode trazer a recusa da foto,
+  // e uma atribuição direta aqui apagava esse erro — o arquivo inválido
+  // era descartado em silêncio e o resto salvava como se estivesse tudo
+  // certo.
+  erroDe = { ...erroDe, ...conferirObrigatorios(tipo, mudanca) };
+
+  if (Object.keys(erroDe).length > 0) {
+    // Devolve o que foi digitado, senão o formulário volta com os
+    // valores antigos e a pessoa perde tudo que escreveu.
+    enviado = {};
+    for (const secao of secoes) {
+      for (const campo of secao.campos) {
+        enviado[campo.nome] = dados.get(campo.nome)?.toString() ?? "";
+      }
+    }
+    erroGeral = "Confira os campos marcados.";
+  } else {
+    const { error } = await supabase.from(tipo).update(mudanca).eq("id", id!);
+
+    if (error) {
+      console.error(`Falha ao salvar ${tipo}/${id}:`, error);
+      erroGeral =
+        error.code === "23514"
+          ? "Algum valor não passou na conferência do banco. Confira UF (duas letras) e as notas do Google."
+          : error.code === "23502"
+            ? "Um campo obrigatório ficou em branco. Confira nome, situação e a cidade."
+            : "Não conseguimos salvar agora. Tente de novo em instantes.";
+    } else {
+      return Astro.redirect(`/conta/admin/diretorio/${tipo}/${id}?salvo=1`, 303);
+    }
+  }
+}
+
+const { data: ficha } = await supabase
+  .from(tipo)
+  .select(`${colunasDoTipo(tipo)},foto_url`)
+  .eq("id", id!)
+  .maybeSingle<Record<string, unknown>>();
+
+if (!ficha) {
+  const r = await Astro.rewrite("/404");
+  return new Response(r.body, { status: 404, headers: r.headers });
+}
+
+const nome = String(ficha.nome ?? id);
+const uf = String(ficha.uf ?? "").toLowerCase();
+const cidadeSlug = String(ficha.cidade_slug ?? "");
+
+/** Endereço da ficha no site — só faz sentido se estiver publicada. */
+const rotaPublica =
+  tipo === "campos"
+    ? `/campos/${uf}/${cidadeSlug}/${ficha.id}`
+    : tipo === "lojas"
+      ? `/lojas/${uf}/${ficha.id}`
+      : `/armeiros/${uf}/${ficha.id}`;
+
+const publicada = ficha.status === "publicado";
+
+const formatarData = (iso: unknown) =>
+  iso ? new Date(String(iso)).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+---
+
+<Conta
+  titulo={nome}
+  descricao={`Editar ${DIRETORIO[tipo].rotulo.toLowerCase()} no diretório.`}
+  resumo={`${DIRETORIO[tipo].rotulo} · ${ficha.cidade ?? "—"}${ficha.uf ? ` · ${NOME_UF[String(ficha.uf)] ?? ficha.uf}` : ""}`}
+>
+  <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+    <Selo tom={publicada ? "ok" : "atencao"}>{String(ficha.status)}</Selo>
+    {ficha.verificado ? <Selo tom="ok">Verificada</Selo> : <Selo tom="neutro">Não verificada</Selo>}
+    <span class="font-dado">{String(ficha.id)}</span>
+    <span aria-hidden="true" class="text-borda-forte">/</span>
+    salva em {formatarData(ficha.atualizado_em)}
+  </p>
+
+  {
+    salvo && (
+      <p class="entrada-suave mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
+        <Selo tom="ok">Salvo</Selo>
+        Gravado no banco. A página pública muda no próximo deploy.
+      </p>
+    )
+  }
+
+  {
+    erroGeral && (
+      <p class="mt-8 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
+        {erroGeral}
+      </p>
+    )
+  }
+
+  <div class="mt-6 flex flex-wrap items-center gap-4">
+    <a href={`/conta/admin/diretorio?tipo=${tipo}`} class={BOTAO_TEXTO}>
+      ← Voltar para {DIRETORIO[tipo].plural.toLowerCase()}
+    </a>
+    {publicada && (
+      <a href={rotaPublica} class={BOTAO_TEXTO}>Ver a ficha no site</a>
+    )}
+  </div>
+
+  <form method="POST" enctype="multipart/form-data" class="mt-8 max-w-[46rem] space-y-10">
+    <fieldset>
+      <legend class="font-display text-[1.125rem] font-bold uppercase text-tinta">
+        Foto de capa
+      </legend>
+
+      <div class="mt-4 flex flex-wrap items-start gap-5">
+        {ficha.foto_url ? (
+          <img
+            src={String(ficha.foto_url)}
+            alt=""
+            width="240"
+            height="150"
+            class="h-[150px] w-[240px] shrink-0 border border-borda object-cover"
+          />
+        ) : (
+          <div class="flex h-[150px] w-[240px] shrink-0 items-center justify-center border border-dashed border-borda-forte bg-papel/60 text-[0.8125rem] text-texto-2">
+            Sem foto
+          </div>
+        )}
+
+        <div class="min-w-[16rem] flex-1">
+          <label for="foto" class={ROTULO_CAMPO}>
+            {ficha.foto_url ? "Trocar a foto" : "Enviar uma foto"}
+          </label>
+          <input
+            type="file"
+            id="foto"
+            name="foto"
+            accept="image/jpeg,image/png,image/webp"
+            class="mt-2 w-full border border-borda-forte bg-papel px-3 py-2.5 text-[0.9375rem] text-texto file:mr-3 file:cursor-pointer file:border-0 file:bg-oliva-050 file:px-3 file:py-1.5 file:text-[0.875rem] file:font-semibold file:text-oliva-300"
+          />
+          <p class={AJUDA_CAMPO}>
+            JPG, PNG ou WebP, até 5 MB. Aparece no topo da ficha, no card do
+            diretório e no preview quando alguém compartilha o link.
+          </p>
+          {erroDe.foto && <p class={ERRO_CAMPO}>{erroDe.foto}</p>}
+
+          {ficha.foto_url && (
+            <label class="mt-3 flex cursor-pointer items-center gap-2.5 text-[0.875rem] text-texto-2">
+              <input type="checkbox" name="tirar_foto" class={CAIXA} />
+              Tirar a foto e deixar a ficha sem imagem
+            </label>
+          )}
+        </div>
+      </div>
+    </fieldset>
+
+    {
+      secoes.map((secao) => (
+        <fieldset>
+          <legend class="font-display text-[1.125rem] font-bold uppercase text-tinta">
+            {secao.titulo}
+          </legend>
+
+          <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {secao.campos.map((campo) => {
+              const valor = enviado?.[campo.nome] ?? valorParaTela(campo, ficha[campo.nome]);
+              const largura = campo.largo || campo.formato === "textao" ? "sm:col-span-2" : "";
+
+              if (campo.formato === "sim_nao") {
+                return (
+                  <div class={largura}>
+                    <label class={LINHA_CAIXA}>
+                      <input
+                        type="checkbox"
+                        name={campo.nome}
+                        checked={ficha[campo.nome] === true}
+                        class={CAIXA}
+                      />
+                      <span class="text-[0.9375rem] leading-snug text-texto">
+                        {campo.rotulo}
+                        {campo.ajuda && (
+                          <span class="mt-0.5 block text-[0.8125rem] text-texto-2">{campo.ajuda}</span>
+                        )}
+                      </span>
+                    </label>
+                  </div>
+                );
+              }
+
+              return (
+                <div class={largura}>
+                  <label for={campo.nome} class={ROTULO_CAMPO}>
+                    {campo.rotulo}
+                    {campo.obrigatorio && (
+                      <span class="font-normal text-alerta-texto" aria-hidden="true"> *</span>
+                    )}
+                  </label>
+
+                  {campo.formato === "escolha" ? (
+                    <select id={campo.nome} name={campo.nome} required={campo.obrigatorio} class={SELECAO}>
+                      {campo.opcoes?.map((o) => (
+                        <option value={o.valor} selected={String(ficha[campo.nome] ?? "") === o.valor}>
+                          {o.rotulo}
+                        </option>
+                      ))}
+                    </select>
+                  ) : campo.formato === "textao" || campo.formato === "contato" ? (
+                    <textarea
+                      id={campo.nome}
+                      name={campo.nome}
+                      rows={campo.formato === "contato" ? 4 : 3}
+                      class={ENTRADA}
+                      set:text={valor}
+                    />
+                  ) : (
+                    <input
+                      type={campo.formato === "data" ? "date" : "text"}
+                      inputmode={campo.formato === "numero" ? "decimal" : undefined}
+                      id={campo.nome}
+                      name={campo.nome}
+                      value={valor}
+                      required={campo.obrigatorio}
+                      aria-invalid={erroDe[campo.nome] ? "true" : undefined}
+                      class={erroDe[campo.nome] ? ENTRADA_INVALIDA : ENTRADA}
+                    />
+                  )}
+
+                  {campo.ajuda && <p class={AJUDA_CAMPO}>{campo.ajuda}</p>}
+                  {erroDe[campo.nome] && <p class={ERRO_CAMPO}>{erroDe[campo.nome]}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </fieldset>
+      ))
+    }
+
+    <div class="sticky bottom-4 flex flex-wrap items-center gap-4 border-t border-borda bg-fundo/95 pt-4">
+      <button type="submit" class={BOTAO_PRIMARIO}>Salvar</button>
+      <a href={`/conta/admin/diretorio?tipo=${tipo}`} class={BOTAO_SECUNDARIO}>Cancelar</a>
+      <span class="text-[0.8125rem] text-texto-2">
+        O endereço da ficha (<span class="font-dado">{String(ficha.id)}</span>) não muda.
+      </span>
+    </div>
+  </form>
+</Conta>

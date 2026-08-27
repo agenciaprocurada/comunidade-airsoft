@@ -1,0 +1,311 @@
+---
+/**
+ * Busca de armeiros — mesma regra do BuscaCampos e do BuscaLojas: TODOS
+ * os cartões saem no HTML e o script só mostra e oculta. Sem JavaScript
+ * o visitante vê a lista completa e o formulário nem aparece, em vez de
+ * aparecer quebrado.
+ *
+ * O filtro "atende por envio" é o que diferencia esta busca da de lojas.
+ * Marcando ele, o estado deixa de importar: é o modo "não tem ninguém na
+ * minha cidade, quem aceita receber pelo correio?". Por isso ele desmarca
+ * o estado quando ligado — os dois juntos respondem uma pergunta que
+ * quase ninguém faz e devolvem zero resultado com frequência.
+ */
+import CardArmeiro from "./CardArmeiro.astro";
+import {
+  NOME_UF,
+  ROTULO_PLATAFORMA_ARMEIRO,
+  ROTULO_SERVICO_ARMEIRO,
+  slugificar,
+} from "../lib/uf";
+
+interface Props {
+  armeiros: any[];
+}
+
+const { armeiros } = Astro.props;
+
+/** As opções saem dos dados: filtro que sempre devolve zero é filtro quebrado. */
+const estados = [...new Set(armeiros.map((a) => a.data.uf).filter(Boolean))]
+  .map((uf) => ({ sigla: uf, nome: NOME_UF[uf] ?? uf }))
+  .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+const plataformas = [
+  ...new Set(armeiros.flatMap((a) => a.data.plataformas ?? [])),
+].sort();
+const servicos = [...new Set(armeiros.flatMap((a) => a.data.servicos ?? []))].sort();
+const temEnvio = armeiros.some((a) => a.data.atende_envio);
+
+/** Texto normalizado no build — o cliente só normaliza a consulta. */
+function textoBusca(d: any): string {
+  return slugificar(
+    [d.nome, d.cidade, NOME_UF[d.uf] ?? d.uf, d.uf, d.raio_atendimento, ...(d.marcas ?? [])]
+      .filter(Boolean)
+      .join(" "),
+  ).replace(/-/g, " ");
+}
+
+const classeCampo =
+  "w-full border border-borda-forte bg-fundo px-3 py-2.5 font-display text-base uppercase tracking-[0.03em] text-tinta outline-none transition-colors focus:border-oliva-500";
+const classeRotulo =
+  "mb-1.5 block font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400";
+---
+
+<form
+  hidden
+  data-busca-armeiros
+  class="moldura-tatica mt-9 border border-borda bg-papel p-5 md:p-6"
+  aria-label="Buscar armeiros"
+>
+  <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div class="lg:col-span-2">
+      <label class={classeRotulo} for="armeiro-texto">Nome, cidade ou marca</label>
+      <input
+        id="armeiro-texto"
+        type="search"
+        name="texto"
+        autocomplete="off"
+        placeholder="Nome do armeiro, cidade, região..."
+        class={`${classeCampo} placeholder:normal-case placeholder:tracking-normal placeholder:text-texto-2/60`}
+      />
+    </div>
+
+    <div>
+      <label class={classeRotulo} for="armeiro-plataforma">Sua réplica</label>
+      <select id="armeiro-plataforma" name="plataforma" class={classeCampo}>
+        <option value="">Qualquer</option>
+        {
+          plataformas.map((p) => (
+            <option value={p}>{ROTULO_PLATAFORMA_ARMEIRO[p] ?? p}</option>
+          ))
+        }
+      </select>
+    </div>
+
+    <div>
+      <label class={classeRotulo} for="armeiro-servico">O que precisa</label>
+      <select id="armeiro-servico" name="servico" class={classeCampo}>
+        <option value="">Qualquer</option>
+        {
+          servicos.map((s) => (
+            <option value={s}>{ROTULO_SERVICO_ARMEIRO[s] ?? s}</option>
+          ))
+        }
+      </select>
+    </div>
+
+    <div>
+      <label class={classeRotulo} for="armeiro-uf">Estado</label>
+      <select id="armeiro-uf" name="uf" class={classeCampo}>
+        <option value="">Todos</option>
+        {estados.map((e) => <option value={e.sigla}>{e.nome}</option>)}
+      </select>
+    </div>
+
+    {
+      temEnvio && (
+        <div class="flex items-end">
+          <label class="flex w-full cursor-pointer items-center gap-2.5 border border-borda-forte bg-fundo px-3 py-2.5 transition-colors hover:border-oliva-500">
+            <input
+              type="checkbox"
+              name="envio"
+              class="h-4 w-4 shrink-0 accent-oliva-500"
+            />
+            <span class="font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-300">
+              Atende por envio
+            </span>
+          </label>
+        </div>
+      )
+    }
+
+    <div class="flex items-end">
+      <button
+        type="reset"
+        class="w-full border border-borda-forte px-3 py-2.5 font-display text-base font-bold uppercase tracking-[0.06em] text-oliva-400 transition-colors hover:border-oliva-500 hover:text-oliva-300"
+      >
+        Limpar
+      </button>
+    </div>
+  </div>
+
+  <p
+    data-contagem-armeiros
+    aria-live="polite"
+    class="mt-4 border-t border-borda pt-4 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400"
+  >
+  </p>
+
+  <p
+    data-ocultos-armeiros
+    hidden
+    aria-live="polite"
+    class="mt-2 text-sm leading-relaxed text-texto-2"
+  >
+  </p>
+</form>
+
+<div data-resultados-armeiros class="mt-9 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+  {
+    armeiros.map((armeiro) => (
+      <div
+        data-armeiro
+        data-uf={armeiro.data.uf}
+        data-plataformas={(armeiro.data.plataformas ?? []).join(" ")}
+        data-servicos={(armeiro.data.servicos ?? []).join(" ")}
+        data-envio={armeiro.data.atende_envio ? "1" : "0"}
+        data-sem-declaracao={
+          (armeiro.data.plataformas ?? []).length === 0 &&
+          (armeiro.data.servicos ?? []).length === 0
+            ? "1"
+            : "0"
+        }
+        data-texto={textoBusca(armeiro.data)}
+        class="contents"
+      >
+        <CardArmeiro armeiro={armeiro} />
+      </div>
+    ))
+  }
+</div>
+
+<p
+  data-vazio-armeiros
+  hidden
+  class="mt-9 border border-borda bg-papel p-8 text-center leading-relaxed text-texto-2"
+>
+  Nenhum armeiro bate com esses filtros.
+  <span data-dica-envio hidden>
+    Tente marcar <strong class="text-tinta">Atende por envio</strong> — vários
+    recebem réplica pelo correio de qualquer estado.
+  </span>
+  <a href="/armeiros" class="text-oliva-500 underline">Ver todos os armeiros</a>.
+</p>
+
+<script>
+  // Progressive enhancement: sem este script a lista completa continua
+  // na tela e o formulário permanece oculto.
+  const form = document.querySelector<HTMLFormElement>("[data-busca-armeiros]");
+  const grade = document.querySelector<HTMLElement>("[data-resultados-armeiros]");
+  const vazio = document.querySelector<HTMLElement>("[data-vazio-armeiros]");
+  const contagem = form?.querySelector<HTMLElement>("[data-contagem-armeiros]");
+  const avisoOcultos = document.querySelector<HTMLElement>("[data-ocultos-armeiros]");
+
+  if (form && grade && vazio && contagem) {
+    const elVazio: HTMLElement = vazio;
+    const elContagem: HTMLElement = contagem;
+    const dicaEnvio = vazio.querySelector<HTMLElement>("[data-dica-envio]");
+    const cartoes = Array.from(grade.querySelectorAll<HTMLElement>("[data-armeiro]"));
+
+    const campoTexto = form.elements.namedItem("texto") as HTMLInputElement;
+    const campoPlataforma = form.elements.namedItem("plataforma") as HTMLSelectElement;
+    const campoServico = form.elements.namedItem("servico") as HTMLSelectElement;
+    const campoUf = form.elements.namedItem("uf") as HTMLSelectElement;
+    const campoEnvio = form.elements.namedItem("envio") as HTMLInputElement | null;
+
+    /** Mesma normalização de slugificar(), sem os hífens. */
+    const normalizar = (texto: string) =>
+      texto
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
+    function aplicar() {
+      const texto = normalizar(campoTexto.value);
+      const plataforma = campoPlataforma.value;
+      const servico = campoServico.value;
+      const soEnvio = campoEnvio?.checked ?? false;
+      // "Por envio" é uma busca nacional por definição: quem manda pelo
+      // correio não se importa com o estado de quem recebe.
+      const uf = soEnvio ? "" : campoUf.value;
+      const filtrando = Boolean(texto || plataforma || servico || uf || soEnvio);
+
+      campoUf.disabled = soEnvio;
+
+      let exibidos = 0;
+
+      for (const cartao of cartoes) {
+        const d = cartao.dataset;
+        const casa =
+          (!texto || (d.texto ?? "").includes(texto)) &&
+          (!plataforma || (d.plataformas ?? "").split(" ").includes(plataforma)) &&
+          (!servico || (d.servicos ?? "").split(" ").includes(servico)) &&
+          (!uf || d.uf === uf) &&
+          (!soEnvio || d.envio === "1");
+
+        if (casa) exibidos++;
+        // `contents` porque a grade é do container: um wrapper com display
+        // próprio quebraria o alinhamento das colunas.
+        cartao.classList.toggle("contents", casa);
+        cartao.classList.toggle("hidden", !casa);
+      }
+
+      elVazio.hidden = exibidos > 0;
+      // A dica só faz sentido para quem filtrou por estado e não achou
+      // ninguém — e só se o filtro de envio existir de fato na página.
+      // Ele some quando nenhum armeiro declara envio, e mandar a pessoa
+      // marcar um controle inexistente é pior que não dizer nada.
+      if (dicaEnvio) dicaEnvio.hidden = !(uf && !soEnvio && campoEnvio);
+
+      /**
+       * Aviso de cobertura do filtro.
+       *
+       * Parte das fichas veio de levantamento e não declara plataforma
+       * nem serviço. Elas são excluídas de qualquer filtro por esses
+       * campos — corretamente, porque não dá para afirmar que atendem.
+       * Mas some gente da lista sem explicação, e quem busca conclui
+       * que o armeiro não existe. Então o filtro conta quantos ficaram
+       * de fora POR ISSO, e diz.
+       */
+      if (avisoOcultos) {
+        // Contado por CAMPO, não por "ficha vazia": quem declarou
+        // serviço mas não plataforma some do filtro de plataforma do
+        // mesmo jeito, e ficaria de fora da conta se o critério fosse
+        // "não informou nada".
+        const mudos = new Set<HTMLElement>();
+        if (plataforma) {
+          for (const c of cartoes) if (!c.dataset.plataformas) mudos.add(c);
+        }
+        if (servico) {
+          for (const c of cartoes) if (!c.dataset.servicos) mudos.add(c);
+        }
+
+        avisoOcultos.hidden = mudos.size === 0;
+        if (mudos.size > 0) {
+          const oQue =
+            plataforma && servico
+              ? "o que atendem nem o que fazem"
+              : plataforma
+                ? "quais réplicas atendem"
+                : "quais serviços fazem";
+          avisoOcultos.textContent =
+            mudos.size === 1
+              ? `1 armeiro não entra neste filtro porque ainda não informou ${oQue.replace("atendem", "atende").replace("fazem", "faz")}.`
+              : `${mudos.size} armeiros não entram neste filtro porque ainda não informaram ${oQue}.`;
+        }
+      }
+
+      if (!filtrando) {
+        elContagem.textContent = `${cartoes.length} ${
+          cartoes.length === 1 ? "armeiro cadastrado" : "armeiros cadastrados"
+        }`;
+      } else if (exibidos === 0) {
+        elContagem.textContent = "Nenhum armeiro encontrado";
+      } else {
+        elContagem.textContent = `${exibidos} ${
+          exibidos === 1 ? "armeiro encontrado" : "armeiros encontrados"
+        } de ${cartoes.length}`;
+      }
+    }
+
+    form.addEventListener("input", aplicar);
+    form.addEventListener("change", aplicar);
+    form.addEventListener("submit", (evento) => evento.preventDefault());
+    form.addEventListener("reset", () => requestAnimationFrame(aplicar));
+
+    form.hidden = false;
+    aplicar();
+  }
+</script>

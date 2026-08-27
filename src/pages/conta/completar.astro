@@ -26,7 +26,7 @@ const { supabase, usuario, perfil } = Astro.locals;
 
 // O middleware ja garantiu sessao em /conta. Quem ja terminou o
 // cadastro minimo edita o resto na pagina de perfil.
-if (perfil?.onboarding_ok) return Astro.redirect("/conta/perfil", 302);
+if (perfil?.onboarding_ok) return Astro.redirect("/conta", 302);
 
 const UFS = Object.entries(NOME_UF).sort(([a], [b]) => a.localeCompare(b));
 
@@ -67,19 +67,36 @@ if (Astro.request.method === "POST") {
   }
 
   if (erros.length === 0 && usuario) {
-    const { error: erroPerfil } = await supabase
+    /**
+     * `upsert`, nao `update`.
+     *
+     * O normal e a linha ja existir (o gatilho cria junto com o
+     * usuario), mas se ela faltar — usuario criado antes do gatilho
+     * existir, linha apagada a mao — um `update` nao encontra nada,
+     * NAO da erro, e a pessoa fica presa num laco entre o formulario
+     * e o painel sem nunca ver uma mensagem.
+     *
+     * O `.select()` no fim e o que transforma "nao salvou nada" em
+     * erro visivel: sem linha de volta, houve falha.
+     */
+    const { data: perfilSalvo, error: erroPerfil } = await supabase
       .from("perfis")
-      .update({
-        nome,
-        whatsapp,
-        uf,
-        cidade,
-        cidade_slug: slugificar(cidade),
-        maioridade: true,
-      })
-      .eq("id", usuario.id);
+      .upsert(
+        {
+          id: usuario.id,
+          nome,
+          whatsapp,
+          uf,
+          cidade,
+          cidade_slug: slugificar(cidade),
+          maioridade: true,
+        },
+        { onConflict: "id" },
+      )
+      .select("id")
+      .maybeSingle();
 
-    if (erroPerfil) {
+    if (erroPerfil || !perfilSalvo) {
       console.error("Falha ao salvar perfil:", erroPerfil);
       erros.push("Não conseguimos salvar agora. Tente de novo em instantes.");
     } else {

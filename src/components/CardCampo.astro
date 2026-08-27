@@ -21,7 +21,7 @@ interface Props {
       precos?: string;
       google_nota?: number;
       google_avaliacoes?: number;
-      fotos?: { src: string; alt: string }[];
+      foto_url?: string;
     };
   };
 }
@@ -29,7 +29,14 @@ interface Props {
 const { campo } = Astro.props;
 const d = campo.data;
 const url = `/campos/${d.uf.toLowerCase()}/${d.cidade_slug}/${campo.id}`;
-const capa = d.fotos?.[0];
+/*
+ * A capa vem de `foto_url`, a mesma coluna que a ficha usa.
+ *
+ * Antes o card lia `d.fotos[0]` — um array que existia no schema e que
+ * nenhum loader preenchia, então TODO card caía no bloco "sem foto"
+ * desde sempre.
+ */
+const capa = d.foto_url;
 ---
 
 <!--
@@ -100,7 +107,7 @@ const capa = d.fotos?.[0];
     {
       capa ? (
         <img
-          src={capa.src}
+          src={capa}
           alt=""
           loading="lazy"
           decoding="async"

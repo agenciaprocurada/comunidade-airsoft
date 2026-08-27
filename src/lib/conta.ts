@@ -121,6 +121,12 @@ export function formatarWhatsapp(e164: string | null): string {
 }
 
 /**
+ * Onde guardamos, entre o clique em "Entrar" e a volta do Google, para
+ * qual pagina mandar a pessoa depois. Vive poucos minutos.
+ */
+export const COOKIE_DESTINO = "ca-destino";
+
+/**
  * So aceita caminho interno. Sem isso, `?destino=https://site-falso`
  * transformaria o login num redirecionador aberto — o phishing chega
  * com um link legitimo do nosso dominio.

@@ -1,0 +1,355 @@
+---
+import Conta from "../../../../layouts/Conta.astro";
+import Painel from "../../../../components/conta/Painel.astro";
+import Selo from "../../../../components/conta/Selo.astro";
+import { formatarWhatsapp } from "../../../../lib/conta";
+import { NOME_UF } from "../../../../lib/uf";
+import {
+  COLUNAS_REIVINDICACAO,
+  ENTIDADES,
+  STATUS,
+  VINCULOS,
+  formatarData,
+  type Reivindicacao,
+  type StatusReivindicacao,
+} from "../../../../lib/reivindicacao";
+import {
+  BOTAO_PRIMARIO,
+  BOTAO_PERIGO,
+  BOTAO_SECUNDARIO,
+  ENTRADA,
+  ENTRADA_INVALIDA,
+  ERRO_CAMPO,
+  ROTULO_CAMPO,
+} from "../../../../lib/estilos-form";
+
+export const prerender = false;
+
+// O middleware já devolveu 404 para quem não é administrador.
+const { supabase, usuario } = Astro.locals;
+const { id } = Astro.params;
+
+let erroMotivo = "";
+let erroGeral = "";
+let motivoEnviado = "";
+
+if (Astro.request.method === "POST") {
+  const dados = await Astro.request.formData();
+  const acao = dados.get("acao")?.toString();
+  motivoEnviado = (dados.get("motivo")?.toString() ?? "").trim();
+
+  if (acao === "recusar" && motivoEnviado.length < 5) {
+    erroMotivo = "Escreva o motivo — a pessoa tem direito de saber por quê.";
+  } else if (acao === "aprovar" || acao === "recusar" || acao === "em_analise") {
+    const novoStatus =
+      acao === "aprovar" ? "aprovada" : acao === "recusar" ? "recusada" : "em_analise";
+
+    const { data: atualizado, error } = await supabase
+      .from("reivindicacoes")
+      .update({
+        status: novoStatus,
+        motivo_analise: motivoEnviado || null,
+        // 'em_analise' é só um marcador de trabalho, não decisão. O
+        // CHECK do banco só exige autor para aprovada/recusada.
+        ...(novoStatus === "em_analise"
+          ? {}
+          : { analisado_por: usuario!.id, analisado_em: new Date().toISOString() }),
+      })
+      .eq("id", id!)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      // 23505 = índice único: já existe dono aprovado para essa ficha.
+      if (error.code === "23505") {
+        erroGeral =
+          "Esta página já tem um dono aprovado. Recuse este pedido ou revogue o outro antes.";
+      } else {
+        console.error("Falha ao decidir reivindicacao:", error);
+        erroGeral = `Não foi possível salvar: ${error.message}`;
+      }
+    } else if (!atualizado) {
+      erroGeral = "Nenhuma linha foi alterada. Recarregue e tente de novo.";
+    } else {
+      return Astro.redirect("/conta/admin/reivindicacoes?decidida=1", 303);
+    }
+  }
+}
+
+const { data: pedido } = await supabase
+  .from("reivindicacoes")
+  .select(COLUNAS_REIVINDICACAO)
+  .eq("id", id!)
+  .maybeSingle<Reivindicacao>();
+
+if (!pedido) {
+  const resposta = await Astro.rewrite("/404");
+  return new Response(resposta.body, { status: 404, headers: resposta.headers });
+}
+
+const entidade = ENTIDADES[pedido.tipo_entidade];
+
+// Ficha e solicitante lado a lado: é a comparação que decide o pedido.
+const [{ data: ficha }, { data: solicitante }, { data: concorrentes }] = await Promise.all([
+  supabase
+    .from(entidade.tabela)
+    .select("id,nome,uf,cidade,contato")
+    .eq("id", pedido.entidade_id)
+    .maybeSingle<{
+      id: string;
+      nome: string;
+      uf: string;
+      cidade: string;
+      contato: Record<string, string>;
+    }>(),
+  supabase
+    .from("perfis")
+    .select("nome,nickname,whatsapp,uf,cidade,nivel,redes")
+    .eq("id", pedido.usuario_id)
+    .maybeSingle<{
+      nome: string | null;
+      nickname: string | null;
+      whatsapp: string | null;
+      uf: string | null;
+      cidade: string | null;
+      nivel: string | null;
+      redes: Record<string, string>;
+    }>(),
+  supabase
+    .from("reivindicacoes")
+    .select("id,status,criado_em,usuario_id")
+    .eq("tipo_entidade", pedido.tipo_entidade)
+    .eq("entidade_id", pedido.entidade_id)
+    .neq("id", pedido.id)
+    .returns<{ id: string; status: string; criado_em: string; usuario_id: string }[]>(),
+]);
+
+const rotuloVinculo = VINCULOS.find((v) => v.valor === pedido.vinculo)?.rotulo ?? pedido.vinculo;
+const decidido = pedido.status === "aprovada" || pedido.status === "recusada";
+const outros = concorrentes ?? [];
+const canais = Object.entries(ficha?.contato ?? {});
+
+// Cidade do perfil bate com a da ficha? Não decide nada sozinho, mas é
+// o primeiro sinal a olhar.
+const mesmaCidade =
+  ficha && solicitante?.cidade
+    ? solicitante.cidade.toLowerCase().trim() === ficha.cidade.toLowerCase().trim()
+    : null;
+
+const TOM: Record<StatusReivindicacao, "ok" | "alerta" | "atencao" | "neutro"> = {
+  pendente: "atencao",
+  em_analise: "atencao",
+  aprovada: "ok",
+  recusada: "alerta",
+  cancelada: "neutro",
+};
+
+const urlFicha = pedido.tipo_entidade === "loja" && ficha ? `/lojas/${ficha.id}` : "/campos";
+---
+
+<Conta titulo={pedido.entidade_nome} descricao="Análise de reivindicação.">
+  <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <Selo tom={TOM[pedido.status]} ponto={pedido.status !== "cancelada"}>
+      {STATUS[pedido.status].rotulo}
+    </Selo>
+    <p class="font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+      {pedido.tipo_entidade === "campo" ? "Campo" : "Loja"}
+      <span aria-hidden="true" class="px-1.5 text-borda-forte">/</span>
+      pedido de {formatarData(pedido.criado_em)}
+    </p>
+  </div>
+
+  <p class="mt-4">
+    <a
+      href="/conta/admin/reivindicacoes"
+      class="text-[0.9375rem] text-texto-2 transition-colors duration-150 hover:text-oliva-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oliva-300"
+    >
+      ← Voltar para a fila
+    </a>
+  </p>
+
+  {
+    erroGeral && (
+      <p class="mt-6 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
+        {erroGeral}
+      </p>
+    )
+  }
+
+  {
+    outros.length > 0 && (
+      <p class="mt-6 border border-latao/50 bg-latao/[0.07] px-4 py-3.5 text-[0.9375rem] leading-snug text-latao">
+        Esta ficha tem mais {outros.length} pedido{outros.length > 1 ? "s" : ""}{" "}
+        registrado{outros.length > 1 ? "s" : ""} (
+        {outros.map((c) => STATUS[c.status as StatusReivindicacao].rotulo).join(", ")}).
+        Só uma pessoa pode ficar com a página.
+      </p>
+    )
+  }
+
+  <div class="mt-10 space-y-10">
+    <div class="grid gap-8 lg:grid-cols-2 lg:gap-6">
+      <Painel titulo="O que a ficha diz">
+        {
+          ficha ? (
+            <dl class="divide-y divide-borda">
+              <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-6">
+                <dt class="text-[0.9375rem] text-texto-2">Local</dt>
+                <dd class="text-[0.9375rem] text-tinta">
+                  {ficha.cidade}, {NOME_UF[ficha.uf] ?? ficha.uf}
+                </dd>
+              </div>
+              {canais.map(([canal, valor]) => (
+                <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-6">
+                  <dt class="text-[0.9375rem] capitalize text-texto-2">{canal}</dt>
+                  <dd class="min-w-0 break-all font-dado text-[0.8125rem] text-tinta">
+                    {valor}
+                  </dd>
+                </div>
+              ))}
+              {canais.length === 0 && (
+                <p class="px-4 py-3 text-[0.9375rem] leading-snug text-latao">
+                  A ficha não tem contato nenhum registrado — não dá para
+                  conferir por canal oficial.
+                </p>
+              )}
+            </dl>
+          ) : (
+            <p class="px-4 py-3 text-[0.9375rem] text-alerta-texto">
+              A ficha não existe mais ou saiu do ar.
+            </p>
+          )
+        }
+        {ficha && <a slot="acao" href={urlFicha} class={BOTAO_SECUNDARIO}>Abrir ficha</a>}
+      </Painel>
+
+      <Painel titulo="Quem está pedindo">
+        <dl class="divide-y divide-borda">
+          <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-6">
+            <dt class="text-[0.9375rem] text-texto-2">Nome</dt>
+            <dd class="text-[0.9375rem] text-tinta">
+              {solicitante?.nome ?? "—"}
+              {solicitante?.nickname && ` (${solicitante.nickname})`}
+            </dd>
+          </div>
+          <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-6">
+            <dt class="text-[0.9375rem] text-texto-2">Relação declarada</dt>
+            <dd class="text-[0.9375rem] text-tinta">{rotuloVinculo}</dd>
+          </div>
+          <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-6">
+            <dt class="text-[0.9375rem] text-texto-2">Telefone do pedido</dt>
+            <dd class="font-dado text-[0.875rem] text-tinta">
+              {formatarWhatsapp(pedido.telefone)}
+            </dd>
+          </div>
+          <div class="flex flex-col gap-1.5 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-6">
+            <dt class="text-[0.9375rem] text-texto-2">Cidade do perfil</dt>
+            <dd class="flex flex-wrap items-center gap-2.5">
+              <span class="text-[0.9375rem] text-tinta">
+                {solicitante?.cidade ?? "—"}
+                {solicitante?.uf && `, ${solicitante.uf}`}
+              </span>
+              {mesmaCidade === false && <Selo tom="atencao">Difere da ficha</Selo>}
+              {mesmaCidade === true && <Selo tom="ok">Bate</Selo>}
+            </dd>
+          </div>
+          {
+            solicitante?.redes?.instagram && (
+              <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-6">
+                <dt class="text-[0.9375rem] text-texto-2">Instagram pessoal</dt>
+                <dd class="break-all font-dado text-[0.8125rem] text-tinta">
+                  {solicitante.redes.instagram}
+                </dd>
+              </div>
+            )
+          }
+        </dl>
+      </Painel>
+    </div>
+
+    <Painel titulo="Como pede para confirmar" semMoldura={true}>
+      <div class="border border-borda bg-papel/60 px-4 py-4">
+        <p class="max-w-[75ch] whitespace-pre-line text-[1rem] leading-relaxed text-texto">
+          {pedido.mensagem}
+        </p>
+
+        {
+          pedido.provas.length > 0 && (
+            <ul class="mt-5 space-y-1.5 border-t border-borda pt-4">
+              {pedido.provas.map((link) => (
+                <li>
+                  <a
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    class="break-all font-dado text-[0.8125rem] text-oliva-300 underline underline-offset-2 transition-colors duration-150 hover:text-oliva-100"
+                  >
+                    {link}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </div>
+    </Painel>
+
+    {
+      decidido ? (
+        <Painel titulo="Decisão registrada">
+          <div class="px-4 py-4">
+            <p class="text-[0.9375rem] text-texto">
+              {STATUS[pedido.status].rotulo} em {formatarData(pedido.analisado_em)}.
+            </p>
+            {pedido.motivo_analise && (
+              <p class="mt-3 max-w-[70ch] text-[0.9375rem] leading-relaxed text-texto-2">
+                {pedido.motivo_analise}
+              </p>
+            )}
+          </div>
+        </Painel>
+      ) : (
+        <Painel
+          titulo="Decidir"
+          descricao="Confirme por um canal oficial da ficha antes de aprovar. A decisão fica registrada com o seu nome e a data."
+        >
+          <form method="POST" class="px-4 py-5">
+            <div>
+              <label for="motivo" class={ROTULO_CAMPO}>Observação ou motivo</label>
+              <p class="mt-1 text-[0.8125rem] leading-snug text-texto-2">
+                Obrigatório para recusar. A pessoa vê este texto.
+              </p>
+              <textarea
+                id="motivo"
+                name="motivo"
+                rows="3"
+                maxlength="1000"
+                aria-invalid={erroMotivo ? "true" : undefined}
+                aria-describedby={erroMotivo ? "erro-motivo" : undefined}
+                class={erroMotivo ? ENTRADA_INVALIDA : ENTRADA}>{motivoEnviado}</textarea>
+              {erroMotivo && (
+                <p id="erro-motivo" class={ERRO_CAMPO}>
+                  {erroMotivo}
+                </p>
+              )}
+            </div>
+
+            <div class="mt-5 flex flex-wrap gap-3">
+              <button type="submit" name="acao" value="aprovar" class={BOTAO_PRIMARIO}>
+                Aprovar
+              </button>
+              <button type="submit" name="acao" value="recusar" class={BOTAO_PERIGO}>
+                Recusar
+              </button>
+              {pedido.status === "pendente" && (
+                <button type="submit" name="acao" value="em_analise" class={BOTAO_SECUNDARIO}>
+                  Marcar em análise
+                </button>
+              )}
+            </div>
+          </form>
+        </Painel>
+      )
+    }
+  </div>
+</Conta>

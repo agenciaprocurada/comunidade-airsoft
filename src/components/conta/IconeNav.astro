@@ -1,0 +1,55 @@
+---
+/**
+ * Ícones da navegação da conta. Traço reto e ponta quadrada, no mesmo
+ * vocabulário angular dos ícones de categoria.
+ */
+interface Props {
+  nome:
+    | "painel"
+    | "operacoes"
+    | "equipes"
+    | "paginas"
+    | "replicas"
+    | "perfil"
+    | "moderacao"
+    | "mapas"
+    | "sair";
+  class?: string;
+}
+
+const { nome, class: classe } = Astro.props;
+
+const DESENHOS = {
+  // Quatro módulos: a visão geral.
+  painel: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z",
+  // Folhinha: a data é o que define a operação.
+  operacoes: "M4 6h16v14H4zM4 10h16M8 3.5v4M16 3.5v4",
+  // Duas silhuetas: equipe é sempre mais de um.
+  equipes:
+    "M9 5.5a2.75 2.75 0 1 1 0 5.5 2.75 2.75 0 0 1 0-5.5zM3 20v-1.5A4.5 4.5 0 0 1 7.5 14h3a4.5 4.5 0 0 1 4.5 4.5V20M16.5 6.2a2.75 2.75 0 0 1 0 4.6M17.5 14a4.5 4.5 0 0 1 3.5 4.4V20",
+  // Folha com linhas: a ficha que a pessoa assume.
+  paginas: "M6 3h9l4 4v14H6zM15 3v4h4M9 12h7M9 16h7",
+  // A silhueta da pistola, mesma do ícone de categoria.
+  replicas: "M3 9h13v4H9l-1 7H5l1-7H3zM16 10h5v2h-5",
+  perfil: "M12 4a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zM4 21v-2a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v2",
+  // Escudo: a fila de conferência.
+  moderacao: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z",
+  // Quadro dividido em setores: é a grade, não uma folha dobrada de
+  // mapa rodoviário — o que se faz aqui é dividir terreno em A1, B2.
+  mapas: "M4 4h16v16H4zM4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16",
+  sair: "M10 4H5v16h5M15 8l4 4-4 4M9 12h10",
+} as const;
+---
+
+<svg
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.5"
+  stroke-linecap="square"
+  stroke-linejoin="miter"
+  aria-hidden="true"
+  class:list={["shrink-0", classe]}
+>
+  <path d={DESENHOS[nome]}></path>
+</svg>

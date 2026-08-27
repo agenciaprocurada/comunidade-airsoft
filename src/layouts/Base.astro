@@ -15,6 +15,12 @@ interface Props {
   imagem?: string;
   /** Header flutua por cima do primeiro bloco (usado só na home). */
   headerSobreposto?: boolean;
+  /**
+   * Sem o Header e o Footer do site — para telas que são APLICATIVO,
+   * não página (o editor de mapas). A casca própria da tela assume a
+   * navegação; head, fontes e analytics continuam daqui.
+   */
+  semCasca?: boolean;
 }
 
 /**
@@ -34,6 +40,7 @@ const {
   dadosEstruturados = [],
   imagem = OG_PADRAO,
   headerSobreposto = false,
+  semCasca = false,
 } = Astro.props;
 
 const urlCanonica = canonica ?? new URL(Astro.url.pathname, Astro.site).href;
@@ -125,12 +132,12 @@ const tituloCompleto =
       Pular para o conteúdo
     </a>
 
-    <Header sobreposto={headerSobreposto} />
+    {!semCasca && <Header sobreposto={headerSobreposto} />}
 
     <main id="conteudo" class="flex-1">
       <slot />
     </main>
 
-    <Footer />
+    {!semCasca && <Footer />}
   </body>
 </html>

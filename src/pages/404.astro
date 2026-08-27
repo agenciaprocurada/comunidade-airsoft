@@ -1,6 +1,61 @@
 ---
+import { getCollection } from "astro:content";
 import Base from "../layouts/Base.astro";
 import Botao from "../components/Botao.astro";
+import { noEstado } from "../lib/uf";
+
+/**
+ * 404 de um diretório geográfico.
+ *
+ * O canal do projeto é busca orgânica, e as URLs carregam o lugar
+ * (/campos/[uf]/[cidade]/[slug]). Então quem cai aqui quase sempre veio
+ * de um link velho para um campo que mudou de slug ou saiu do ar — não
+ * de um clique aleatório. Mandar essa pessoa para a home desperdiça a
+ * única informação boa que ela trouxe: a região que procurava.
+ *
+ * Por isso a página lê a URL tentada e oferece o hub da cidade ou do
+ * estado correspondente, CONFERINDO antes se esse hub existe de fato.
+ * Sugerir uma página que também não existe seria pior do que não
+ * sugerir nada.
+ *
+ * O site é estático, então a leitura da URL acontece no navegador. Sem
+ * JavaScript a página continua completa: só não tem o atalho.
+ */
+const campos = await getCollection("campos", ({ data }) => data.status === "publicado");
+const lojas = await getCollection("lojas", ({ data }) => data.status === "publicado");
+
+/** { rs: { nome: "Rio Grande do Sul", cidades: { canoas: "Canoas" } } } */
+const hubsCampos: Record<string, { nome: string; cidades: Record<string, string> }> = {};
+for (const campo of campos) {
+  const uf = campo.data.uf.toLowerCase();
+  // `nome` já vem com a preposição pronta ("no Rio Grande do Sul"),
+  // porque quem monta a frase é o script no navegador.
+  hubsCampos[uf] ??= { nome: noEstado(campo.data.uf), cidades: {} };
+  hubsCampos[uf].cidades[campo.data.cidade_slug] = campo.data.cidade;
+}
+
+const hubsLojas: Record<string, string> = {};
+for (const loja of lojas) {
+  if (!loja.data.uf) continue;
+  hubsLojas[loja.data.uf.toLowerCase()] = noEstado(loja.data.uf);
+}
+
+/**
+ * Sob demanda, e nao estatica: com `output: server`, uma rota dinamica
+ * nao consegue fazer `Astro.rewrite("/404")` para uma pagina
+ * prerenderizada — ela virou HTML no build e nao existe mais em
+ * runtime. Era o que quebrava (500 em vez de 404) em `/reivindicar`,
+ * na fila do admin e nas paginas de equipe e operacao.
+ */
+export const prerender = false;
+
+const mapa = { campos: hubsCampos, lojas: hubsLojas };
+
+const destinos = [
+  { href: "/campos", titulo: "Campos", texto: `${campos.length} campos de airsoft e paintball no diretório` },
+  { href: "/lojas", titulo: "Onde comprar", texto: `${lojas.length} lojas, físicas e online` },
+  { href: "/guias", titulo: "Guias", texto: "O que todo iniciante pergunta antes do primeiro jogo" },
+];
 ---
 
 <Base
@@ -8,20 +63,179 @@ import Botao from "../components/Botao.astro";
   descricao="A página que você procurou não existe ou foi movida."
   semIndexar={true}
 >
-  <div class="mx-auto max-w-[68ch] px-5 py-24 text-center md:px-12">
-    <p class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400">
-      Erro 404
-    </p>
-    <h1 class="mt-4 font-display text-5xl font-extrabold uppercase italic leading-[0.95] md:text-7xl">
-      Fora de área
-    </h1>
-    <p class="mx-auto mt-5 max-w-[46ch] text-lg leading-relaxed text-texto-2">
-      Esta página não existe ou foi movida. Se você chegou aqui por um link
-      nosso, avise — a gente conserta.
-    </p>
-    <div class="mt-8 flex flex-wrap justify-center gap-3">
-      <Botao href="/campos">Ver campos</Botao>
-      <Botao href="/" variante="secundario">Voltar ao início</Botao>
+  <!--
+    A grade é o vocabulário de mapa que o site já usa. Aqui ela carrega
+    o sentido da página: você está fora da área mapeada.
+  -->
+  <section class="relative overflow-hidden border-b border-borda">
+    <div class="grade-tatica absolute inset-0" aria-hidden="true"></div>
+    <div
+      class="absolute inset-0"
+      aria-hidden="true"
+      style="background: radial-gradient(110% 85% at 20% 38%, transparent 0%, rgba(11,13,9,0.25) 58%, rgba(11,13,9,0.88) 100%);"
+    >
     </div>
+
+    <div class="relative mx-auto max-w-[1240px] px-5 py-20 md:px-12 md:py-28">
+      <p class="font-dado text-[0.6875rem] uppercase tracking-[0.18em] text-oliva-400">
+        <span>404</span>
+        <span aria-hidden="true" class="px-2 text-borda-forte">·</span>
+        <!-- Preenchido pelo script com a rota tentada. -->
+        <span id="rota-tentada">Rota não registrada</span>
+      </p>
+
+      <h1
+        class="mt-5 max-w-[14ch] font-display text-[clamp(3rem,11vw,5.5rem)] font-extrabold uppercase italic leading-[0.88] tracking-[-0.01em] text-tinta"
+        style="text-wrap: balance;"
+      >
+        Fora de área
+      </h1>
+
+      <p class="mt-6 max-w-[52ch] text-lg leading-relaxed text-texto">
+        Esta página não existe ou foi movida. Campo fecha, loja muda de
+        endereço, link velho continua circulando — acontece.
+      </p>
+
+      <!--
+        Atalho por região. Nasce escondido e só aparece quando o script
+        confirma que existe hub para o lugar da URL tentada.
+      -->
+      <div id="resgate" hidden class="mt-10 border-t border-oliva-700 pt-6">
+        <p class="text-[0.9375rem] text-texto-2">
+          Você procurava por esta região. Estes lugares existem:
+        </p>
+        <ul id="resgate-lista" class="mt-4 flex flex-wrap gap-2"></ul>
+      </div>
+
+      <div class="mt-10 flex flex-wrap gap-3">
+        <Botao href="/campos" seta={true}>Ver todos os campos</Botao>
+        <Botao href="/" variante="secundario">Voltar ao início</Botao>
+      </div>
+    </div>
+  </section>
+
+  <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+    <h2 class="font-display text-2xl font-bold uppercase tracking-[0.03em] text-tinta">
+      Ou comece por aqui
+    </h2>
+
+    <ul class="mt-6 border border-borda divide-y divide-borda">
+      {
+        destinos.map((destino) => (
+          <li>
+            <a
+              href={destino.href}
+              class="group flex items-center gap-4 px-5 py-5 transition-colors duration-150 hover:bg-oliva-050 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-oliva-300"
+            >
+              <span class="min-w-0 flex-1">
+                <span class="block font-display text-xl font-bold uppercase tracking-[0.03em] text-tinta">
+                  {destino.titulo}
+                </span>
+                <span class="mt-1 block text-[0.9375rem] leading-snug text-texto-2">
+                  {destino.texto}
+                </span>
+              </span>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                class="seta h-5 w-5 shrink-0 text-texto-2 group-hover:text-oliva-300"
+              >
+                <path d="m9 5 7 7-7 7" stroke-linecap="square" />
+              </svg>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="mt-8 max-w-[62ch] text-[0.9375rem] leading-relaxed text-texto-2">
+      Chegou aqui por um link nosso? Avise em{" "}
+      <a
+        href="mailto:contato@comunidadeairsoft.com.br"
+        class="text-oliva-300 underline underline-offset-2 hover:text-oliva-100"
+      >
+        contato@comunidadeairsoft.com.br
+      </a> que a gente conserta.
+    </p>
   </div>
+
+  <script type="application/json" id="mapa-hubs" set:html={JSON.stringify(mapa)} is:inline
+  ></script>
 </Base>
+
+<script>
+  /**
+   * Sugere o hub existente mais próximo da URL que a pessoa tentou.
+   * Nunca sugere uma página que não foi gerada: as opções saem do mapa
+   * embutido no build.
+   */
+  interface Mapa {
+    campos: Record<string, { nome: string; cidades: Record<string, string> }>;
+    lojas: Record<string, string>;
+  }
+
+  const cru = document.getElementById("mapa-hubs")?.textContent;
+  const caixa = document.getElementById("resgate");
+  const lista = document.getElementById("resgate-lista");
+  const rotulo = document.getElementById("rota-tentada");
+
+  if (rotulo) {
+    const caminho = decodeURIComponent(location.pathname);
+    // Caminho muito longo estoura o rótulo; corta no meio, preservando
+    // o começo e o fim, que é onde está a informação.
+    rotulo.textContent =
+      caminho.length > 48 ? `${caminho.slice(0, 26)}…${caminho.slice(-18)}` : caminho;
+  }
+
+  if (cru && caixa && lista) {
+    const mapa: Mapa = JSON.parse(cru);
+    const partes = decodeURIComponent(location.pathname).split("/").filter(Boolean);
+    const sugestoes: { href: string; texto: string }[] = [];
+
+    if (partes[0] === "campos" && partes[1]) {
+      const uf = partes[1].toLowerCase();
+      const estado = mapa.campos[uf];
+      if (estado) {
+        const cidade = partes[2]?.toLowerCase();
+        if (cidade && estado.cidades[cidade]) {
+          sugestoes.push({
+            href: `/campos/${uf}/${cidade}`,
+            texto: `Campos em ${estado.cidades[cidade]}`,
+          });
+        }
+        sugestoes.push({ href: `/campos/${uf}`, texto: `Campos ${estado.nome}` });
+      }
+    }
+
+    if (partes[0] === "lojas" && partes[1]) {
+      const uf = partes[1].toLowerCase();
+      if (mapa.lojas[uf]) {
+        sugestoes.push({ href: `/lojas/${uf}`, texto: `Lojas ${mapa.lojas[uf]}` });
+      }
+    }
+
+    if (partes[0] === "guias") {
+      sugestoes.push({ href: "/guias", texto: "Todos os guias" });
+    }
+
+    if (sugestoes.length > 0) {
+      for (const sugestao of sugestoes) {
+        const item = document.createElement("li");
+        const link = document.createElement("a");
+        link.href = sugestao.href;
+        link.textContent = sugestao.texto;
+        link.className =
+          "inline-block border border-oliva-700 bg-oliva-050 px-4 py-2.5 " +
+          "font-display text-base font-bold uppercase tracking-[0.06em] text-oliva-100 " +
+          "transition-colors duration-150 hover:border-oliva-500 hover:bg-oliva-500 hover:text-fundo " +
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oliva-300";
+        item.appendChild(link);
+        lista.appendChild(item);
+      }
+      caixa.hidden = false;
+    }
+  }
+</script>

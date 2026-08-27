@@ -1,0 +1,545 @@
+---
+import Conta from "../../../layouts/Conta.astro";
+import Painel from "../../../components/conta/Painel.astro";
+import Selo from "../../../components/conta/Selo.astro";
+import {
+  AJUDA_CAMPO,
+  BOTAO_PRIMARIO,
+  BOTAO_SECUNDARIO,
+  BOTAO_TEXTO,
+  ENTRADA,
+  ENTRADA_INVALIDA,
+  ERRO_CAMPO,
+  ROTULO_CAMPO,
+  SELECAO,
+} from "../../../lib/estilos-form";
+import {
+  COLUNAS_EQUIPE,
+  COLUNAS_VINCULO,
+  DESCRICAO_MAXIMA,
+  NOME_MAXIMO,
+  PAPEIS,
+  SIGLA_MAXIMA,
+  erroDoNome,
+  etiqueta,
+  formatarData,
+  nomeCurto,
+  normalizarSigla,
+  ordenarElenco,
+  type Equipe,
+  type MembroDoElenco,
+  type OrigemVinculo,
+  type VinculoEquipe,
+} from "../../../lib/equipe";
+import { NOME_UF, slugificar } from "../../../lib/uf";
+
+export const prerender = false;
+
+const { supabase, usuario } = Astro.locals;
+const { slug } = Astro.params;
+
+const { data: equipe } = await supabase
+  .from("equipes")
+  .select(COLUNAS_EQUIPE)
+  .eq("slug", slug!)
+  .maybeSingle<Equipe>();
+
+if (!equipe) {
+  const resposta = await Astro.rewrite("/404");
+  return new Response(resposta.body, { status: 404, headers: resposta.headers });
+}
+
+const { data: vinculoAtual } = await supabase
+  .from("equipe_membros")
+  .select(COLUNAS_VINCULO)
+  .eq("equipe_id", equipe.id)
+  .eq("usuario_id", usuario!.id)
+  .maybeSingle<VinculoEquipe>();
+
+const souLider = vinculoAtual?.status === "ativo" && vinculoAtual.papel === "lider";
+const souMembro = vinculoAtual?.status === "ativo";
+
+let erroDe: Record<string, string> = {};
+let erroGeral = "";
+let avisoConvite = "";
+
+if (Astro.request.method === "POST") {
+  const dados = await Astro.request.formData();
+  const acao = dados.get("acao")?.toString();
+  const texto = (chave: string) => (dados.get(chave)?.toString() ?? "").trim();
+  const daEquipe = `/conta/equipes/${equipe.slug}`;
+
+  // Decisões do líder. Quem não lidera não passa da RLS — o `souLider`
+  // aqui é para a tela não fingir que a ação existe.
+  const decidir = async (campos: Record<string, unknown>) => {
+    const { error } = await supabase
+      .from("equipe_membros")
+      .update(campos)
+      .eq("id", texto("id"))
+      .eq("equipe_id", equipe.id);
+    if (error) console.error("Falha ao decidir vínculo:", error);
+  };
+
+  if (souLider && acao === "aprovar") {
+    await decidir({ status: "ativo", decidido_por: usuario!.id, decidido_em: new Date().toISOString() });
+    return Astro.redirect(daEquipe, 303);
+  }
+
+  if (souLider && acao === "recusar") {
+    await decidir({ status: "recusado", decidido_por: usuario!.id, decidido_em: new Date().toISOString() });
+    return Astro.redirect(daEquipe, 303);
+  }
+
+  if (souLider && acao === "remover") {
+    await decidir({ status: "removido", decidido_por: usuario!.id, decidido_em: new Date().toISOString() });
+    return Astro.redirect(daEquipe, 303);
+  }
+
+  if (souLider && (acao === "promover" || acao === "rebaixar")) {
+    const { error } = await supabase
+      .from("equipe_membros")
+      .update({ papel: acao === "promover" ? "lider" : "membro" })
+      .eq("id", texto("id"))
+      .eq("equipe_id", equipe.id);
+    // O gatilho `impedir_equipe_sem_lider` recusa tirar o último líder.
+    if (error) erroGeral = "A equipe ficaria sem líder. Promova outro antes.";
+    else return Astro.redirect(daEquipe, 303);
+  }
+
+  if (souLider && acao === "convidar") {
+    const apelido = texto("nickname").replace(/^@/, "");
+
+    if (!apelido) {
+      erroDe.nickname = "Escreva o apelido de quem você quer chamar.";
+    } else {
+      // `achar_jogador` é `returns table`, então vem array. O tipo é
+      // afirmado aqui porque não há schema gerado do Supabase.
+      const { data: achados } = await supabase.rpc("achar_jogador", {
+        p_nickname: apelido,
+      });
+
+      const achado = (achados as { id: string; nome: string | null; nickname: string }[] | null)?.[0];
+
+      if (!achado) {
+        erroDe.nickname = "Ninguém com esse apelido. Confira com a pessoa.";
+      } else if (achado.id === usuario!.id) {
+        erroDe.nickname = "Esse é você.";
+      } else {
+        const { error } = await supabase
+          .from("equipe_membros")
+          .insert({ equipe_id: equipe.id, usuario_id: achado.id });
+
+        if (error?.code === "23505") {
+          erroDe.nickname = "Essa pessoa já tem vínculo com a equipe.";
+        } else if (error) {
+          console.error("Falha ao convidar:", error);
+          erroGeral = "Não conseguimos enviar o convite agora.";
+        } else {
+          avisoConvite = `Convite enviado para ${achado.nome ?? achado.nickname}.`;
+        }
+      }
+    }
+  }
+
+  if (souLider && acao === "editar") {
+    const nome = texto("nome");
+    const problema = erroDoNome(nome);
+    if (problema) erroDe.nome = problema;
+
+    if (Object.keys(erroDe).length === 0) {
+      const cidade = texto("cidade");
+      // O slug NÃO muda junto com o nome: ele é o endereço da equipe.
+      // Trocar quebraria todo link já compartilhado no grupo.
+      const { error } = await supabase
+        .from("equipes")
+        .update({
+          nome,
+          sigla: normalizarSigla(texto("sigla")),
+          descricao: texto("descricao") || null,
+          uf: texto("uf") || null,
+          cidade: cidade || null,
+          cidade_slug: cidade ? slugificar(cidade) : null,
+        })
+        .eq("id", equipe.id);
+
+      if (error?.code === "23505") erroDe.nome = "Já existe outra equipe com esse nome.";
+      else if (error) {
+        console.error("Falha ao editar equipe:", error);
+        erroGeral = "Não conseguimos salvar agora.";
+      } else return Astro.redirect(`${daEquipe}?salvo=1`, 303);
+    }
+  }
+
+  if (acao === "sair" && vinculoAtual) {
+    const { error } = await supabase
+      .from("equipe_membros")
+      .update({ status: "saiu" })
+      .eq("id", vinculoAtual.id)
+      .eq("usuario_id", usuario!.id);
+    if (error) erroGeral = "A equipe ficaria sem líder. Promova outro antes de sair.";
+    else return Astro.redirect("/conta/equipes?saiu=1", 303);
+  }
+
+  if (acao === "pedir" && !vinculoAtual) {
+    const { error } = await supabase
+      .from("equipe_membros")
+      .insert({ equipe_id: equipe.id, usuario_id: usuario!.id });
+    if (error) console.error("Falha ao pedir entrada:", error);
+    return Astro.redirect("/conta/equipes?pedido=1", 303);
+  }
+}
+
+// ------------------------------------------------------------------
+// Leitura
+// ------------------------------------------------------------------
+
+const { data: elencoBruto } = await supabase
+  .from("equipe_elenco")
+  .select("equipe_id,usuario_id,papel,membro_desde,nome,nickname,foto_url")
+  .eq("equipe_id", equipe.id)
+  .returns<MembroDoElenco[]>();
+
+const elenco = ordenarElenco(elencoBruto ?? []);
+
+/** Vínculo de cada membro, para o líder ter o id na hora de agir. */
+let vinculoPorUsuario: Record<string, VinculoEquipe> = {};
+let fila: {
+  vinculo_id: string;
+  usuario_id: string;
+  origem: OrigemVinculo;
+  criado_em: string;
+  nome: string | null;
+  nickname: string | null;
+}[] = [];
+
+if (souLider) {
+  const [{ data: linhas }, { data: pendentes }] = await Promise.all([
+    supabase
+      .from("equipe_membros")
+      .select(COLUNAS_VINCULO)
+      .eq("equipe_id", equipe.id)
+      .eq("status", "ativo")
+      .returns<VinculoEquipe[]>(),
+    supabase.rpc("fila_da_equipe", { p_equipe: equipe.id }),
+  ]);
+
+  for (const linha of linhas ?? []) vinculoPorUsuario[linha.usuario_id] = linha;
+  fila = (pendentes as typeof fila) ?? [];
+}
+
+const pedidosNaFila = fila.filter((f) => f.origem === "pedido");
+const convitesNaFila = fila.filter((f) => f.origem === "convite");
+
+const salvo = Astro.url.searchParams.get("salvo") === "1";
+const criada = Astro.url.searchParams.get("criada") === "1";
+
+const regiao =
+  equipe.cidade && equipe.uf
+    ? `${equipe.cidade} · ${NOME_UF[equipe.uf] ?? equipe.uf}`
+    : equipe.uf
+      ? (NOME_UF[equipe.uf] ?? equipe.uf)
+      : null;
+
+const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+---
+
+<Conta
+  titulo={equipe.nome}
+  descricao={`Equipe de airsoft ${equipe.nome}.`}
+  resumo={equipe.descricao ?? undefined}
+>
+  <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+    {equipe.sigla && <Selo tom="marca">{etiqueta(equipe)}</Selo>}
+    {equipe.verificada && <Selo tom="ok">Verificada</Selo>}
+    {regiao}
+    <span aria-hidden="true" class="text-borda-forte">/</span>
+    desde {formatarData(equipe.criado_em)}
+  </p>
+
+  {
+    criada && (
+      <p class="entrada-suave mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
+        <Selo tom="ok">Criada</Selo>
+        Equipe criada. Agora chame o seu pessoal pelo apelido de cada um.
+      </p>
+    )
+  }
+
+  {
+    salvo && (
+      <p class="entrada-suave mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
+        <Selo tom="ok">Salvo</Selo>
+        Dados da equipe atualizados.
+      </p>
+    )
+  }
+
+  {
+    avisoConvite && (
+      <p class="entrada-suave mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
+        <Selo tom="ok">Enviado</Selo>
+        {avisoConvite}
+      </p>
+    )
+  }
+
+  {
+    erroGeral && (
+      <p class="mt-8 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
+        {erroGeral}
+      </p>
+    )
+  }
+
+  <!-- Fila primeiro: é o que precisa de decisão. -->
+  {
+    souLider && pedidosNaFila.length > 0 && (
+      <div class="mt-10">
+        <Painel titulo="Pediram para entrar" contagem={pedidosNaFila.length}>
+          <ul class="divide-y divide-borda">
+            {pedidosNaFila.map((pedido) => (
+              <li class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-4">
+                <div class="min-w-0">
+                  <p class="text-[1rem] font-semibold leading-tight text-tinta">
+                    {pedido.nome ?? pedido.nickname}
+                  </p>
+                  <p class="mt-1.5 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+                    {pedido.nickname && `@${pedido.nickname}`}
+                    <span aria-hidden="true" class="px-1.5 text-borda-forte">/</span>
+                    {formatarData(pedido.criado_em)}
+                  </p>
+                </div>
+                <div class="flex shrink-0 items-center gap-3">
+                  <form method="POST">
+                    <input type="hidden" name="acao" value="aprovar" />
+                    <input type="hidden" name="id" value={pedido.vinculo_id} />
+                    <button type="submit" class={BOTAO_PRIMARIO}>Aceitar</button>
+                  </form>
+                  <form method="POST">
+                    <input type="hidden" name="acao" value="recusar" />
+                    <input type="hidden" name="id" value={pedido.vinculo_id} />
+                    <button type="submit" class={BOTAO_TEXTO}>Recusar</button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Painel>
+      </div>
+    )
+  }
+
+  <div class="mt-10">
+    <Painel titulo="Elenco" contagem={elenco.length}>
+      <ul class="divide-y divide-borda">
+        {
+          elenco.map((membro) => (
+            <li class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3.5">
+              <div class="flex min-w-0 items-center gap-3">
+                {membro.foto_url ? (
+                  <img
+                    src={membro.foto_url}
+                    alt=""
+                    width="32"
+                    height="32"
+                    referrerpolicy="no-referrer"
+                    class="octogono h-9 w-9 shrink-0 bg-oliva-050 object-cover"
+                  />
+                ) : (
+                  <span class="octogono flex h-9 w-9 shrink-0 items-center justify-center bg-oliva-050 text-[0.875rem] font-semibold text-hud">
+                    {(membro.nome ?? membro.nickname ?? "?").trim().charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <div class="min-w-0">
+                  <p class="flex flex-wrap items-center gap-2 text-[0.9375rem] font-semibold leading-tight text-tinta">
+                    {nomeCurto(membro.nome, membro.nickname)}
+                    {membro.papel === "lider" && <Selo tom="neutro">{PAPEIS.lider.rotulo}</Selo>}
+                    {membro.usuario_id === usuario!.id && <Selo tom="marca">Você</Selo>}
+                  </p>
+                  <p class="mt-1 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+                    desde {formatarData(membro.membro_desde)}
+                  </p>
+                </div>
+              </div>
+
+              {souLider && membro.usuario_id !== usuario!.id && vinculoPorUsuario[membro.usuario_id] && (
+                <div class="flex shrink-0 items-center gap-4">
+                  <form method="POST">
+                    <input
+                      type="hidden"
+                      name="acao"
+                      value={membro.papel === "lider" ? "rebaixar" : "promover"}
+                    />
+                    <input type="hidden" name="id" value={vinculoPorUsuario[membro.usuario_id].id} />
+                    <button type="submit" class={BOTAO_TEXTO}>
+                      {membro.papel === "lider" ? "Tirar liderança" : "Tornar líder"}
+                    </button>
+                  </form>
+                  <form method="POST">
+                    <input type="hidden" name="acao" value="remover" />
+                    <input type="hidden" name="id" value={vinculoPorUsuario[membro.usuario_id].id} />
+                    <button type="submit" class={BOTAO_TEXTO}>Remover</button>
+                  </form>
+                </div>
+              )}
+            </li>
+          ))
+        }
+      </ul>
+    </Painel>
+  </div>
+
+  {
+    souLider && (
+      <div class="mt-12">
+        <Painel
+          titulo="Chamar alguém"
+          descricao="Pelo apelido do perfil. A pessoa recebe o convite e decide se entra."
+          semMoldura
+        >
+          <form method="POST" class="flex flex-wrap items-end gap-3">
+            <input type="hidden" name="acao" value="convidar" />
+            <div class="min-w-[16rem] flex-1">
+              <label for="nickname" class={ROTULO_CAMPO}>Apelido</label>
+              <input
+                type="text"
+                id="nickname"
+                name="nickname"
+                placeholder="@apelido"
+                aria-invalid={erroDe.nickname ? "true" : undefined}
+                class={erroDe.nickname ? ENTRADA_INVALIDA : ENTRADA}
+              />
+              <p class={AJUDA_CAMPO}>
+                Só encontra quem já escolheu um apelido no perfil.
+              </p>
+              {erroDe.nickname && <p class={ERRO_CAMPO}>{erroDe.nickname}</p>}
+            </div>
+            <button type="submit" class={BOTAO_SECUNDARIO}>Convidar</button>
+          </form>
+
+          {convitesNaFila.length > 0 && (
+            <ul class="mt-5 border border-borda bg-papel/60 divide-y divide-borda">
+              {convitesNaFila.map((convite) => (
+                <li class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+                  <p class="text-[0.9375rem] text-texto">
+                    {convite.nome ?? convite.nickname}
+                  </p>
+                  <Selo tom="atencao" ponto>Convite enviado</Selo>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Painel>
+      </div>
+    )
+  }
+
+  {
+    souLider && (
+      <div class="mt-12">
+        <details class="group">
+          <summary class="flex cursor-pointer list-none items-center gap-2 text-[1.0625rem] font-semibold text-tinta transition-colors duration-150 hover:text-oliva-300">
+            <span
+              aria-hidden="true"
+              class="font-dado text-[0.875rem] text-texto-2 transition-transform duration-150 group-open:rotate-90"
+            >
+              &rsaquo;
+            </span>
+            Dados da equipe
+          </summary>
+
+          <form method="POST" class="mt-5 max-w-[34rem] space-y-5">
+            <input type="hidden" name="acao" value="editar" />
+
+            <div>
+              <label for="nome" class={ROTULO_CAMPO}>Nome</label>
+              <input
+                type="text"
+                id="nome"
+                name="nome"
+                required
+                maxlength={NOME_MAXIMO}
+                value={equipe.nome}
+                aria-invalid={erroDe.nome ? "true" : undefined}
+                class={erroDe.nome ? ENTRADA_INVALIDA : ENTRADA}
+              />
+              <p class={AJUDA_CAMPO}>
+                O endereço da página continua <span class="font-dado">/{equipe.slug}</span> —
+                mudar o nome não quebra os links já compartilhados.
+              </p>
+              {erroDe.nome && <p class={ERRO_CAMPO}>{erroDe.nome}</p>}
+            </div>
+
+            <div>
+              <label for="sigla" class={ROTULO_CAMPO}>Sigla</label>
+              <input
+                type="text"
+                id="sigla"
+                name="sigla"
+                maxlength={SIGLA_MAXIMA}
+                value={equipe.sigla ?? ""}
+                class={ENTRADA}
+              />
+            </div>
+
+            <div class="flex flex-wrap gap-4">
+              <div class="w-[9rem]">
+                <label for="uf" class={ROTULO_CAMPO}>Estado</label>
+                <select id="uf" name="uf" class={SELECAO}>
+                  <option value="">—</option>
+                  {ESTADOS.map(([sigla, nome]) => (
+                    <option value={sigla} selected={equipe.uf === sigla}>{nome}</option>
+                  ))}
+                </select>
+              </div>
+              <div class="min-w-[12rem] flex-1">
+                <label for="cidade" class={ROTULO_CAMPO}>Cidade</label>
+                <input
+                  type="text"
+                  id="cidade"
+                  name="cidade"
+                  value={equipe.cidade ?? ""}
+                  class={ENTRADA}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label for="descricao" class={ROTULO_CAMPO}>Descrição</label>
+              <textarea
+                id="descricao"
+                name="descricao"
+                rows="3"
+                maxlength={DESCRICAO_MAXIMA}
+                class={ENTRADA}
+                set:text={equipe.descricao ?? ""}
+              />
+            </div>
+
+            <button type="submit" class={BOTAO_PRIMARIO}>Salvar</button>
+          </form>
+        </details>
+      </div>
+    )
+  }
+
+  <div class="mt-12 border-t border-borda pt-6">
+    {
+      souMembro ? (
+        <form method="POST">
+          <input type="hidden" name="acao" value="sair" />
+          <button type="submit" class={BOTAO_TEXTO}>Sair desta equipe</button>
+        </form>
+      ) : vinculoAtual?.status === "pendente" ? (
+        <Selo tom="atencao" ponto>
+          {vinculoAtual.origem === "convite" ? "Você foi convidado" : "Aguardando o líder"}
+        </Selo>
+      ) : (
+        <form method="POST">
+          <input type="hidden" name="acao" value="pedir" />
+          <button type="submit" class={BOTAO_PRIMARIO}>Pedir para entrar</button>
+        </form>
+      )
+    }
+  </div>
+</Conta>

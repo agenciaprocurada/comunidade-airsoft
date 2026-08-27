@@ -20,6 +20,7 @@ const COLUNAS = [
   "entrega_nacional", "formas_pagamento", "desconto_avista", "cupom", "horario",
   "contato", "google_nota", "google_avaliacoes",
   "observacoes", "confianca", "verificado", "verificado_em", "fonte",
+  "foto_url",
 ].join(",");
 
 /** PostgREST devolve `null`; o zod do content collection espera ausência. */

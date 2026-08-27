@@ -1,0 +1,802 @@
+---
+import Base from "../../layouts/Base.astro";
+import Trilha from "../../components/Trilha.astro";
+import Etiqueta from "../../components/Etiqueta.astro";
+import MapaLocal from "../../components/MapaLocal.astro";
+import {
+  COLUNAS_LADO,
+  COLUNAS_OPERACAO,
+  ESTILOS_OPERACAO,
+  abertaParaInscricao,
+  dataPorExtenso,
+  formatarPreco,
+  hora,
+  jaPassou,
+  linkPedidoDeConvite,
+  loteVigente,
+  COOKIE_CONVITE,
+  DIAS_DO_CONVITE,
+  type Lado,
+  type Operacao,
+} from "../../lib/operacao";
+import { NOME_UF } from "../../lib/uf";
+
+export const prerender = false;
+
+const { supabase, usuario } = Astro.locals;
+const { slug } = Astro.params;
+
+/**
+ * A chave do convite.
+ *
+ * Vem do cookie que /convite/<chave> gravou — é assim que o convidado
+ * navega sem a chave à mostra na barra e sem precisar do link de novo
+ * a cada visita. `?k=` continua aceito só para não quebrar link antigo.
+ *
+ * O id do evento ainda não é conhecido aqui, então o cookie é lido
+ * logo depois de carregar a operação.
+ */
+const chaveNaUrl = (Astro.url.searchParams.get("k") ?? "").trim() || null;
+
+/** Uma linha de `operacao_contagem`: números por lado, sem nome nenhum. */
+interface ContagemDoLado {
+  lado_id: string | null;
+  confirmadas: number;
+  espera: number;
+  acompanhantes: number;
+}
+
+const { data: operacao } = await supabase
+  .from("operacoes")
+  .select(COLUNAS_OPERACAO)
+  .eq("slug", slug!)
+  .maybeSingle<Operacao>();
+
+// Rascunho não existe para ninguém além de quem organiza. 404 e não
+// 403: não há motivo de avisar o curioso que a página está sendo feita.
+const souOrganizador = Boolean(usuario && operacao && operacao.organizador_id === usuario.id);
+if (!operacao || (operacao.status === "rascunho" && !souOrganizador)) {
+  const resposta = await Astro.rewrite("/404");
+  return new Response(resposta.body, { status: 404, headers: resposta.headers });
+}
+
+const chave =
+  chaveNaUrl ?? Astro.cookies.get(`${COOKIE_CONVITE}${operacao.id}`)?.value ?? null;
+
+const { data: campo } = operacao.campo_id
+  ? await supabase
+      .from("campos")
+      .select("id,nome,endereco,bairro,cidade,cidade_slug,uf,contato")
+      .eq("id", operacao.campo_id)
+      .maybeSingle<{
+        id: string;
+        nome: string;
+        endereco: string | null;
+        bairro: string | null;
+        cidade: string;
+        cidade_slug: string;
+        uf: string;
+        contato: Record<string, string>;
+      }>()
+  : { data: null };
+
+let aviso = "";
+let erro = "";
+
+if (Astro.request.method === "POST") {
+  const dados = await Astro.request.formData();
+  const acao = dados.get("acao")?.toString();
+  const texto = (chave: string) => (dados.get(chave)?.toString() ?? "").trim();
+  const aqui = `/operacoes/${operacao.slug}`;
+
+  if (!usuario) {
+    return Astro.redirect(`/entrar?destino=${encodeURIComponent(aqui)}`, 302);
+  }
+
+  // Sem WhatsApp e cidade o organizador não tem como falar com quem
+  // entrou na lista — e é o mínimo que o cadastro já pede.
+  const { data: perfil } = await supabase
+    .from("perfis")
+    .select("onboarding_ok")
+    .eq("id", usuario.id)
+    .maybeSingle<{ onboarding_ok: boolean }>();
+
+  if (!perfil?.onboarding_ok) {
+    return Astro.redirect(`/conta/completar?destino=${encodeURIComponent(aqui)}`, 302);
+  }
+
+  if (acao === "sair") {
+    const { error } = await supabase
+      .from("inscricoes")
+      .update({ status: "cancelada" })
+      .eq("operacao_id", operacao.id)
+      .eq("usuario_id", usuario.id);
+    if (error) console.error("Falha ao sair da lista:", error);
+    // Mantém a chave: sem ela a pessoa sai da lista e cai na capa,
+    // sem conseguir voltar atrás.
+    return Astro.redirect(chave ? `${aqui}?k=${encodeURIComponent(chave)}&saiu=1` : `${aqui}?saiu=1`, 303);
+  }
+
+  // A chave vem no formulário e não da URL do POST: assim ela
+  // sobrevive ao 303 sem precisar ficar colada em todo redirect.
+  const chaveEnviada = texto("chave") || chave;
+  const volta = chaveEnviada ? `${aqui}?k=${encodeURIComponent(chaveEnviada)}&` : `${aqui}?`;
+
+  if (acao === "entrar") {
+    /*
+     * Entrar virou chamada de função por causa da operação fechada: o
+     * banco precisa conferir a chave, copiar a equipe principal e
+     * decidir entre lista e espera numa transação só. Fazer isso em
+     * três consultas daqui abriria janela entre a checagem e o insert.
+     */
+    const { data: situacao, error } = await supabase.rpc("entrar_na_operacao", {
+      p_operacao: operacao.id,
+      p_lado: texto("lado_id") || null,
+      p_chave: chaveEnviada,
+      p_acompanhantes: Math.min(5, Math.max(0, Number(texto("acompanhantes")) || 0)),
+    });
+
+    if (error) {
+      console.error("Falha ao entrar na lista:", error);
+      erro = error.message.includes("fechada")
+        ? "Esta operação é fechada. Peça o link para quem organiza."
+        : "Não conseguimos te colocar na lista agora. Tente de novo.";
+    } else {
+      return Astro.redirect(`${volta}entrou=${situacao === "espera" ? "espera" : "1"}`, 303);
+    }
+  }
+
+  if (acao === "bloco") {
+    const { data: quantos, error } = await supabase.rpc("inscrever_equipe", {
+      p_operacao: operacao.id,
+      p_equipe: texto("equipe_id"),
+      p_lado: texto("lado_id") || null,
+      p_chave: chaveEnviada,
+    });
+
+    if (error) {
+      console.error("Falha na inscrição em bloco:", error);
+      erro = error.message.includes("lider")
+        ? "Só quem lidera a equipe pode inscrever todo mundo."
+        : error.message.includes("fechada")
+          ? "Esta operação é fechada. Peça o link para quem organiza."
+          : "Não conseguimos inscrever a equipe agora.";
+    } else {
+      return Astro.redirect(`${volta}bloco=${quantos ?? 0}`, 303);
+    }
+  }
+}
+
+// ------------------------------------------------------------------
+// Leitura
+// ------------------------------------------------------------------
+
+/*
+ * A página pública mostra VAGAS, não nomes.
+ *
+ * Nome de quem vai jogar é dado pessoal, e esta página é indexável:
+ * publicar a lista exporia dezenas de pessoas ao Google sem que
+ * nenhuma tivesse escolhido isso. O que o visitante precisa para
+ * decidir se ainda dá tempo de entrar é o número — e o número não
+ * identifica ninguém. A lista com nomes vive no painel do organizador.
+ */
+const [{ data: ladosBruto }, { data: contagemBruta }, { data: liberado }] = await Promise.all([
+  supabase
+    .from("operacao_lados")
+    .select(COLUNAS_LADO)
+    .eq("operacao_id", operacao.id)
+    .order("ordem")
+    .returns<Lado[]>(),
+  supabase
+    .from("operacao_contagem")
+    .select("lado_id,confirmadas,espera,acompanhantes")
+    .eq("operacao_id", operacao.id)
+    .returns<ContagemDoLado[]>(),
+  // Aqui "ver lista" quer dizer "pode entrar": na operação fechada é a
+  // chave do link que libera a inscrição.
+  supabase.rpc("pode_ver_lista", { p_operacao: operacao.id, p_chave: chave }),
+]);
+
+const lados = ladosBruto ?? [];
+const contagem = new Map((contagemBruta ?? []).map((c) => [c.lado_id, c]));
+
+const doLado = (ladoId: string) =>
+  contagem.get(ladoId) ?? { lado_id: ladoId, confirmadas: 0, espera: 0, acompanhantes: 0 };
+
+const podeEntrar = liberado === true;
+
+/*
+ * Link antigo (`?k=`) vira cookie assim que o banco confirma que a
+ * chave vale. Daí em diante a pessoa navega como quem entrou pelo
+ * /convite: sem a chave na barra e sem precisar do link de novo.
+ *
+ * A comparação não pode ser feita aqui na mão — a consulta pública
+ * nem pede a coluna `chave_acesso`, justamente para ela não vazar no
+ * HTML de quem não deveria tê-la.
+ */
+if (chaveNaUrl && podeEntrar && operacao.visibilidade === "fechada") {
+  Astro.cookies.set(`${COOKIE_CONVITE}${operacao.id}`, chaveNaUrl, {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: !import.meta.env.DEV,
+    maxAge: 60 * 60 * 24 * DIAS_DO_CONVITE,
+  });
+}
+
+/*
+ * `?visitante=1` faz o organizador ver a própria página como quem não
+ * tem o link. Existe porque a pergunta "o que os outros enxergam do
+ * meu evento fechado?" não tinha resposta: o dono sempre teve acesso
+ * total, então abrir a própria página não mostrava nada de útil.
+ *
+ * É só visualização — não muda uma linha no banco.
+ */
+const espiar = Astro.url.searchParams.get("visitante") === "1";
+
+/** Fechada e sem convite: mostra a capa e o caminho para pedir entrada. */
+const trancada = operacao.visibilidade === "fechada" && (!podeEntrar || espiar);
+
+const totalConfirmados = (contagemBruta ?? []).reduce((s, c) => s + Number(c.confirmadas), 0);
+const totalComAcompanhantes =
+  totalConfirmados + (contagemBruta ?? []).reduce((s, c) => s + Number(c.acompanhantes), 0);
+const totalEspera = (contagemBruta ?? []).reduce((s, c) => s + Number(c.espera), 0);
+
+/** Minha situação nesta operação. */
+let minhaInscricao: { id: string; status: string; lado_id: string | null } | null = null;
+let equipesQueLidero: { id: string; nome: string }[] = [];
+
+if (usuario) {
+  const [{ data: minha }, { data: lideranca }] = await Promise.all([
+    supabase
+      .from("inscricoes")
+      .select("id,status,lado_id")
+      .eq("operacao_id", operacao.id)
+      .eq("usuario_id", usuario.id)
+      .maybeSingle<{ id: string; status: string; lado_id: string | null }>(),
+    supabase
+      .from("equipe_membros")
+      .select("equipe_id, equipes(id,nome)")
+      .eq("usuario_id", usuario.id)
+      .eq("status", "ativo")
+      .eq("papel", "lider")
+      .returns<{ equipe_id: string; equipes: { id: string; nome: string } | null }[]>(),
+  ]);
+
+  minhaInscricao = minha && minha.status !== "cancelada" ? minha : null;
+  equipesQueLidero = (lideranca ?? []).map((l) => l.equipes).filter(Boolean) as {
+    id: string;
+    nome: string;
+  }[];
+}
+
+const lote = loteVigente(operacao);
+const aberta = abertaParaInscricao(operacao);
+const passou = jaPassou(operacao);
+//  vem congelado na operação: a RLS esconde ficha não
+// publicada, e sem ele a página pública diria "Local a definir"
+// para um campo que existe.
+const local = operacao.campo_nome ?? campo?.nome ?? operacao.local_avulso ?? "Local a definir";
+const cidade = campo ? `${campo.cidade} · ${NOME_UF[campo.uf] ?? campo.uf}` : null;
+const rotuloEstilo = ESTILOS_OPERACAO.find((e) => e.valor === operacao.estilo)?.rotulo;
+
+/** Link do WhatsApp de quem organiza — só existe em operação fechada. */
+const pedirConvite = operacao.whatsapp_contato
+  ? linkPedidoDeConvite(operacao.whatsapp_contato, operacao, local)
+  : null;
+
+const resultado = Astro.url.searchParams.get("entrou");
+const entrou = resultado === "1" || resultado === "espera";
+const foiParaEspera = resultado === "espera";
+const saiu = Astro.url.searchParams.get("saiu") === "1";
+const bloco = Astro.url.searchParams.get("bloco");
+
+const titulo = `${local} — operação de airsoft em ${dataPorExtenso(operacao.data)}`;
+const descricao = [
+  `Operação de airsoft ${cidade ? `em ${campo!.cidade}/${campo!.uf}` : ""}`,
+  dataPorExtenso(operacao.data),
+  operacao.inicio ? `a partir das ${hora(operacao.inicio)}` : "",
+  lote.valor !== null ? `${formatarPreco(lote.valor)} por jogador` : "",
+  trancada ? "Lista por convite." : `${totalConfirmados} na lista.`,
+].filter(Boolean).join(". ").slice(0, 160);
+
+const dadoEstruturado = {
+  "@context": "https://schema.org",
+  "@type": "SportsEvent",
+  name: `Operação de airsoft — ${local}`,
+  startDate: operacao.inicio ? `${operacao.data}T${operacao.inicio}` : operacao.data,
+  eventStatus:
+    operacao.status === "cancelada"
+      ? "https://schema.org/EventCancelled"
+      : "https://schema.org/EventScheduled",
+  eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+  location: campo
+    ? {
+        "@type": "Place",
+        name: campo.nome,
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: campo.endereco ?? undefined,
+          addressLocality: campo.cidade,
+          addressRegion: campo.uf,
+          addressCountry: "BR",
+        },
+      }
+    : { "@type": "Place", name: local },
+  ...(lote.valor !== null
+    ? {
+        offers: {
+          "@type": "Offer",
+          price: lote.valor,
+          priceCurrency: "BRL",
+          availability: aberta ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
+        },
+      }
+    : {}),
+};
+
+const HORARIOS = [
+  { rotulo: "Portão", valor: operacao.abertura },
+  { rotulo: "Briefing", valor: operacao.briefing },
+  { rotulo: "Início", valor: operacao.inicio },
+  { rotulo: "Fim", valor: operacao.fim },
+].filter((h) => h.valor);
+---
+
+<Base
+  titulo={titulo}
+  descricao={descricao}
+  dadosEstruturados={[dadoEstruturado]}
+  semIndexar={operacao.status === "rascunho"}
+>
+  <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
+    <Trilha
+      itens={[
+        { href: "/operacoes", texto: "Operações" },
+        { texto: dataPorExtenso(operacao.data) },
+      ]}
+    />
+
+    <div class="mt-8 grid gap-12 lg:grid-cols-[1fr_340px]">
+      <div class="min-w-0">
+        <header class="border-b border-borda pb-8">
+          <p class="font-dado text-xs uppercase tracking-[0.18em] text-oliva-400">
+            {dataPorExtenso(operacao.data)}
+          </p>
+          <h1 class="mt-2 font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl">
+            {local}
+          </h1>
+          {cidade && (
+            <p class="mt-3 font-dado text-xs uppercase tracking-[0.18em] text-oliva-400">
+              {cidade}
+            </p>
+          )}
+
+          <div class="mt-6 flex flex-wrap gap-2">
+            {operacao.status === "cancelada" && <Etiqueta tom="alerta">Cancelada</Etiqueta>}
+            {operacao.status === "rascunho" && <Etiqueta>Rascunho</Etiqueta>}
+            {passou && operacao.status !== "cancelada" && <Etiqueta>Já aconteceu</Etiqueta>}
+            {operacao.visibilidade === "fechada" && <Etiqueta tom="alerta">Fechada</Etiqueta>}
+            {rotuloEstilo && <Etiqueta tom="info">{rotuloEstilo}</Etiqueta>}
+            {lote.valor !== null && <Etiqueta tom="neutro">{lote.rotulo}</Etiqueta>}
+          </div>
+        </header>
+
+        {/*
+          O dono sempre vê o próprio evento por inteiro — e é isso que
+          faz parecer que o "fechado" não está funcionando. A faixa diz
+          de quem é a visão e oferece a troca.
+        */}
+        {
+          souOrganizador && operacao.visibilidade === "fechada" && (
+            <div class="mt-8 border border-latao/60 bg-latao/10 px-5 py-4">
+              <p class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-latao">
+                {espiar ? "Visão de quem não tem o link" : "Sua visão de organizador"}
+              </p>
+              <p class="mt-2 max-w-[62ch] text-[0.9375rem] leading-snug text-texto">
+                {espiar
+                  ? "É isto que aparece para quem acha o evento na agenda sem ter recebido o seu link."
+                  : "Você enxerga tudo porque o evento é seu. Quem não tem o link vê só o campo, a data e o horário — não vê a lista, o valor combinado nem como pagar."}
+              </p>
+              <a
+                href={espiar
+                  ? `/operacoes/${operacao.slug}`
+                  : `/operacoes/${operacao.slug}?visitante=1`}
+                class="mt-3 inline-block font-dado text-[0.75rem] uppercase tracking-[0.1em] text-oliva-400 underline transition-colors duration-150 hover:text-oliva-300"
+              >
+                {espiar ? "Voltar para a minha visão" : "Ver como quem não tem o link"}
+              </a>
+            </div>
+          )
+        }
+
+        {
+          operacao.status === "cancelada" && operacao.motivo_cancelamento && (
+            <div class="mt-8 border border-alerta bg-alerta-bg px-5 py-4">
+              <p class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-alerta-texto">
+                Operação cancelada
+              </p>
+              <p class="mt-2 max-w-[62ch] leading-snug text-alerta-texto">
+                {operacao.motivo_cancelamento}
+              </p>
+            </div>
+          )
+        }
+
+        {
+          (entrou || saiu || bloco) && (
+            <p class="entrada-suave mt-8 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
+              {entrou &&
+                (foiParaEspera
+                  ? "O lado estava cheio: você entrou na lista de espera e sobe sozinho se alguém desistir."
+                  : "Pronto, você está na lista.")}
+              {saiu && "Você saiu da lista. A vaga já foi para o próximo da espera."}
+              {bloco && `${bloco} da sua equipe ${bloco === "1" ? "entrou" : "entraram"} na lista.`}
+            </p>
+          )
+        }
+
+        {
+          erro && (
+            <p class="mt-8 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
+              {erro}
+            </p>
+          )
+        }
+
+        {
+          HORARIOS.length > 0 && (
+            <section class="py-8">
+              <dl class="grid max-w-2xl gap-px border border-borda bg-borda sm:grid-cols-4">
+                {HORARIOS.map((h) => (
+                  <div class="bg-papel p-4">
+                    <dt class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+                      {h.rotulo}
+                    </dt>
+                    <dd class="mt-1 font-dado text-[1.25rem] text-tinta">{hora(h.valor)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )
+        }
+
+        {
+          !trancada && operacao.observacoes && (
+            <section class="border-t border-borda py-8">
+              <p class="max-w-[65ch] whitespace-pre-line leading-relaxed text-texto">
+                {operacao.observacoes}
+              </p>
+            </section>
+          )
+        }
+
+        {/*
+          Vagas, não nomes.
+
+          Quem vai jogar é dado pessoal e esta página é indexável — a
+          lista com nomes fica no painel de quem organiza. O que o
+          visitante precisa saber é se ainda cabe gente, e isso o
+          número responde sem identificar ninguém.
+        */}
+        {!trancada && (
+        <section class="border-t border-borda py-8">
+          <div class="flex flex-wrap items-baseline justify-between gap-4">
+            <h2 class="font-display text-2xl font-bold uppercase">Vagas</h2>
+            <p class="font-dado text-[0.8125rem] text-texto-2">
+              {totalConfirmados} confirmados
+              {totalComAcompanhantes > totalConfirmados &&
+                ` · ${totalComAcompanhantes} com acompanhantes`}
+              {totalEspera > 0 && ` · ${totalEspera} na espera`}
+            </p>
+          </div>
+
+          <div class="mt-6 grid gap-px border border-borda bg-borda sm:grid-cols-2">
+            {
+              lados.map((lado) => {
+                const c = doLado(lado.id);
+                const dentro = Number(c.confirmadas);
+                const restam = lado.vagas === null ? null : Math.max(0, lado.vagas - dentro);
+                const cheio = restam === 0;
+                const proporcao =
+                  lado.vagas === null ? 0 : Math.min(100, Math.round((dentro / lado.vagas) * 100));
+
+                return (
+                  <div class="bg-papel p-5">
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <h3 class="font-display text-lg font-bold uppercase text-tinta">
+                        {lado.nome}
+                      </h3>
+                      <p
+                        class:list={[
+                          "font-dado text-[0.75rem] uppercase tracking-[0.1em]",
+                          cheio ? "text-latao" : "text-texto-2",
+                        ]}
+                      >
+                        {lado.vagas === null
+                          ? `${dentro} inscritos`
+                          : cheio
+                            ? "Lotado"
+                            : `${restam} de ${lado.vagas} vagas`}
+                      </p>
+                    </div>
+
+                    {lado.vagas !== null && (
+                      <div
+                        class="mt-3 h-1.5 w-full bg-borda"
+                        role="img"
+                        aria-label={`${dentro} de ${lado.vagas} vagas ocupadas`}
+                      >
+                        <div
+                          class:list={["h-full", cheio ? "bg-latao" : "bg-oliva-500"]}
+                          style={`width: ${proporcao}%`}
+                        />
+                      </div>
+                    )}
+
+                    <p class="mt-3 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+                      {dentro} na lista
+                      {Number(c.acompanhantes) > 0 && ` · +${c.acompanhantes} acompanhando`}
+                      {Number(c.espera) > 0 && ` · ${c.espera} na espera`}
+                    </p>
+                  </div>
+                );
+              })
+            }
+          </div>
+
+          <p class="mt-4 max-w-[60ch] text-[0.875rem] leading-relaxed text-texto-2">
+            Quem está na lista só aparece para quem organiza. Você vê a sua
+            confirmação aqui do lado.
+          </p>
+        </section>
+        )}
+
+        {/*
+          Operação fechada vista por quem não tem o link: mostra o que
+          é e onde é, esconde quem vai, e diz como pedir para entrar.
+          Sem isso a pessoa descobre o jogo na agenda e não teria o que
+          fazer com a informação.
+        */}
+        {
+          trancada && (
+            <section class="border-t border-borda py-8">
+              <h2 class="font-display text-2xl font-bold uppercase">Lista fechada</h2>
+              <p class="mt-4 max-w-[60ch] leading-relaxed text-texto-2">
+                Esta operação é por convite. Quem organiza manda o link para
+                quem vai jogar — com ele você vê a lista e confirma presença
+                por aqui.
+              </p>
+
+              <div class="mt-6 border border-borda bg-papel/60 p-5">
+                {pedirConvite ? (
+                  <>
+                    <p class="max-w-[54ch] leading-snug text-texto">
+                      Quer entrar? Fale direto com quem organiza.
+                    </p>
+                    <a
+                      href={pedirConvite}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="mt-4 inline-flex cursor-pointer items-center gap-2 border border-oliva-500 bg-oliva-500 px-4 py-3 font-semibold text-fundo transition-colors duration-150 hover:bg-oliva-400"
+                    >
+                      Pedir convite no WhatsApp
+                    </a>
+                  </>
+                ) : (
+                  <p class="max-w-[54ch] leading-snug text-texto-2">
+                    Quem organiza não deixou contato aqui — o convite é
+                    combinado por fora. Procure a equipe ou o campo pelas redes
+                    deles.
+                  </p>
+                )}
+              </div>
+            </section>
+          )
+        }
+      </div>
+
+      {/* Coluna de ação */}
+      <aside class="lg:sticky lg:top-24 lg:self-start">
+        <div class="border border-borda bg-papel/60 p-5">
+          {
+            trancada ? (
+              <>
+                <p class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-latao">
+                  Por convite
+                </p>
+                <p class="mt-2 text-[0.9375rem] leading-snug text-texto-2">
+                  A lista desta operação só abre com o link de quem organiza.
+                </p>
+                {pedirConvite && (
+                  <a
+                    href={pedirConvite}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="mt-4 inline-flex w-full cursor-pointer items-center justify-center border border-oliva-500 bg-oliva-500 px-4 py-3 font-semibold text-fundo transition-colors duration-150 hover:bg-oliva-400"
+                  >
+                    Pedir convite no WhatsApp
+                  </a>
+                )}
+              </>
+            ) : !aberta ? (
+              <p class="text-[0.9375rem] leading-relaxed text-texto-2">
+                {operacao.status === "cancelada"
+                  ? "Esta operação foi cancelada."
+                  : passou
+                    ? "Esta operação já aconteceu."
+                    : "As inscrições ainda não abriram."}
+              </p>
+            ) : minhaInscricao ? (
+              <>
+                <p class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-oliva-400">
+                  {minhaInscricao.status === "espera" ? "Lista de espera" : "Você está na lista"}
+                </p>
+                <p class="mt-2 text-[0.9375rem] leading-snug text-texto-2">
+                  {minhaInscricao.status === "espera"
+                    ? "Você entra assim que alguém desistir. Não precisa ficar olhando."
+                    : "Bom jogo. Se não puder ir, avise aqui — a vaga vai para o próximo."}
+                </p>
+                <form method="POST" class="mt-4">
+                  <input type="hidden" name="acao" value="sair" />
+                  <button
+                    type="submit"
+                    class="cursor-pointer text-[0.875rem] font-semibold text-texto-2 underline transition-colors duration-150 hover:text-alerta"
+                  >
+                    Não vou mais
+                  </button>
+                </form>
+              </>
+            ) : (
+              <form method="POST">
+                <input type="hidden" name="acao" value="entrar" />
+                {chave && <input type="hidden" name="chave" value={chave} />}
+
+                <p class="font-display text-xl font-bold uppercase text-tinta">Entrar na lista</p>
+
+                {lados.length > 0 && (
+                  <fieldset class="mt-4">
+                    <legend class="text-[0.875rem] font-semibold text-tinta">Qual lado</legend>
+                    <div class="mt-2 space-y-2">
+                      {lados.map((lado, i) => {
+                        const cheio =
+                          lado.vagas !== null && Number(doLado(lado.id).confirmadas) >= lado.vagas;
+                        return (
+                          <label class="flex cursor-pointer items-center gap-2.5 border border-borda px-3 py-2 transition-colors duration-150 hover:border-oliva-500 has-[:checked]:border-oliva-700 has-[:checked]:bg-oliva-050">
+                            <input
+                              type="radio"
+                              name="lado_id"
+                              value={lado.id}
+                              checked={i === 0}
+                              class="h-4 w-4 accent-oliva-500"
+                            />
+                            <span class="min-w-0 flex-1 text-[0.9375rem] text-texto">
+                              {lado.nome}
+                            </span>
+                            {cheio && (
+                              <span class="font-dado text-[0.6875rem] uppercase tracking-[0.1em] text-latao">
+                                espera
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                )}
+
+                <div class="mt-4">
+                  <label
+                    for="acompanhantes"
+                    class="block text-[0.875rem] font-semibold text-tinta"
+                  >
+                    Levando alguém?
+                  </label>
+                  <input
+                    type="number"
+                    id="acompanhantes"
+                    name="acompanhantes"
+                    min="0"
+                    max="5"
+                    value="0"
+                    class="mt-2 w-full border border-borda-forte bg-papel px-3 py-2 text-[0.9375rem] text-tinta focus:border-oliva-500 focus:outline-none"
+                  />
+                  <p class="mt-1 text-[0.8125rem] leading-snug text-texto-2">
+                    Amigo que vai junto e ainda não tem conta.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  class="mt-5 w-full cursor-pointer border border-oliva-500 bg-oliva-500 px-4 py-3 font-semibold text-fundo transition-colors duration-150 hover:bg-oliva-400"
+                >
+                  {usuario ? "Confirmar presença" : "Entrar com o Google e confirmar"}
+                </button>
+              </form>
+            )
+          }
+
+          {
+            aberta && !trancada && equipesQueLidero.length > 0 && (
+              <form method="POST" class="mt-6 border-t border-borda pt-5">
+                <input type="hidden" name="acao" value="bloco" />
+                {chave && <input type="hidden" name="chave" value={chave} />}
+                <p class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-oliva-400">
+                  Você lidera equipe
+                </p>
+                <p class="mt-2 text-[0.875rem] leading-snug text-texto-2">
+                  Confirme todo mundo de uma vez. Quem já entrou sozinho fica
+                  como está.
+                </p>
+
+                <select
+                  name="equipe_id"
+                  class="selecao mt-3 w-full appearance-none border border-borda-forte bg-papel px-3 py-2 pr-10 text-[0.9375rem] text-tinta"
+                >
+                  {equipesQueLidero.map((equipe) => (
+                    <option value={equipe.id}>{equipe.nome}</option>
+                  ))}
+                </select>
+
+                {lados.length > 0 && (
+                  <select
+                    name="lado_id"
+                    class="selecao mt-2 w-full appearance-none border border-borda-forte bg-papel px-3 py-2 pr-10 text-[0.9375rem] text-tinta"
+                  >
+                    {lados.map((lado) => (
+                      <option value={lado.id}>{lado.nome}</option>
+                    ))}
+                  </select>
+                )}
+
+                <button
+                  type="submit"
+                  class="mt-3 w-full cursor-pointer border border-borda-forte bg-transparent px-4 py-2.5 font-semibold text-tinta transition-colors duration-150 hover:border-oliva-500 hover:bg-oliva-050"
+                >
+                  Inscrever a equipe
+                </button>
+              </form>
+            )
+          }
+        </div>
+
+        {
+          !trancada && operacao.pagamento && (
+            <div class="mt-6 border border-borda bg-papel/60 p-5">
+              <p class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-oliva-400">
+                Como pagar
+              </p>
+              <p class="mt-2 whitespace-pre-line text-[0.9375rem] leading-relaxed text-texto">
+                {operacao.pagamento}
+              </p>
+              <p class="mt-3 text-[0.8125rem] leading-snug text-texto-2">
+                O pagamento é direto com quem organiza. A plataforma não recebe
+                nem intermedia.
+              </p>
+            </div>
+          )
+        }
+
+        {
+          campo && (
+            <div class="mt-6">
+              <MapaLocal
+                nome={campo.nome}
+                endereco={campo.endereco ?? undefined}
+                bairro={campo.bairro ?? undefined}
+                cidade={campo.cidade}
+                uf={campo.uf}
+              />
+              <a
+                href={`/campos/${campo.uf.toLowerCase()}/${campo.cidade_slug}/${campo.id}`}
+                class="mt-3 inline-block font-dado text-[0.75rem] uppercase tracking-[0.1em] text-oliva-400 hover:text-oliva-300"
+              >
+                Ver a ficha do campo →
+              </a>
+            </div>
+          )
+        }
+      </aside>
+    </div>
+  </div>
+</Base>

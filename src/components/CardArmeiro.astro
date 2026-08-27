@@ -1,0 +1,138 @@
+---
+/**
+ * Card do armeiro na listagem — irmão de CardLoja.astro.
+ *
+ * A hierarquia da informação segue a ordem em que o jogador decide:
+ * onde é → como atende (presencial/envio) → o que abre (plataforma) →
+ * o que faz (serviço). Plataforma vem antes de serviço porque é o
+ * corte mais duro: quem só mexe em V2 não resolve uma GBBR, por mais
+ * serviços que ofereça.
+ */
+import Etiqueta from "./Etiqueta.astro";
+import {
+  ROTULO_PLATAFORMA_CURTO,
+  ROTULO_SERVICO_CURTO,
+  ROTULO_TIPO_ARMEIRO,
+  comoAtende,
+} from "../lib/uf";
+
+interface Props {
+  armeiro: {
+    id: string;
+    data: {
+      nome: string;
+      descricao: string;
+      tipo: string;
+      uf: string;
+      cidade: string;
+      plataformas: string[];
+      servicos: string[];
+      atende_presencial: boolean;
+      atende_envio: boolean;
+      desde?: number;
+      verificado: boolean;
+    };
+  };
+}
+
+const { armeiro } = Astro.props;
+const d = armeiro.data;
+
+const atendimento = comoAtende(d.atende_presencial, d.atende_envio);
+
+/**
+ * Ficha de levantamento pode não trazer nem plataforma nem serviço — a
+ * fonte pública quase nunca informa. Ver o comentário sobre as
+ * constraints removidas em db/schema-armeiros.sql.
+ */
+const semDeclaracao = d.plataformas.length === 0 && d.servicos.length === 0;
+---
+
+<!--
+  Card inteiro clicavel por "stretched link", igual ao CardLoja: o link do
+  titulo estica um ::after por cima do article. E a unica forma valida —
+  <a> dentro de <a> nao existe em HTML.
+-->
+<article
+  class="moldura-tatica group relative isolate flex flex-col border border-borda bg-papel transition-colors focus-within:border-oliva-500 hover:border-oliva-500"
+>
+  <div class="flex items-start justify-between gap-3 p-5 pb-3">
+    <h3 class="font-display text-xl font-bold uppercase leading-tight tracking-[0.02em]">
+      <a
+        href={`/armeiros/${armeiro.id}`}
+        class="transition-colors after:absolute after:inset-0 after:content-[''] hover:text-oliva-300"
+      >
+        {d.nome}
+      </a>
+    </h3>
+    {d.verificado && <Etiqueta tom="ok" check>Verificado</Etiqueta>}
+  </div>
+
+  <p
+    class="flex flex-wrap items-center gap-1.5 px-5 pb-4 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400"
+  >
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      class="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+    >
+      <path d="M12 21s-7-5.6-7-11a7 7 0 1 1 14 0c0 5.4-7 11-7 11Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+    {d.cidade} - {d.uf}
+    <span aria-hidden="true" class="text-borda-forte">·</span>
+    {ROTULO_TIPO_ARMEIRO[d.tipo] ?? d.tipo}
+  </p>
+
+  <p class="px-5 pb-4 leading-relaxed text-texto-2 line-clamp-3">
+    {d.descricao}
+  </p>
+
+  <!--
+    O atendimento fica FORA do bloco de etiquetas do rodape, em linha
+    propria: e a informacao que decide se este armeiro serve para quem
+    mora longe, e no meio de seis etiquetas ela sumia.
+  -->
+  <p class="px-5 pb-5 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-300">
+    {atendimento}
+    {
+      d.desde && (
+        <>
+          <span aria-hidden="true" class="text-borda-forte"> · </span>
+          desde {d.desde}
+        </>
+      )
+    }
+  </p>
+
+  <!--
+    Rodape de etiquetas. Ficha vinda de levantamento pode chegar sem
+    plataforma nem servico: nesse caso o card diz isso, em vez de
+    exibir uma faixa vazia que parece defeito de renderizacao.
+  -->
+  <div class="mt-auto flex flex-wrap gap-2 border-t border-borda p-5">
+    {
+      semDeclaracao ? (
+        <span class="font-dado text-[11px] uppercase tracking-[0.16em] text-texto-2">
+          Não informou o que atende
+        </span>
+      ) : (
+        <>
+          {d.plataformas.slice(0, 4).map((p) => (
+            <Etiqueta tom="info">{ROTULO_PLATAFORMA_CURTO[p] ?? p}</Etiqueta>
+          ))}
+          {d.plataformas.length > 4 && (
+            <Etiqueta tom="info">+{d.plataformas.length - 4}</Etiqueta>
+          )}
+          {d.servicos.slice(0, 2).map((s) => (
+            <Etiqueta>{ROTULO_SERVICO_CURTO[s] ?? s}</Etiqueta>
+          ))}
+          {d.servicos.length > 2 && <Etiqueta>+{d.servicos.length - 2}</Etiqueta>}
+        </>
+      )
+    }
+  </div>
+</article>

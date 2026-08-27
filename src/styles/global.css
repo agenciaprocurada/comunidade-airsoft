@@ -46,6 +46,13 @@
   --color-alerta-texto: #eda88b;
   --color-info: #8fa6bd;
 
+  /* --- HUD da área logada ---
+     Amarelo-limão dos blueprints das réplicas. Vive SÓ dentro de
+     /conta: é o acento da interface de painel, não da marca. O
+     diretório público continua no oliva. */
+  --color-hud: #d9e04f;
+  --color-hud-escuro: #8a8f2c;
+
   /* --- tipografia --- */
   --font-display: "Saira Condensed", sans-serif;
   --font-texto: "Barlow", sans-serif;
@@ -74,6 +81,12 @@
 
   body {
     margin: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   ::selection {
@@ -198,6 +211,144 @@
     .desgaste {
       -webkit-mask-size: 190px 190px;
       mask-size: 190px 190px;
+    }
+  }
+
+  /* `appearance-none` no <select> tira a seta nativa junto com o
+     estilo do sistema. Sem repor o indicador, o campo fica idêntico a
+     uma caixa de texto e some a única pista de que ali se escolhe.
+     A cor é a do texto secundário (--color-texto-2). */
+  .selecao {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9' fill='none' stroke='%2398a087' stroke-width='2' stroke-linecap='square'><path d='m1 1.5 6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.85rem center;
+  }
+
+  .selecao:hover,
+  .selecao:focus {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9' fill='none' stroke='%23a9bd66' stroke-width='2' stroke-linecap='square'><path d='m1 1.5 6 6 6-6'/></svg>");
+  }
+
+  /* ----------------------------------------------------------
+     Área logada — vocabulário de HUD
+     Cantos em esquadro, anéis de alvo, blueprint. Fica contido em
+     /conta; nenhuma página indexável usa isto.
+     ---------------------------------------------------------- */
+
+  /* Quatro cantos em esquadro, sem elemento extra no HTML: são oito
+     gradientes lineares posicionados nos cantos. Um elemento só tem
+     ::before e ::after, e aqui precisamos de quatro. */
+  .moldura-hud {
+    --tick: 14px;
+    --tick-cor: var(--color-borda-forte);
+    background-image:
+      linear-gradient(var(--tick-cor), var(--tick-cor)),
+      linear-gradient(var(--tick-cor), var(--tick-cor)),
+      linear-gradient(var(--tick-cor), var(--tick-cor)),
+      linear-gradient(var(--tick-cor), var(--tick-cor)),
+      linear-gradient(var(--tick-cor), var(--tick-cor)),
+      linear-gradient(var(--tick-cor), var(--tick-cor)),
+      linear-gradient(var(--tick-cor), var(--tick-cor)),
+      linear-gradient(var(--tick-cor), var(--tick-cor));
+    background-size:
+      var(--tick) 2px, 2px var(--tick),
+      var(--tick) 2px, 2px var(--tick),
+      var(--tick) 2px, 2px var(--tick),
+      var(--tick) 2px, 2px var(--tick);
+    background-position:
+      left top, left top,
+      right top, right top,
+      left bottom, left bottom,
+      right bottom, right bottom;
+    background-repeat: no-repeat;
+    background-origin: border-box;
+  }
+
+  /* Moldura octogonal do avatar — o corte em esquadro do HUD, sem
+     cair no círculo genérico de foto de perfil. */
+  .octogono {
+    clip-path: polygon(
+      30% 0,
+      70% 0,
+      100% 30%,
+      100% 70%,
+      70% 100%,
+      30% 100%,
+      0 70%,
+      0 30%
+    );
+  }
+
+  /* Card da réplica marcada como principal. */
+  .moldura-hud-ativa {
+    --tick-cor: var(--color-hud);
+    box-shadow:
+      0 0 0 1px rgba(217, 224, 79, 0.35),
+      0 0 26px -6px rgba(217, 224, 79, 0.3);
+  }
+
+  /* O blueprint entra como veio, sem filtro nenhum.
+     A primeira versão usava `mix-blend-mode: screen` para "sumir" com
+     o fundo preto do PNG — o efeito clareava o preto e desenhava um
+     retângulo azulado em volta da arte. O palco é preto; a imagem
+     encosta nele sem emenda. */
+  .arte-replica {
+    display: block;
+  }
+
+  /* ----------------------------------------------------------
+     Área logada — movimento
+     Só comunica estado: confirmação de ação e abrir/fechar.
+     Nada de coreografia de entrada de página: a pessoa entrou
+     para fazer uma tarefa, não para assistir.
+     ---------------------------------------------------------- */
+
+  /* Mensagem de confirmação depois de salvar, remover, cadastrar.
+     Nasce visível: a animação só suaviza, nunca revela — assim a
+     mensagem aparece mesmo se a transição não rodar. */
+  .entrada-suave {
+    animation: entrada-suave 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes entrada-suave {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+
+  /* Gaveta do formulário. O <details> nativo já abre e fecha sozinho;
+     aqui só a seta acompanha. */
+  .gaveta summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .gaveta .chevron {
+    transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .gaveta[open] .chevron {
+    transform: rotate(180deg);
+  }
+
+  .seta {
+    transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .group:hover .seta {
+    transform: translateX(3px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .entrada-suave {
+      animation: none;
+    }
+    .gaveta .chevron,
+    .seta {
+      transition: none;
+    }
+    .group:hover .seta {
+      transform: none;
     }
   }
 

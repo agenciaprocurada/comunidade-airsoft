@@ -1,0 +1,37 @@
+---
+/**
+ * Foto de capa da ficha de campo, loja ou armeiro.
+ *
+ * Fica ACIMA do título, em faixa larga, e não como miniatura ao lado:
+ * a foto de um campo é a informação que o texto não dá — dá para ver
+ * se é mata fechada, galpão ou terreno aberto antes de ler qualquer
+ * linha.
+ *
+ * Sem foto o componente não renderiza nada. A maior parte do diretório
+ * ainda não tem imagem, e um espaço reservado vazio em 79 fichas seria
+ * pior do que a ausência.
+ */
+interface Props {
+  url?: string;
+  /** Vai para o alt: "Arena INSBA Airsoft, campo em Gravataí". */
+  alt: string;
+}
+
+const { url, alt } = Astro.props;
+---
+
+{
+  url && (
+    <figure class="mb-8 overflow-hidden border border-borda bg-papel">
+      <img
+        src={url}
+        alt={alt}
+        width="1240"
+        height="520"
+        loading="eager"
+        decoding="async"
+        class="aspect-[21/9] w-full object-cover"
+      />
+    </figure>
+  )
+}

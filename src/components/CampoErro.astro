@@ -1,0 +1,41 @@
+---
+/**
+ * Mensagem de erro de um campo, colada nele.
+ *
+ * Existia só o balde de erros no topo do formulário: a pessoa lia
+ * "Escolha o estado", rolava a tela e tinha que descobrir sozinha qual
+ * campo era. Erro tem que morar no campo — o resumo do topo serve para
+ * dizer quantos são e levar até eles.
+ *
+ * Renderiza nada quando não há erro, então pode ficar solto no markup.
+ */
+import { ERRO_CAMPO } from "../lib/estilos-form";
+
+interface Props {
+  /** Id deste parágrafo — o campo aponta para cá via aria-describedby. */
+  id: string;
+  mensagem?: string;
+}
+
+const { id, mensagem } = Astro.props;
+---
+
+{
+  mensagem && (
+    <p id={id} class={ERRO_CAMPO}>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 16 16"
+        class="mt-[0.15rem] h-3.5 w-3.5 shrink-0"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+      >
+        <path d="M8 1.5 15 14H1z" stroke-linejoin="miter" />
+        <path d="M8 6v4" stroke-linecap="square" />
+        <path d="M8 11.6v.8" stroke-linecap="square" />
+      </svg>
+      <span>{mensagem}</span>
+    </p>
+  )
+}

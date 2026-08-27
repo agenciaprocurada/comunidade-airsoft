@@ -1,0 +1,189 @@
+---
+import Conta from "../../../../layouts/Conta.astro";
+import Painel from "../../../../components/conta/Painel.astro";
+import Selo from "../../../../components/conta/Selo.astro";
+import { BOTAO_SECUNDARIO, ENTRADA, ROTULO_CAMPO, SELECAO } from "../../../../lib/estilos-form";
+import {
+  DIRETORIO,
+  TIPOS_DIRETORIO,
+  ehTipoDiretorio,
+  type TipoDiretorio,
+} from "../../../../lib/diretorio-admin";
+import { NOME_UF } from "../../../../lib/uf";
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+const parametros = Astro.url.searchParams;
+
+const tipo: TipoDiretorio = ehTipoDiretorio(parametros.get("tipo"))
+  ? (parametros.get("tipo") as TipoDiretorio)
+  : "campos";
+
+/**
+ * O `or` do PostgREST é montado como texto: vírgula e parêntese vindos
+ * da caixa de busca viram outro filtro na consulta.
+ */
+const busca = (parametros.get("q") ?? "")
+  .replace(/[,()*%\\"']/g, " ")
+  .replace(/\s+/g, " ")
+  .trim()
+  .slice(0, 60);
+
+const uf = (parametros.get("uf") ?? "").toUpperCase().slice(0, 2);
+const situacao = parametros.get("status") ?? "";
+
+interface Linha {
+  id: string;
+  nome: string;
+  cidade: string | null;
+  uf: string | null;
+  status: string;
+  verificado: boolean;
+  atualizado_em: string;
+}
+
+let consulta = supabase
+  .from(tipo)
+  .select("id,nome,cidade,uf,status,verificado,atualizado_em")
+  .order("nome")
+  .limit(200);
+
+if (busca) consulta = consulta.or(`nome.ilike.%${busca}%,cidade.ilike.%${busca}%,id.ilike.%${busca}%`);
+if (uf) consulta = consulta.eq("uf", uf);
+if (situacao) consulta = consulta.eq("status", situacao);
+
+const { data: linhas, error } = await consulta.returns<Linha[]>();
+
+if (error) console.error("Falha ao listar o diretório:", error);
+
+const lista = linhas ?? [];
+
+/** Estados que existem no tipo escolhido — filtro que não filtra é ruído. */
+const { data: todasUfs } = await supabase.from(tipo).select("uf").returns<{ uf: string | null }[]>();
+const estados = [...new Set((todasUfs ?? []).map((x) => x.uf).filter(Boolean))].sort() as string[];
+
+const contagem = lista.length;
+const truncou = contagem === 200;
+
+const TOM: Record<string, "ok" | "atencao" | "neutro"> = {
+  publicado: "ok",
+  rascunho: "atencao",
+  inativo: "neutro",
+};
+
+const comFiltro = (mudanca: Record<string, string>) => {
+  const p = new URLSearchParams({ tipo, ...(busca ? { q: busca } : {}), ...(uf ? { uf } : {}), ...(situacao ? { status: situacao } : {}), ...mudanca });
+  return `/conta/admin/diretorio?${p.toString()}`;
+};
+---
+
+<Conta
+  titulo="Diretório"
+  descricao="Editar campos, lojas e armeiros."
+  resumo="Aqui você abre qualquer ficha do diretório e corrige o que estiver errado — inclusive as que estão em rascunho e não aparecem no site."
+>
+  {/*
+    A ficha pública é gerada no build. Dizer isso aqui, e não depois de
+    salvar, evita a pergunta "editei e não mudou nada no site".
+  */}
+  <p class="mt-8 border border-latao/60 bg-latao/10 px-4 py-3 text-[0.9375rem] leading-snug text-texto">
+    O que você salvar aqui entra no banco na hora, mas a página pública
+    só muda no <strong class="font-semibold text-tinta">próximo deploy</strong> —
+    o diretório é gerado no build.
+  </p>
+
+  <nav aria-label="Tipo de ficha" class="mt-8 flex flex-wrap gap-2">
+    {
+      TIPOS_DIRETORIO.map((t) => (
+        <a
+          href={`/conta/admin/diretorio?tipo=${t}`}
+          aria-current={tipo === t ? "page" : undefined}
+          class:list={[
+            "border px-3 py-1.5 font-dado text-[0.75rem] uppercase tracking-[0.1em] transition-colors duration-150",
+            tipo === t
+              ? "border-oliva-700 bg-oliva-050 text-oliva-300"
+              : "border-borda text-texto-2 hover:border-oliva-500 hover:text-oliva-300",
+          ]}
+        >
+          {DIRETORIO[t].plural}
+        </a>
+      ))
+    }
+  </nav>
+
+  <form method="GET" class="mt-6 flex flex-wrap items-end gap-3">
+    <input type="hidden" name="tipo" value={tipo} />
+
+    <div class="min-w-[16rem] flex-1">
+      <label for="q" class={ROTULO_CAMPO}>Nome, cidade ou id</label>
+      <input type="search" id="q" name="q" value={busca} class={ENTRADA} />
+    </div>
+
+    <div class="w-[8rem]">
+      <label for="uf" class={ROTULO_CAMPO}>UF</label>
+      <select id="uf" name="uf" class={SELECAO}>
+        <option value="">Todas</option>
+        {estados.map((sigla) => (
+          <option value={sigla} selected={uf === sigla}>{sigla}</option>
+        ))}
+      </select>
+    </div>
+
+    <div class="w-[11rem]">
+      <label for="status" class={ROTULO_CAMPO}>Situação</label>
+      <select id="status" name="status" class={SELECAO}>
+        <option value="">Todas</option>
+        <option value="publicado" selected={situacao === "publicado"}>Publicado</option>
+        <option value="rascunho" selected={situacao === "rascunho"}>Rascunho</option>
+        <option value="inativo" selected={situacao === "inativo"}>Inativo</option>
+      </select>
+    </div>
+
+    <button type="submit" class={BOTAO_SECUNDARIO}>Filtrar</button>
+  </form>
+
+  <div class="mt-8">
+    <Painel
+      titulo={DIRETORIO[tipo].plural}
+      contagem={truncou ? "200+" : contagem}
+      descricao={truncou ? "Mostrando as 200 primeiras. Use a busca para chegar na ficha certa." : undefined}
+    >
+      {
+        lista.length === 0 ? (
+          <p class="px-4 py-6 text-[0.9375rem] leading-relaxed text-texto-2">
+            Nenhuma ficha com esses filtros.
+          </p>
+        ) : (
+          <ul class="divide-y divide-borda">
+            {lista.map((ficha) => (
+              <li class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3.5">
+                <div class="min-w-0">
+                  <p class="flex flex-wrap items-center gap-2 text-[0.9375rem] font-semibold leading-tight text-tinta">
+                    <a
+                      href={`/conta/admin/diretorio/${tipo}/${ficha.id}`}
+                      class="transition-colors duration-150 hover:text-oliva-300"
+                    >
+                      {ficha.nome}
+                    </a>
+                    <Selo tom={TOM[ficha.status] ?? "neutro"}>{ficha.status}</Selo>
+                    {ficha.verificado && <Selo tom="ok">Verificada</Selo>}
+                  </p>
+                  <p class="mt-1 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+                    {ficha.cidade ?? "—"}
+                    {ficha.uf && ` · ${NOME_UF[ficha.uf] ?? ficha.uf}`}
+                    <span aria-hidden="true" class="px-1.5 text-borda-forte">/</span>
+                    {ficha.id}
+                  </p>
+                </div>
+                <a href={`/conta/admin/diretorio/${tipo}/${ficha.id}`} class={BOTAO_SECUNDARIO}>
+                  Editar
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </Painel>
+  </div>
+</Conta>
