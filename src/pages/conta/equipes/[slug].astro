@@ -32,8 +32,12 @@ import {
   type VinculoEquipe,
 } from "../../../lib/equipe";
 import { NOME_UF, slugificar } from "../../../lib/uf";
+import { EQUIPES_VISIVEIS } from "../../../lib/flags";
 
 export const prerender = false;
+
+// Equipes está escondida (src/lib/flags.ts): nem a URL direta abre.
+if (!EQUIPES_VISIVEIS) return Astro.redirect("/conta", 302);
 
 const { supabase, usuario } = Astro.locals;
 const { slug } = Astro.params;

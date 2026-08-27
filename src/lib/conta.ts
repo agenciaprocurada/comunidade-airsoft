@@ -82,6 +82,20 @@ export interface Perfil {
   perfil_completo: boolean;
 }
 
+/**
+ * O Editor de Mapas e o cadastro de operacoes so abrem para quem tem o
+ * perfil completo E pelo menos uma replica cadastrada. E o "ultimo
+ * passo" que o painel anuncia depois do cadastro — a regra fica aqui
+ * para a pagina do mapa, a de operacoes e o painel cobrarem a MESMA
+ * coisa.
+ */
+export function ferramentasLiberadas(
+  perfil: Perfil | null,
+  totalReplicas: number,
+): boolean {
+  return Boolean(perfil?.perfil_completo) && totalReplicas > 0;
+}
+
 export const COLUNAS_PERFIL =
   "id,nome,nickname,foto_url,whatsapp,whatsapp_verificado,uf,cidade,cidade_slug," +
   "nivel,estilos,redes,maioridade,onboarding_ok,perfil_completo";

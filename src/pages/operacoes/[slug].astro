@@ -20,6 +20,7 @@ import {
   type Operacao,
 } from "../../lib/operacao";
 import { NOME_UF } from "../../lib/uf";
+import { EQUIPES_VISIVEIS } from "../../lib/flags";
 
 export const prerender = false;
 
@@ -146,7 +147,9 @@ if (Astro.request.method === "POST") {
     }
   }
 
-  if (acao === "bloco") {
+  // Equipes está escondida (src/lib/flags.ts): sem porta na tela e sem
+  // porta no POST — formulário forjado não inscreve equipe.
+  if (acao === "bloco" && EQUIPES_VISIVEIS) {
     const { data: quantos, error } = await supabase.rpc("inscrever_equipe", {
       p_operacao: operacao.id,
       p_equipe: texto("equipe_id"),
@@ -264,10 +267,12 @@ if (usuario) {
   ]);
 
   minhaInscricao = minha && minha.status !== "cancelada" ? minha : null;
-  equipesQueLidero = (lideranca ?? []).map((l) => l.equipes).filter(Boolean) as {
-    id: string;
-    nome: string;
-  }[];
+  equipesQueLidero = EQUIPES_VISIVEIS
+    ? ((lideranca ?? []).map((l) => l.equipes).filter(Boolean) as {
+        id: string;
+        nome: string;
+      }[])
+    : [];
 }
 
 const lote = loteVigente(operacao);

@@ -229,8 +229,22 @@ if (admin) {
 
 const recemCadastrado = Astro.url.searchParams.get("novo") === "1";
 
+/**
+ * A pessoa clicou em algo que exige o último passo (Editor de Mapas,
+ * abrir operação) e foi trazida para cá entender o porquê.
+ */
+const veioDasFerramentas = Astro.url.searchParams.get("motivo") === "ferramentas";
+
 /** Só aparece o que exige ação. Nada de bloco fixo dizendo "tudo certo". */
 const avisos = [
+  totalReplicas === 0
+    ? {
+        tom: "atencao" as const,
+        texto:
+          "Último passo: cadastre sua primeira réplica para liberar o Editor de Mapas e o cadastro de operações.",
+        acao: { href: "/conta/armamentos", texto: "Cadastrar minhas réplicas" },
+      }
+    : null,
   admin && filaModeracao > 0
     ? {
         tom: "atencao" as const,
@@ -286,7 +300,19 @@ const contadores = [
     recemCadastrado && (
       <p class="entrada-suave mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
         <Selo tom="ok">Pronto</Selo>
-        Cadastro criado. Bem-vindo à Comunidade Airsoft.
+        {totalReplicas === 0
+          ? "Cadastro criado. Bem-vindo à Comunidade Airsoft — falta só 1 passo, logo abaixo."
+          : "Cadastro criado. Bem-vindo à Comunidade Airsoft."}
+      </p>
+    )
+  }
+
+  {
+    veioDasFerramentas && (
+      <p class="entrada-suave mt-8 border border-latao/50 bg-latao/[0.07] px-4 py-3.5 text-[0.9375rem] leading-snug text-latao">
+        Quase lá: o Editor de Mapas e o cadastro de operações abrem depois do
+        último passo do cadastro — perfil completo e pelo menos uma réplica
+        cadastrada. É rápido, e libera as duas ferramentas de uma vez.
       </p>
     )
   }

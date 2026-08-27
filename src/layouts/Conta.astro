@@ -1,6 +1,7 @@
 ---
 import Base from "./Base.astro";
 import IconeNav from "../components/conta/IconeNav.astro";
+import { EQUIPES_VISIVEIS } from "../lib/flags";
 
 /**
  * Casca da área logada.
@@ -37,7 +38,10 @@ const { usuario, perfil, admin, paginas } = Astro.locals;
  */
 const secoes = [
   { href: "/conta", texto: "Meu perfil", icone: "perfil" as const },
-  { href: "/conta/equipes", texto: "Equipes", icone: "equipes" as const },
+  // Equipes está escondida (src/lib/flags.ts). Volta ao menu quando a flag voltar.
+  ...(EQUIPES_VISIVEIS
+    ? [{ href: "/conta/equipes", texto: "Equipes", icone: "equipes" as const }]
+    : []),
   { href: "/conta/armamentos", texto: "Minhas réplicas", icone: "replicas" as const },
   { href: "/conta/operacoes", texto: "Meus eventos", icone: "operacoes" as const },
   { href: "/conta/mapas", texto: "Meus mapas", icone: "mapas" as const },

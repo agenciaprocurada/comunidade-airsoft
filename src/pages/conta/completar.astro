@@ -5,6 +5,8 @@ import { NOME_UF, slugificar } from "../../lib/uf";
 import {
   CONSENTIMENTOS_OBRIGATORIOS,
   CONSENTIMENTOS_OPCIONAIS,
+  ESTILOS,
+  NIVEIS,
   VERSAO_TERMOS,
   ipDaRequisicao,
   normalizarWhatsapp,
@@ -32,6 +34,7 @@ const UFS = Object.entries(NOME_UF).sort(([a], [b]) => a.localeCompare(b));
 
 let erros: string[] = [];
 let enviado: Record<string, string> = {};
+let estilosEnviados: string[] = [];
 
 if (Astro.request.method === "POST") {
   const dados = await Astro.request.formData();
@@ -43,7 +46,13 @@ if (Astro.request.method === "POST") {
     whatsapp: texto("whatsapp"),
     uf: texto("uf"),
     cidade: texto("cidade"),
+    nivel: texto("nivel"),
+    instagram: texto("instagram"),
   };
+  estilosEnviados = dados
+    .getAll("estilos")
+    .map((valor) => valor.toString())
+    .filter((valor) => ESTILOS.some((estilo) => estilo.valor === valor));
 
   const nome = enviado.nome;
   const whatsapp = normalizarWhatsapp(enviado.whatsapp);
@@ -57,6 +66,12 @@ if (Astro.request.method === "POST") {
   }
   if (!NOME_UF[uf]) erros.push("Escolha o estado.");
   if (cidade.length < 2) erros.push("Informe sua cidade.");
+  if (!NIVEIS.some((nivel) => nivel.valor === enviado.nivel)) {
+    erros.push("Escolha seu nível.");
+  }
+  if (estilosEnviados.length === 0) {
+    erros.push("Marque pelo menos um estilo de jogo.");
+  }
   if (!maioridade) erros.push("É obrigatório confirmar que você tem 18 anos ou mais.");
 
   for (const item of CONSENTIMENTOS_OBRIGATORIOS) {
@@ -89,6 +104,9 @@ if (Astro.request.method === "POST") {
           uf,
           cidade,
           cidade_slug: slugificar(cidade),
+          nivel: enviado.nivel,
+          estilos: estilosEnviados,
+          redes: enviado.instagram ? { instagram: enviado.instagram } : {},
           maioridade: true,
         },
         { onConflict: "id" },
@@ -151,8 +169,9 @@ const valor = (chave: string, padrao: string | null | undefined) =>
       Completar cadastro
     </h1>
     <p class="mt-5 text-lg leading-relaxed text-texto-2">
-      Três informações e sua área está liberada. Cidade e WhatsApp são o que
-      permite te avisar de operação perto de você.
+      Seus dados de jogador e sua área está liberada. Cidade e WhatsApp são o
+      que permite te avisar de operação perto de você; nível e estilo dizem
+      para os organizadores quem você é em campo.
     </p>
 
     {
@@ -228,6 +247,55 @@ const valor = (chave: string, padrao: string | null | undefined) =>
             class={ENTRADA}
           />
         </div>
+      </div>
+
+      <div>
+        <label for="nivel" class={ROTULO_CAMPO}>Seu nível</label>
+        <select id="nivel" name="nivel" required class={SELECAO}>
+          <option value="">Escolha…</option>
+          {
+            NIVEIS.map((nivel) => (
+              <option value={nivel.valor} selected={valor("nivel", perfil?.nivel) === nivel.valor}>
+                {nivel.rotulo} — {nivel.ajuda}
+              </option>
+            ))
+          }
+        </select>
+      </div>
+
+      <fieldset>
+        <legend class={ROTULO_CAMPO}>Estilo que você joga</legend>
+        <p class={AJUDA_CAMPO}>Pode marcar mais de um.</p>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+          {
+            ESTILOS.map((estilo) => (
+              <label class={LINHA_CAIXA}>
+                <input
+                  type="checkbox"
+                  name="estilos"
+                  value={estilo.valor}
+                  checked={estilosEnviados.includes(estilo.valor)}
+                  class={CAIXA}
+                />
+                <span class="text-[15px] leading-snug text-texto">{estilo.rotulo}</span>
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+
+      <div>
+        <label for="instagram" class={ROTULO_CAMPO}>Instagram</label>
+        <p class={AJUDA_CAMPO}>Opcional.</p>
+        <input
+          id="instagram"
+          name="instagram"
+          type="text"
+          maxlength="60"
+          placeholder="@seuperfil"
+          value={valor("instagram", perfil?.redes?.instagram)}
+          class={ENTRADA}
+        />
       </div>
 
       <div class="space-y-3 border-t border-borda pt-8">

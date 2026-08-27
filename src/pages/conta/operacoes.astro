@@ -42,11 +42,19 @@ import {
   type Operacao,
 } from "../../lib/operacao";
 import { NOME_UF, ROTULO_MODALIDADE, slugificar } from "../../lib/uf";
-import { normalizarWhatsapp } from "../../lib/conta";
+import { ferramentasLiberadas, normalizarWhatsapp } from "../../lib/conta";
 
 export const prerender = false;
 
-const { supabase, usuario } = Astro.locals;
+const { supabase, usuario, perfil } = Astro.locals;
+
+// Abrir operacao exige o cadastro inteiro: perfil completo e ao menos
+// uma replica. A lista de operacoes que ja existem continua visivel.
+const { count: totalReplicas } = await supabase
+  .from("armamentos")
+  .select("id", { count: "exact", head: true })
+  .eq("usuario_id", usuario!.id);
+const ferramentaLiberada = ferramentasLiberadas(perfil, totalReplicas ?? 0);
 
 let erroDe: Record<string, string> = {};
 let erroGeral = "";
@@ -185,6 +193,12 @@ if (dadosPost && acaoPost === "excluir") {
       }
     }
   }
+}
+
+// Formulario escondido nao basta: o POST de criacao tambem confere a
+// liberacao, senao bastaria remontar o form no navegador.
+if (dadosPost && acaoPost === "criar" && !ferramentaLiberada) {
+  return Astro.redirect("/conta?motivo=ferramentas", 303);
 }
 
 if (dadosPost && acaoPost === "criar") {
@@ -1028,6 +1042,29 @@ const TOM: Record<string, "ok" | "alerta" | "atencao" | "neutro"> = {
     }
   </div>
 
+  {
+    !ferramentaLiberada && (
+      <div class="mt-10 border border-latao/50 bg-latao/[0.07] px-5 py-5">
+        <p class="text-[0.9375rem] font-semibold text-latao">
+          Falta 1 passo para abrir operações
+        </p>
+        <p class="mt-2 max-w-[60ch] text-[0.9375rem] leading-relaxed text-texto-2">
+          Complete seu perfil e cadastre pelo menos uma réplica. É rápido, e
+          libera de uma vez o cadastro de operações e o Editor de Mapas.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <a href="/conta/armamentos" class={BOTAO_PRIMARIO}>
+            Cadastrar minhas réplicas
+          </a>
+          <a href="/conta?editar=1" class={BOTAO_TEXTO}>
+            Completar perfil
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  {ferramentaLiberada && (
   <div class="mt-10">
     <Gaveta
       id="abrir-operacao"
@@ -1700,6 +1737,7 @@ const TOM: Record<string, "ok" | "alerta" | "atencao" | "neutro"> = {
       </form>
     </Gaveta>
   </div>
+  )}
 </Conta>
 
 <style>

@@ -39,6 +39,7 @@ import {
   type Operacao,
 } from "../../../lib/operacao";
 import { formatarWhatsapp, normalizarWhatsapp } from "../../../lib/conta";
+import { EQUIPES_VISIVEIS } from "../../../lib/flags";
 
 export const prerender = false;
 
@@ -547,7 +548,7 @@ const RESUMO = [
                 <div class="min-w-0">
                   <p class="flex flex-wrap items-center gap-2 text-[0.9375rem] font-semibold leading-tight text-tinta">
                     {nomeDe(inscricao)}
-                    {inscricao.etiqueta_equipe && (
+                    {EQUIPES_VISIVEIS && inscricao.etiqueta_equipe && (
                       <span class="font-dado text-[0.75rem] font-normal uppercase tracking-[0.08em] text-oliva-400">
                         {inscricao.etiqueta_equipe}
                       </span>

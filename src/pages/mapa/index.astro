@@ -2,6 +2,7 @@
 // Renderizada no servidor: o middleware exige sessao para abrir o editor.
 export const prerender = false;
 
+import { ferramentasLiberadas } from "../../lib/conta";
 import Base from "../../layouts/Base.astro";
 import Logo from "../../components/Logo.astro";
 import { ENTRADA } from "../../lib/estilos-form";
@@ -29,14 +30,28 @@ import { GRUPOS_SIMBOLOS, SIMBOLOS } from "../../lib/simbolos";
  * ocupando o resto. Reposicionar o satélite virou um painel que abre
  * sobre a tela, não um passo para trás.
  *
- * Continua ESTÁTICA e indexável, e a ferramenta inteira funciona sem
- * conta — só guardar exige login. O texto de SEO ficou depois do
- * editor: quem chegou do Google rola para ler, quem veio trabalhar já
- * está na ferramenta.
+ * Ferramenta de área logada: o middleware exige sessão e, aqui, o
+ * cadastro precisa estar inteiro (perfil completo + uma réplica). O
+ * texto de ajuda ficou depois do editor: quem veio trabalhar já está
+ * na ferramenta.
  *
  * Fabric e Leaflet NÃO entram no bundle desta página: `ferramenta.ts`
  * os carrega por `import()` quando são necessários.
  */
+
+const { supabase, usuario, perfil } = Astro.locals;
+
+// Ferramenta de quem completou o cadastro: perfil inteiro e ao menos
+// uma replica. Quem ainda nao chegou la volta ao painel com o recado
+// do que falta (?motivo=ferramentas).
+const { count: totalReplicas } = await supabase
+  .from("armamentos")
+  .select("id", { count: "exact", head: true })
+  .eq("usuario_id", usuario!.id);
+
+if (!ferramentasLiberadas(perfil, totalReplicas ?? 0)) {
+  return Astro.redirect("/conta?motivo=ferramentas", 302);
+}
 
 const CHAVE_NAVEGADOR = import.meta.env.PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? "";
 
