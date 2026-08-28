@@ -4,6 +4,7 @@ import { Image } from "astro:assets";
 import type { ImageMetadata } from "astro";
 import heroDesktop from "../assets/hero-fundo.webp";
 import heroMobile from "../assets/hero-fundo-mobile.webp";
+import fotoIniciante from "../assets/guias/guia-do-iniciante.webp";
 import Base from "../layouts/Base.astro";
 import BuscaCampos from "../components/BuscaCampos.astro";
 import Botao from "../components/Botao.astro";
@@ -420,6 +421,93 @@ const navegacao = {
           }
         </ul>
       </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       PRIMEIRO JOGO — a porta de quem nao sabe o que veio fazer
+       O gateway pergunta "o que voce veio fazer?"; quem nunca jogou
+       nao tem resposta. Esta faixa pega essa pessoa logo depois das
+       seis portas e manda para a landing /primeiro-jogo-de-airsoft.
+       ========================================================== -->
+  <section class="relative isolate overflow-hidden border-y border-borda bg-papel/40">
+    <div class="grade-tatica absolute inset-0 -z-10 opacity-20" aria-hidden="true"></div>
+
+    <div
+      class="mx-auto grid max-w-[1240px] items-center gap-10 px-5 py-16 md:px-12 md:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:gap-14"
+    >
+      <div>
+        <p class="rotulo">Para quem nunca jogou</p>
+
+        <h2
+          class="mt-4 font-display text-[38px] font-extrabold uppercase italic leading-[0.92] md:text-[56px]"
+        >
+          Nunca jogou airsoft?<br />
+          <span class="text-oliva-500">Comece aqui.</span>
+        </h2>
+
+        <p class="mt-5 max-w-[52ch] text-lg leading-relaxed text-texto">
+          O que é, quanto custa, o que vestir, o que levar, se dá para alugar
+          e como funciona o dia de jogo. Tudo explicado do zero, em uma página
+          só, sem palavra difícil.
+        </p>
+
+        <ul class="mt-6 flex flex-wrap gap-2">
+          {
+            [
+              "Sem comprar nada antes",
+              "Dá para alugar no campo",
+              "Primeiro dia por R$ 120 a 360",
+            ].map((ponto) => (
+              <li class="flex items-center gap-2 border border-borda bg-fundo px-3 py-1.5 font-dado text-[11px] uppercase tracking-[0.14em] text-texto">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  class="h-3.5 w-3.5 shrink-0 text-oliva-400"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                >
+                  <path d="m5 12 5 5 9-10" stroke-linecap="square" />
+                </svg>
+                {ponto}
+              </li>
+            ))
+          }
+        </ul>
+
+        <div class="mt-8 flex flex-wrap items-center gap-5">
+          <Botao href="/primeiro-jogo-de-airsoft">Quero começar no airsoft</Botao>
+          <a
+            href="/guias/guia-do-iniciante"
+            class="font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+          >
+            Guia do primeiro dia ›
+          </a>
+        </div>
+      </div>
+
+      {/* A mesma foto que abre a landing: o iniciante ja reconhece a pagina ao chegar. */}
+      <a
+        href="/primeiro-jogo-de-airsoft"
+        aria-label="Primeiro jogo de airsoft: nunca jogou? Comece aqui"
+        class="moldura-tatica block border border-borda-forte bg-fundo transition-colors hover:border-oliva-500"
+      >
+        <span
+          class="flex items-center justify-between gap-3 border-b border-borda px-3 py-2 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2"
+        >
+          <span>Safe zone · Primeiro dia</span>
+          <span class="hidden sm:inline">11 perguntas · 10 min</span>
+        </span>
+        <Image
+          src={fotoIniciante}
+          alt=""
+          widths={[640, 960]}
+          sizes="(min-width: 1024px) 480px, 100vw"
+          class="aspect-[16/10] w-full object-cover object-[60%_center]"
+          loading="lazy"
+        />
+      </a>
     </div>
   </section>
 

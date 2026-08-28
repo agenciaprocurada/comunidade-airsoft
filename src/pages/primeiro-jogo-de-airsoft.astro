@@ -1,0 +1,1384 @@
+---
+import { Image } from "astro:assets";
+import Base from "../layouts/Base.astro";
+import Botao from "../components/Botao.astro";
+import Etiqueta from "../components/Etiqueta.astro";
+import fotoHero from "../assets/guias/guia-do-iniciante.webp";
+import fundoTopo from "../assets/topo-fundo.webp";
+import fundoCta from "../assets/combatentes.webp";
+
+/**
+ * Landing page "Primeiro jogo de airsoft".
+ *
+ * Fala com quem NUNCA jogou. Cada seção responde uma pergunta que a
+ * pessoa faria em voz alta ("quanto custa?", "posso alugar?"), em
+ * linguagem simples e sem jargão sem explicação. Os números vêm dos
+ * guias (quanto-custa-comecar-no-airsoft, guia-do-iniciante): se o
+ * guia mudar de valor, este arquivo tem que acompanhar.
+ *
+ * Mesma família visual do Criador de Mapas (moldura tática, grade,
+ * rótulos em mono, seções com marcador), mas com vocabulário próprio:
+ * aqui o marcador é o número do PASSO, não a coordenada da grade. A
+ * assinatura do hero é a "ficha do primeiro dia", que se preenche
+ * sozinha no carregamento — o estado base já é a ficha completa, então
+ * sem animação (reduced motion) a pessoa vê tudo marcado.
+ *
+ * O CTA é um só, repetido: encontrar um campo. A página inteira existe
+ * para tirar o medo de ir; a ida é no diretório.
+ */
+
+const TITULO = "Primeiro jogo de airsoft: nunca jogou? Comece aqui";
+const DESCRICAO =
+  "O que é airsoft, quanto custa, o que vestir, o que levar, se dá para alugar e " +
+  "como funciona o dia de jogo. Tudo explicado para quem nunca jogou. Depois, " +
+  "encontre um campo perto de você.";
+
+/** Sumário: o id de cada seção e o rótulo curto do chip de navegação. */
+const TOPICOS = [
+  { id: "o-que-e", n: "01", rotulo: "O que é airsoft" },
+  { id: "quanto-custa", n: "02", rotulo: "Quanto custa" },
+  { id: "onde-jogar", n: "03", rotulo: "Onde jogar" },
+  { id: "o-que-vestir", n: "04", rotulo: "O que vestir" },
+  { id: "o-que-levar", n: "05", rotulo: "O que levar" },
+  { id: "preciso-comprar", n: "06", rotulo: "Preciso comprar?" },
+  { id: "posso-alugar", n: "07", rotulo: "Posso alugar?" },
+  { id: "como-funciona", n: "08", rotulo: "Como funciona o jogo" },
+  { id: "regras", n: "09", rotulo: "Regras básicas" },
+  { id: "seguranca", n: "10", rotulo: "Segurança" },
+  { id: "equipe", n: "11", rotulo: "Como encontrar uma equipe" },
+];
+
+/** Três fatos que separam o airsoft de outras coisas com "arma". */
+const FATOS = [
+  {
+    t: "Não é arma de fogo",
+    d: "A réplica atira bolinhas de plástico de 6 mm com ar comprimido. No Brasil é classificada como arma de pressão, e jogar é legal para maiores de 18 anos.",
+    icone: "M12 2.5 4 5.5v6.2c0 4.6 3.3 8.2 8 9.8 4.7-1.6 8-5.2 8-9.8V5.5zM8.6 12l2.4 2.4 4.4-4.6",
+  },
+  {
+    t: "Não deixa marca",
+    d: "Diferente do paintball, a bolinha não tem tinta. Quem leva o tiro avisa. O jogo inteiro funciona na base da honestidade.",
+    icone: "M12 4a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zM4 21v-2a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v2",
+  },
+  {
+    t: "Dói pouco",
+    d: "Com calça e manga longa, a sensação é de um elástico estalando na pele. Fica uma marquinha vermelha que some em minutos.",
+    icone: "M4 12h4l2-5 4 10 2-5h4",
+  },
+];
+
+/** Custo do primeiro dia, item por item — os mesmos valores do guia de custo. */
+const CUSTO_DIA = [
+  { item: "Entrada do campo", faixa: "R$ 40 a R$ 120" },
+  { item: "Aluguel de réplica e proteção", faixa: "R$ 80 a R$ 200" },
+  { item: "Bolinhas (BBs), se não vierem inclusas", faixa: "R$ 0 a R$ 40" },
+];
+
+/** O que procurar na ficha do campo antes de ir. */
+const SINAIS_CAMPO = [
+  {
+    t: "Aceita iniciante",
+    d: "A etiqueta aparece no cartão do campo. Quer dizer que o pessoal está acostumado a receber quem nunca jogou.",
+  },
+  {
+    t: "Tem aluguel",
+    d: "O campo empresta réplica, proteção e carrega a bateria. Você chega com a roupa do corpo e joga.",
+  },
+  {
+    t: "Contato que responde",
+    d: "Mande mensagem na semana do jogo e confirme vaga, valores e o que está incluso. Campo organizado responde.",
+  },
+];
+
+/** Roupa: o que vestir e por quê, sem camuflagem obrigatória. */
+const ROUPA = [
+  {
+    t: "Calça comprida",
+    d: "Protege da bolinha, de galho e de inseto. Jeans ou calça de trabalho servem.",
+    icone: "M7 3h10l1 18h-4l-2-9-2 9H6z",
+  },
+  {
+    t: "Camiseta de manga longa",
+    d: "Manga longa quase elimina a dor do tiro. Tecido grosso é melhor que fino.",
+    icone: "M8 4h8l4 3-2 4-2-1v11H8V10l-2 1-2-4z",
+  },
+  {
+    t: "Tênis fechado ou coturno",
+    d: "O terreno tem buraco, raiz e pedra. Nada de chinelo ou sapatilha.",
+    icone: "M3 17h18v3H3zM3 17l2-8h5l3 4h5l3 4",
+  },
+  {
+    t: "Cor escura ou terrosa",
+    d: "Verde, marrom, cinza ou preto. Camuflagem ajuda, mas não é obrigatória no primeiro dia.",
+    icone: "M12 3a9 9 0 1 0 0 18V3z",
+  },
+  {
+    t: "Luvas e boné (opcional)",
+    d: "Tiro na mão dói mais que no resto do corpo. Luva de ciclismo ou de trabalho já resolve.",
+    icone: "M6 21V10a2 2 0 0 1 4 0V6a2 2 0 0 1 4 0v4a2 2 0 0 1 4 0v11z",
+  },
+];
+
+/** A mochila do primeiro dia. Vira lista com caixinha de marcar. */
+const MOCHILA = [
+  { chave: "protecao", t: "Proteção para os olhos própria para impacto", d: "Ou confirme que o aluguel do campo inclui." },
+  { chave: "roupa", t: "Calça comprida e camiseta de manga longa", d: "Vestidas ou na mochila." },
+  { chave: "calcado", t: "Tênis fechado ou coturno", d: "" },
+  { chave: "documento", t: "Documento com foto", d: "Pedem na entrada para assinar o termo." },
+  { chave: "agua", t: "Água", d: "Mais do que você acha que vai beber." },
+  { chave: "sol", t: "Protetor solar e repelente", d: "" },
+  { chave: "dinheiro", t: "Dinheiro ou Pix", d: "Para entrada, aluguel e bolinhas." },
+  { chave: "lanche", t: "Um lanche", d: "O dia é longo e nem todo campo tem cantina." },
+  { chave: "troca", t: "Roupa para a volta", d: "Você vai voltar suado e com terra." },
+];
+
+/** Como é o dia, na ordem em que acontece. */
+const DIA = [
+  {
+    n: "01",
+    t: "Chegada e cadastro",
+    d: "Você se apresenta, mostra o documento e assina um termo de responsabilidade. Se alugou, é aqui que pega a réplica e a proteção.",
+  },
+  {
+    n: "02",
+    t: "Cronógrafo",
+    d: "Um aparelho mede a velocidade da bolinha de cada réplica. É para garantir que ninguém atira com força acima do limite do campo. Réplica alugada já vem dentro do limite.",
+  },
+  {
+    n: "03",
+    t: "Briefing",
+    d: "O organizador reúne todo mundo e explica as regras, onde é a safe zone (área sem tiro), o objetivo da partida e como avisar que foi atingido. Preste atenção mesmo que pareça óbvio.",
+  },
+  {
+    n: "04",
+    t: "Partidas",
+    d: "O campo divide os presentes em dois times. Cada partida dura de 15 a 40 minutos, com objetivos simples: dominar um ponto, pegar uma bandeira, eliminar o outro time.",
+  },
+  {
+    n: "05",
+    t: "Pausa na safe zone",
+    d: "Entre uma partida e outra, todo mundo volta para a área de descanso. É onde se bebe água, recarrega, conversa e tira a proteção do rosto. Só ali.",
+  },
+  {
+    n: "06",
+    t: "Fim do dia",
+    d: "Normalmente meio período ou o dia inteiro. Devolve o equipamento alugado, agradece o pessoal e já pergunta quando é o próximo jogo.",
+  },
+];
+
+/** As regras que valem em qualquer campo do país. */
+const REGRAS = [
+  {
+    t: "Proteção nos olhos não sai do rosto",
+    d: "Dentro do campo, nunca. Por nenhum motivo. Embaçou, suou, coçou: volta para a safe zone e resolve lá.",
+  },
+  {
+    t: "Levou, assume",
+    d: "Sentiu a bolinha bater em qualquer parte do corpo ou do equipamento, levanta a mão, grita “morri!” e sai do jogo até o próximo respawn. Ninguém confere. É por isso que o jogo funciona.",
+  },
+  {
+    t: "Morto não fala",
+    d: "Depois de atingido, você não passa informação para o seu time. Sai em silêncio, com a mão levantada.",
+  },
+  {
+    t: "Trava de segurança na safe zone",
+    d: "Área de descanso é área sem disparo. Réplica travada, apontada para baixo ou para cima.",
+  },
+  {
+    t: "Distância mínima",
+    d: "Muito perto, o tiro dói e pode cortar. Cada campo define uma distância mínima; abaixo dela, você diz “rendido” em vez de atirar.",
+  },
+  {
+    t: "Dúvida? Chama o organizador",
+    d: "Não discuta com outro jogador se ele levou ou não. Chame quem está organizando. Discussão em campo estraga o dia de todo mundo.",
+  },
+];
+
+/** Segurança além das regras de jogo. */
+const SEGURANCA = [
+  {
+    t: "Óculos de sol não serve",
+    d: "A proteção precisa ser própria para impacto (balística). Lente comum estilhaça com a bolinha e vira o próprio acidente. É o único item em que não existe economia.",
+    icone: "M2 12a5 5 0 0 1 8 0 5 5 0 0 1 4 0 5 5 0 0 1 8 0M2 12a5 5 0 0 0 8 0M14 12a5 5 0 0 0 8 0",
+  },
+  {
+    t: "Proteja o rosto e os dentes",
+    d: "Tiro no dente é a lesão mais cara do airsoft. Máscara inteira ou meia-máscara de tela protege. Muitos campos alugam a máscara junto com a réplica.",
+    icone: "M12 3a7 7 0 0 0-7 7v4l2 5h10l2-5v-4a7 7 0 0 0-7-7zM8 13h8M9 17h6",
+  },
+  {
+    t: "Sol, calor e água",
+    d: "Você vai correr de calça e manga longa no sol. Beba água antes de sentir sede e pare se ficar tonto. O jogo não vale um mal-estar.",
+    icone: "M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z",
+  },
+  {
+    t: "Transporte na bolsa",
+    d: "Se levar réplica emprestada ou própria, ela vai guardada, fora da vista, com a ponta laranja no cano. Nunca no banco do carro nem na mão na rua.",
+    icone: "M3 8h18v12H3zM8 8V6a4 4 0 0 1 8 0v2M3 13h18",
+  },
+];
+
+const PERGUNTAS = [
+  {
+    p: "Preciso ter réplica para jogar a primeira vez?",
+    r: "Não. Muitos campos alugam réplica, proteção e carregam a bateria para você. No diretório, procure a etiqueta “Tem aluguel” no cartão do campo. Jogue alugando uma ou duas vezes antes de gastar com equipamento.",
+  },
+  {
+    p: "Quanto custa jogar airsoft pela primeira vez?",
+    r: "Alugando tudo no campo, entre R$ 120 e R$ 360 pelo dia: entrada, aluguel de réplica com proteção e bolinhas. Valores de referência de agosto de 2026; cada campo publica os seus.",
+  },
+  {
+    p: "Airsoft dói?",
+    r: "Dói pouco. Com calça, manga longa e a distância normal de jogo, parece um elástico estalando na pele. Tiro muito perto ou em pele exposta dói mais e pode deixar uma marca roxa por alguns dias.",
+  },
+  {
+    p: "Preciso de camuflagem para jogar?",
+    r: "Não. Roupa comprida em cor escura ou terrosa resolve o primeiro dia. Camuflagem ajuda a se esconder, mas ficar parado e usar sombra ajuda muito mais.",
+  },
+  {
+    p: "Qual a idade mínima para jogar airsoft?",
+    r: "18 anos. Os campos pedem documento com foto na entrada e a assinatura de um termo de responsabilidade.",
+  },
+  {
+    p: "Preciso estar em uma equipe?",
+    r: "Não. Dá para jogar sozinho a vida toda: o campo divide os times no dia. A equipe vem depois, quando você quiser treino, carona e um grupo fixo.",
+  },
+  {
+    p: "Vou passar vergonha por não saber jogar?",
+    r: "Não. Todo campo tem iniciante toda semana, e o pessoal costuma gostar de ensinar. Avise no cadastro que é o seu primeiro jogo: normalmente colocam você perto de alguém experiente.",
+  },
+];
+
+const faq = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: PERGUNTAS.map(({ p, r }) => ({
+    "@type": "Question",
+    name: p,
+    acceptedAnswer: { "@type": "Answer", text: r },
+  })),
+};
+
+const pagina = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: TITULO,
+  description: DESCRICAO,
+  inLanguage: "pt-BR",
+  url: new URL("/primeiro-jogo-de-airsoft", Astro.site).href,
+  audience: { "@type": "Audience", audienceType: "Iniciantes no airsoft" },
+  about: { "@type": "Thing", name: "Airsoft" },
+};
+
+/** A ficha que se preenche sozinha no hero. */
+const FICHA_HERO = [
+  "Proteção no rosto",
+  "Termo assinado",
+  "Cronógrafo ok",
+  "Briefing ouvido",
+];
+---
+
+<Base titulo={TITULO} descricao={DESCRICAO} dadosEstruturados={[pagina, faq]}>
+  <!-- ==========================================================
+       HERO — a ficha do primeiro dia se preenche sozinha
+       ========================================================== -->
+  <section class="relative isolate overflow-hidden border-b border-borda bg-fundo">
+    <div class="absolute inset-0 -z-30" aria-hidden="true">
+      <Image
+        src={fundoTopo}
+        alt=""
+        widths={[960, 1672]}
+        sizes="100vw"
+        loading="eager"
+        class="h-full w-full object-cover object-[70%_center]"
+      />
+    </div>
+    <div class="hero-escurecer absolute inset-0 -z-20" aria-hidden="true"></div>
+    <div class="grade-tatica absolute inset-0 -z-10 opacity-30" aria-hidden="true"></div>
+
+    <div
+      class="mx-auto grid max-w-[1240px] items-center gap-10 px-5 py-14 md:px-12 md:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)] lg:gap-14"
+    >
+      <div>
+        <p class="rotulo">Para quem nunca jogou · Leitura de 10 minutos</p>
+
+        <h1
+          class="mt-4 font-display text-[44px] font-extrabold uppercase italic leading-[0.9] md:text-[72px]"
+        >
+          Nunca jogou airsoft?<br />
+          <span class="text-oliva-500">Comece aqui.</span>
+        </h1>
+
+        <p class="mt-6 max-w-[52ch] text-lg leading-relaxed text-texto">
+          O que é, quanto custa, o que vestir, o que levar, se dá para alugar e
+          como funciona o dia de jogo. Explicado do zero, sem palavra difícil.
+        </p>
+
+        <p class="mt-4 max-w-[52ch] leading-relaxed text-texto-2">
+          Ao final, você vai saber exatamente o que fazer no seu primeiro jogo
+          de airsoft. E onde ele vai ser.
+        </p>
+
+        <div class="mt-9 flex flex-wrap gap-4">
+          <Botao href="/campos">Encontre um campo perto de você</Botao>
+          <Botao href="#sumario" variante="secundario" seta>Ler o guia</Botao>
+        </div>
+
+        <p class="mt-5 font-dado text-[13px] uppercase tracking-[0.14em] text-texto-2">
+          <span class="text-oliva-300">Sem cadastro</span> · Sem comprar nada antes · Maiores de 18
+        </p>
+      </div>
+
+      <!--
+        A vitrine: a foto do primeiro dia (instrutor mostrando o campo
+        para quem chegou com a máscara na mão) e, por cima, a ficha que
+        se preenche sozinha — o resumo do que a página ensina.
+      -->
+      <div
+        class="moldura-tatica order-first border border-borda-forte bg-fundo lg:order-none"
+      >
+        <div
+          class="flex items-center justify-between gap-3 border-b border-borda px-3 py-2 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2"
+        >
+          <span class="flex items-center gap-2">
+            <span class="ficha-pulso inline-block h-1.5 w-1.5 bg-oliva-400" aria-hidden="true"></span>
+            Safe zone · Primeiro dia
+          </span>
+          <span class="hidden sm:inline">Domingo · 08h30</span>
+        </div>
+
+        <div class="relative aspect-[4/3] overflow-hidden bg-[#1a2016]">
+          <Image
+            src={fotoHero}
+            alt="Instrutor de campo apontando o terreno para um jogador iniciante de camiseta branca que segura a máscara na mão, na safe zone"
+            widths={[640, 1040]}
+            sizes="(min-width: 1024px) 520px, 100vw"
+            loading="eager"
+            class="h-full w-full object-cover object-[60%_center]"
+          />
+          <div class="ficha-sombra absolute inset-0" aria-hidden="true"></div>
+
+          <!-- A ficha, canto inferior esquerdo -->
+          <ul
+            class="ficha absolute bottom-3 left-3 m-0 list-none border border-borda-forte bg-fundo/85 p-3 backdrop-blur-[2px] md:bottom-4 md:left-4 md:p-4"
+            aria-label="Ficha do primeiro dia"
+          >
+            {
+              FICHA_HERO.map((item, i) => (
+                <li
+                  class="ficha-item flex items-center gap-2.5 py-1 font-dado text-[11px] uppercase tracking-[0.14em] text-tinta md:text-[12px]"
+                  style={`--i:${i}`}
+                >
+                  <span class="ficha-caixa flex h-4 w-4 shrink-0 items-center justify-center border border-oliva-400">
+                    <svg
+                      viewBox="0 0 24 24"
+                      class="ficha-tique h-3 w-3 text-oliva-300"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3.5"
+                      aria-hidden="true"
+                    >
+                      <path d="m5 12 5 5 9-10" stroke-linecap="square" />
+                    </svg>
+                  </span>
+                  {item}
+                </li>
+              ))
+            }
+            <li
+              class="ficha-pronto mt-2 border-t border-borda pt-2 font-dado text-[11px] uppercase tracking-[0.18em] text-latao md:text-[12px]"
+            >
+              Pronto para jogar
+            </li>
+          </ul>
+
+          <div
+            class="absolute right-4 top-3 font-dado text-[10px] tracking-[0.2em] text-tinta/60"
+            aria-hidden="true"
+          >
+            CA // 00
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       SUMÁRIO — pule para o que você quer saber
+       ========================================================== -->
+  <nav
+    id="sumario"
+    aria-label="Assuntos desta página"
+    class="border-b border-borda bg-papel/40"
+  >
+    <div class="mx-auto max-w-[1240px] px-5 py-6 md:px-12 md:py-8">
+      <p class="rotulo">Onze perguntas · Pule para a sua</p>
+      <ol class="mt-4 flex flex-wrap gap-2">
+        {
+          TOPICOS.map((topico) => (
+            <li>
+              <a
+                href={`#${topico.id}`}
+                class="chip-topico flex items-center gap-2 border border-borda bg-fundo px-3 py-2 text-[0.9375rem] text-texto transition-colors hover:border-oliva-500 hover:text-tinta"
+              >
+                <span class="font-dado text-[11px] tracking-[0.12em] text-oliva-400">{topico.n}</span>
+                {topico.rotulo}
+              </a>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </nav>
+
+  <!-- ==========================================================
+       01 — O QUE É AIRSOFT
+       ========================================================== -->
+  <section id="o-que-e" class="mx-auto max-w-[1240px] scroll-mt-24 px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-passo" aria-hidden="true">01</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">O que é airsoft</h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <div class="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-14">
+      <div>
+        <p class="max-w-[52ch] text-lg leading-relaxed text-texto">
+          Airsoft é um jogo de equipe em que dois times disputam objetivos em
+          um campo, usando réplicas de arma que atiram bolinhas de plástico.
+          Parece paintball, mas a bolinha é pequena, não tem tinta e a
+          réplica se parece com a arma de verdade.
+        </p>
+        <p class="mt-4 max-w-[52ch] leading-relaxed text-texto-2">
+          Como a bolinha não marca, quem foi atingido avisa em voz alta e sai
+          da partida. Isso muda tudo: airsoft é um jogo de honestidade antes de
+          ser um jogo de pontaria.
+        </p>
+        <p class="mt-4 max-w-[52ch] leading-relaxed text-texto-2">
+          A maior parte dos jogos no Brasil é <strong class="font-semibold text-texto">recreativa</strong>:
+          partidas curtas, no fim de semana, com gente de todos os níveis. É
+          por aí que todo mundo começa.
+        </p>
+        <a
+          href="/guias/diferenca-entre-airsoft-e-paintball"
+          class="mt-6 inline-block font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+        >
+          Airsoft × paintball: as diferenças ›
+        </a>
+      </div>
+
+      <ul class="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+        {
+          FATOS.map((fato) => (
+            <li class="moldura-tatica flex gap-4 border border-borda bg-papel p-5">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center border border-oliva-700 bg-fundo text-oliva-300">
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                  <path d={fato.icone} stroke-linecap="square" />
+                </svg>
+              </span>
+              <div>
+                <h3 class="font-display text-lg font-bold uppercase tracking-[0.03em]">{fato.t}</h3>
+                <p class="mt-1.5 text-[0.9375rem] leading-relaxed text-texto-2">{fato.d}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       02 — QUANTO CUSTA
+       ========================================================== -->
+  <section id="quanto-custa" class="scroll-mt-24 border-y border-borda bg-papel/40">
+    <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+      <div class="flex items-center gap-4">
+        <span class="tag-passo" aria-hidden="true">02</span>
+        <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">Quanto custa</h2>
+        <div class="h-px flex-1 bg-borda"></div>
+      </div>
+
+      <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+        Menos do que você imagina, desde que você não compre nada antes de
+        jogar. O primeiro dia custa o preço de um jantar.
+      </p>
+
+      <div class="mt-10 grid gap-6 md:grid-cols-2 md:gap-8">
+        <!-- Só experimentar -->
+        <div class="moldura-tatica border border-borda-forte bg-fundo">
+          <div
+            class="flex items-center justify-between gap-3 border-b border-borda px-4 py-3 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2"
+          >
+            <span>Só experimentar</span>
+            <span class="text-oliva-300">Recomendado</span>
+          </div>
+          <div class="p-5 md:p-6">
+            <p class="font-display text-4xl font-extrabold italic leading-none text-oliva-500 md:text-5xl">
+              R$ 120 a 360
+            </p>
+            <p class="mt-1.5 font-dado text-[12px] uppercase tracking-[0.14em] text-texto-2">
+              pelo dia, alugando tudo no campo
+            </p>
+            <dl class="mt-6 border-t border-borda">
+              {
+                CUSTO_DIA.map((linha) => (
+                  <div class="flex items-baseline justify-between gap-4 border-b border-borda py-3">
+                    <dt class="text-[0.9375rem] text-texto">{linha.item}</dt>
+                    <dd class="m-0 shrink-0 font-dado text-[13px] tracking-[0.06em] text-tinta">{linha.faixa}</dd>
+                  </div>
+                ))
+              }
+            </dl>
+            <p class="mt-4 text-[0.9375rem] leading-relaxed text-texto-2">
+              Você leva calça, manga longa, tênis fechado, documento e água. Nada mais.
+            </p>
+          </div>
+        </div>
+
+        <!-- Kit próprio -->
+        <div class="border border-borda bg-papel">
+          <div
+            class="flex items-center justify-between gap-3 border-b border-borda px-4 py-3 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2"
+          >
+            <span>Kit próprio de entrada</span>
+            <span>Só depois de jogar</span>
+          </div>
+          <div class="p-5 md:p-6">
+            <p class="font-display text-4xl font-extrabold italic leading-none text-tinta md:text-5xl">
+              R$ 1.500 a 2.500
+            </p>
+            <p class="mt-1.5 font-dado text-[12px] uppercase tracking-[0.14em] text-texto-2">
+              réplica, proteção, bateria, bolinhas e colete simples
+            </p>
+            <p class="mt-6 leading-relaxed text-texto-2">
+              A réplica é mais da metade desse valor. O resto do kit, somado,
+              custa menos que ela. Quem compra antes de jogar quase sempre
+              compra errado e gasta duas vezes.
+            </p>
+            <p class="mt-3 leading-relaxed text-texto-2">
+              Depois, cada jogo custa a entrada do campo mais bolinhas: de
+              R$ 150 a R$ 400 por mês para quem joga duas vezes.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <p class="m-0 font-dado text-[12px] uppercase tracking-[0.14em] text-texto-2">
+          Valores de referência · Agosto de 2026 · Cada campo publica os seus
+        </p>
+        <a
+          href="/guias/quanto-custa-comecar-no-airsoft"
+          class="font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+        >
+          Ver o custo item por item ›
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       03 — ONDE JOGAR
+       ========================================================== -->
+  <section id="onde-jogar" class="mx-auto max-w-[1240px] scroll-mt-24 px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-passo" aria-hidden="true">03</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">Onde jogar</h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+      Airsoft acontece em campo autorizado: um sítio, um galpão, uma área de
+      mata com dono, regras e área de descanso. Nunca em terreno qualquer. O
+      diretório reúne os campos do Brasil por estado e cidade, com endereço,
+      valores e contato.
+    </p>
+
+    <ol class="mt-10 grid gap-6 md:grid-cols-3">
+      {
+        SINAIS_CAMPO.map((sinal, i) => (
+          <li class="moldura-tatica border border-borda bg-papel p-6">
+            <span class="font-dado text-sm tracking-[0.2em] text-oliva-500">0{i + 1}</span>
+            <h3 class="mt-2 font-display text-xl font-bold uppercase tracking-[0.03em]">{sinal.t}</h3>
+            {/* As duas primeiras são etiquetas reais do cartão do campo:
+                mostrar a etiqueta como ela aparece lá é o que ensina a
+                pessoa a reconhecê-la. */}
+            {i < 2 && (
+              <p class="mt-3">
+                <Etiqueta tom="info">{sinal.t}</Etiqueta>
+              </p>
+            )}
+            <p class="mt-3 leading-relaxed text-texto-2">{sinal.d}</p>
+          </li>
+        ))
+      }
+    </ol>
+
+    <div class="mt-10 flex flex-wrap items-center gap-5">
+      <Botao href="/campos">Encontre um campo perto de você</Botao>
+      <a
+        href="/guias/como-encontrar-campo-de-airsoft-perto-de-voce"
+        class="font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+      >
+        O que perguntar antes de ir ›
+      </a>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       04 — O QUE VESTIR
+       ========================================================== -->
+  <section id="o-que-vestir" class="scroll-mt-24 border-y border-borda bg-papel/40">
+    <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+      <div class="flex items-center gap-4">
+        <span class="tag-passo" aria-hidden="true">04</span>
+        <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">O que vestir</h2>
+        <div class="h-px flex-1 bg-borda"></div>
+      </div>
+
+      <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+        A regra é uma: pele coberta. Roupa comprida é o que faz o tiro doer
+        pouco. Você não precisa de farda, camuflagem nem colete no primeiro
+        dia.
+      </p>
+
+      <ul class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {
+          ROUPA.map((peca) => (
+            <li class="flex flex-col border border-borda bg-fundo p-5">
+              <span class="flex h-11 w-11 items-center justify-center border border-oliva-700 text-oliva-300">
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                  <path d={peca.icone} stroke-linecap="square" stroke-linejoin="miter" />
+                </svg>
+              </span>
+              <h3 class="mt-4 font-display text-lg font-bold uppercase leading-tight tracking-[0.03em]">{peca.t}</h3>
+              <p class="mt-2 text-[0.9375rem] leading-relaxed text-texto-2">{peca.d}</p>
+            </li>
+          ))
+        }
+      </ul>
+
+      <p class="mt-8 max-w-[62ch] text-[0.9375rem] leading-relaxed text-texto-2">
+        Evite bermuda, regata e roupa branca. Bermuda dói, regata queima no
+        sol e branco aparece de longe: você vira o alvo mais fácil do campo.
+        <a href="/guias/camuflagem-e-vestuario-no-airsoft" class="text-oliva-400 underline hover:text-oliva-300">
+          Mais sobre roupa e camuflagem
+        </a>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       05 — O QUE LEVAR (lista para marcar)
+       ========================================================== -->
+  <section id="o-que-levar" class="mx-auto max-w-[1240px] scroll-mt-24 px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-passo" aria-hidden="true">05</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">O que levar</h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <div class="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:gap-14">
+      <div>
+        <p class="max-w-[48ch] text-lg leading-relaxed text-texto">
+          A mochila do primeiro dia cabe em uma lista curta. Marque o que já
+          separou: a lista fica salva neste navegador até o dia do jogo.
+        </p>
+        <p class="mt-4 max-w-[48ch] leading-relaxed text-texto-2">
+          O único item que não pode faltar de jeito nenhum é a proteção para
+          os olhos. Se não tiver a sua, confirme com o campo que o aluguel
+          inclui.
+        </p>
+        <p class="mt-6 font-dado text-[12px] uppercase tracking-[0.16em] text-oliva-400" data-mochila-progresso aria-live="polite">
+          0 de {MOCHILA.length} na mochila
+        </p>
+      </div>
+
+      <div class="moldura-tatica border border-borda-forte bg-fundo">
+        <div
+          class="flex items-center justify-between gap-3 border-b border-borda px-4 py-3 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2"
+        >
+          <span>Mochila do primeiro dia</span>
+          <button
+            type="button"
+            data-mochila-limpar
+            class="cursor-pointer text-texto-2 underline-offset-2 transition-colors hover:text-tinta hover:underline"
+          >
+            Limpar
+          </button>
+        </div>
+        <ul class="m-0 list-none p-2 md:p-3">
+          {
+            MOCHILA.map((item) => (
+              <li>
+                <label class="item-mochila flex cursor-pointer items-start gap-3 px-3 py-3 transition-colors hover:bg-papel">
+                  <input
+                    type="checkbox"
+                    data-mochila-item={item.chave}
+                    class="caixa-mochila mt-1 h-5 w-5 shrink-0 cursor-pointer appearance-none border border-borda-forte bg-fundo transition-colors checked:border-oliva-500 checked:bg-oliva-500"
+                  />
+                  <span>
+                    <span class="item-mochila-titulo block text-[1rem] leading-snug text-tinta">{item.t}</span>
+                    {item.d && <span class="mt-0.5 block text-[0.875rem] leading-relaxed text-texto-2">{item.d}</span>}
+                  </span>
+                </label>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       06 e 07 — PRECISO COMPRAR? / POSSO ALUGAR?
+       Duas perguntas que a pessoa faz juntas; ficam lado a lado.
+       ========================================================== -->
+  <section class="border-y border-borda bg-papel/40">
+    <div class="mx-auto grid max-w-[1240px] gap-12 px-5 py-16 md:px-12 md:py-20 lg:grid-cols-2 lg:gap-14">
+      <div id="preciso-comprar" class="scroll-mt-24">
+        <div class="flex items-center gap-4">
+          <span class="tag-passo" aria-hidden="true">06</span>
+          <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">Preciso comprar equipamento?</h2>
+        </div>
+        <div class="mt-3 flex items-center gap-2.5" aria-hidden="true">
+          <span class="listra-mini"></span>
+          <span class="h-0.5 w-7 bg-oliva-500/80"></span>
+        </div>
+
+        <p class="mt-6 font-display text-5xl font-extrabold italic leading-none text-oliva-500">Não.</p>
+        <p class="mt-4 max-w-[48ch] text-lg leading-relaxed text-texto">
+          Para o primeiro jogo, não compre nada. Réplica, máscara e bateria
+          se alugam no campo. Você só precisa da roupa certa e de vontade.
+        </p>
+        <p class="mt-4 max-w-[48ch] leading-relaxed text-texto-2">
+          Comprar antes de jogar é o erro mais comum de quem começa: a pessoa
+          escolhe pela aparência, descobre no campo que queria outra coisa e
+          compra de novo. Jogue duas ou três vezes alugando. Aí você vai saber
+          o que quer.
+        </p>
+        <p class="mt-4 max-w-[48ch] leading-relaxed text-texto-2">
+          Se for comprar uma coisa só, que seja a proteção para os olhos: é
+          barata, é sua e vale para sempre.
+        </p>
+        <a
+          href="/guias/como-escolher-a-primeira-replica-de-airsoft"
+          class="mt-6 inline-block font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+        >
+          Quando chegar a hora: a primeira réplica ›
+        </a>
+      </div>
+
+      <div id="posso-alugar" class="scroll-mt-24">
+        <div class="flex items-center gap-4">
+          <span class="tag-passo" aria-hidden="true">07</span>
+          <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">Posso alugar?</h2>
+        </div>
+        <div class="mt-3 flex items-center gap-2.5" aria-hidden="true">
+          <span class="listra-mini"></span>
+          <span class="h-0.5 w-7 bg-oliva-500/80"></span>
+        </div>
+
+        <p class="mt-6 font-display text-5xl font-extrabold italic leading-none text-oliva-500">Sim.</p>
+        <p class="mt-4 max-w-[48ch] text-lg leading-relaxed text-texto">
+          Muitos campos alugam o kit completo. Custa de R$ 80 a R$ 200 e vem
+          com o que você precisa para jogar o dia inteiro.
+        </p>
+
+        <div class="mt-6 border border-borda-forte bg-fundo">
+          <p class="border-b border-borda px-4 py-3 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2">
+            O que costuma vir no aluguel
+          </p>
+          <ul class="m-0 list-none p-4">
+            {
+              [
+                "Réplica elétrica, já dentro do limite do campo",
+                "Máscara ou óculos de proteção",
+                "Bateria carregada e carregador de bolinhas",
+                "Bolinhas, inclusas ou vendidas na hora",
+              ].map((item) => (
+                <li class="flex items-start gap-3 py-1.5 text-[0.9375rem] leading-relaxed text-texto">
+                  <svg viewBox="0 0 24 24" class="mt-1 h-4 w-4 shrink-0 text-oliva-400" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                    <path d="m5 12 5 5 9-10" stroke-linecap="square" />
+                  </svg>
+                  {item}
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+
+        <p class="mt-5 max-w-[48ch] leading-relaxed text-texto-2">
+          No diretório, o cartão do campo mostra a etiqueta
+          <Etiqueta tom="info" class="mx-1 align-middle">Tem aluguel</Etiqueta>.
+          Mesmo assim, confirme por mensagem na semana do jogo: aluguel tem
+          quantidade limitada e acaba.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       08 — COMO FUNCIONA O JOGO (o dia, em ordem)
+       ========================================================== -->
+  <section id="como-funciona" class="mx-auto max-w-[1240px] scroll-mt-24 px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-passo" aria-hidden="true">08</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">Como funciona o jogo</h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+      Um dia de jogo segue sempre a mesma ordem, em qualquer campo do país.
+      Sabendo o que vem depois, você chega tranquilo.
+    </p>
+
+    <ol class="linha-do-dia relative mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-10">
+      {
+        DIA.map((etapa) => (
+          <li class="relative pl-14">
+            <span
+              class="absolute left-0 top-0 flex h-10 w-10 items-center justify-center border border-oliva-500 bg-fundo font-display text-lg font-extrabold italic text-oliva-300"
+              aria-hidden="true"
+            >
+              {etapa.n}
+            </span>
+            <h3 class="pt-1.5 font-display text-xl font-bold uppercase tracking-[0.03em]">{etapa.t}</h3>
+            <p class="mt-2 leading-relaxed text-texto-2">{etapa.d}</p>
+          </li>
+        ))
+      }
+    </ol>
+
+    <div class="mt-10 border-l-2 border-latao bg-papel px-5 py-4">
+      <p class="m-0 font-dado text-[11px] uppercase tracking-[0.16em] text-latao">Dica de quem já foi</p>
+      <p class="mt-1.5 max-w-[70ch] text-[0.9375rem] leading-relaxed text-texto">
+        Avise no cadastro que é o seu primeiro jogo. O organizador costuma
+        colocar você perto de alguém experiente, que explica o que fazer no
+        meio da partida. Ninguém espera que você saiba jogar.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       09 — REGRAS BÁSICAS
+       ========================================================== -->
+  <section id="regras" class="scroll-mt-24 border-y border-borda bg-papel/40">
+    <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+      <div class="flex items-center gap-4">
+        <span class="tag-passo" aria-hidden="true">09</span>
+        <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">Regras básicas</h2>
+        <div class="h-px flex-1 bg-borda"></div>
+      </div>
+
+      <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+        Cada campo tem as suas, explicadas no briefing. Estas seis valem em
+        todos. Quem segue estas seis não passa vergonha em lugar nenhum.
+      </p>
+
+      <ol class="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        {
+          REGRAS.map((regra, i) => (
+            <li class="moldura-tatica flex flex-col border border-borda bg-fundo p-6">
+              <span class="font-display text-[2.5rem] font-extrabold italic leading-none text-oliva-500">
+                0{i + 1}
+              </span>
+              <span class="mt-3 flex items-center gap-1.5" aria-hidden="true">
+                <span class="h-1.5 w-1.5 rounded-full border border-oliva-500" />
+                <span class="h-0.5 w-8 bg-oliva-700" />
+                <span class="h-px flex-1 bg-borda" />
+              </span>
+              <h3 class="mt-4 font-display text-xl font-bold uppercase leading-tight tracking-[0.03em]">{regra.t}</h3>
+              <p class="mt-2 leading-relaxed text-texto-2">{regra.d}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       10 — SEGURANÇA
+       ========================================================== -->
+  <section id="seguranca" class="mx-auto max-w-[1240px] scroll-mt-24 px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-passo" aria-hidden="true">10</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">Segurança</h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+      Airsoft é seguro quando todo mundo segue o combinado. O que machuca de
+      verdade é só uma coisa: bolinha no olho sem proteção. O resto é
+      cuidado comum de quem passa o dia ao ar livre.
+    </p>
+
+    <ul class="mt-10 grid gap-5 md:grid-cols-2">
+      {
+        SEGURANCA.map((item) => (
+          <li class="flex gap-5 border border-borda bg-papel p-6">
+            <span class="hexagono" aria-hidden="true">
+              <span class="hexagono-miolo">
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square">
+                  <path d={item.icone} />
+                </svg>
+              </span>
+            </span>
+            <div>
+              <h3 class="font-display text-xl font-bold uppercase leading-tight tracking-[0.03em]">{item.t}</h3>
+              <p class="mt-2 leading-relaxed text-texto-2">{item.d}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+      <a
+        href="/guias/equipamento-de-protecao-no-airsoft"
+        class="font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+      >
+        Guia de proteção: o que é obrigatório ›
+      </a>
+      <a
+        href="/guias/airsoft-e-legalizado-no-brasil"
+        class="font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+      >
+        Airsoft é legal no Brasil? ›
+      </a>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       11 — COMO ENCONTRAR UMA EQUIPE
+       ========================================================== -->
+  <section id="equipe" class="scroll-mt-24 border-y border-borda bg-papel/40">
+    <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+      <div class="flex items-center gap-4">
+        <span class="tag-passo" aria-hidden="true">11</span>
+        <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">Como encontrar uma equipe</h2>
+        <div class="h-px flex-1 bg-borda"></div>
+      </div>
+
+      <div class="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14">
+        <div>
+          <p class="max-w-[52ch] text-lg leading-relaxed text-texto">
+            Você não precisa de equipe para jogar. O campo divide os times no
+            dia, e muita gente joga a vida toda assim. A equipe entra quando
+            você quer um grupo fixo: treino, carona, jogo combinado e amigos
+            que já sabem seu nome.
+          </p>
+          <p class="mt-4 max-w-[52ch] leading-relaxed text-texto-2">
+            O jeito mais fácil de encontrar uma é o mais simples: vá ao mesmo
+            campo três ou quatro fins de semana seguidos e converse. As
+            equipes da região jogam ali, e é jogando junto que o convite
+            aparece.
+          </p>
+        </div>
+
+        <ol class="grid gap-4">
+          {
+            [
+              {
+                t: "Frequente o mesmo campo",
+                d: "Equipe é convivência. Quem aparece sempre é lembrado.",
+              },
+              {
+                t: "Entre no grupo da sua região",
+                d: "Os grupos de WhatsApp de cada estado avisam jogo, carona e vaga em equipe.",
+                href: "/grupos",
+                acao: "Ver grupos",
+              },
+              {
+                t: "Pergunte antes de entrar",
+                d: "Se cobra mensalidade, que estilo de jogo faz e como é o período de experiência. Equipe boa responde na hora.",
+                href: "/guias/como-entrar-em-uma-equipe-de-airsoft",
+                acao: "Guia completo",
+              },
+            ].map((passo, i) => (
+              <li class="flex gap-4 border border-borda bg-fundo p-5">
+                <span class="font-display text-3xl font-extrabold italic leading-none text-oliva-500">0{i + 1}</span>
+                <div>
+                  <h3 class="font-display text-lg font-bold uppercase tracking-[0.03em]">{passo.t}</h3>
+                  <p class="mt-1.5 text-[0.9375rem] leading-relaxed text-texto-2">{passo.d}</p>
+                  {passo.href && (
+                    <a
+                      href={passo.href}
+                      class="mt-2 inline-block font-display text-sm font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+                    >
+                      {passo.acao} ›
+                    </a>
+                  )}
+                </div>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       CTA — ENCONTRE UM CAMPO
+       ========================================================== -->
+  <section class="relative isolate overflow-hidden border-b border-borda bg-fundo">
+    <div class="absolute inset-0 -z-20" aria-hidden="true">
+      <Image
+        src={fundoCta}
+        alt=""
+        widths={[960, 1536]}
+        sizes="100vw"
+        class="h-full w-full object-cover object-right opacity-35"
+      />
+    </div>
+    <div class="cta-vinheta absolute inset-0 -z-10" aria-hidden="true"></div>
+    <div class="grade-tatica absolute inset-0 -z-10 opacity-30" aria-hidden="true"></div>
+
+    <div class="moldura-tatica pointer-events-none absolute inset-5 hidden lg:block" aria-hidden="true"></div>
+    <div class="moldura-tatica pointer-events-none absolute inset-5 hidden -scale-x-100 lg:block" aria-hidden="true"></div>
+    <span class="listra-mini absolute left-10 top-9 hidden lg:block" aria-hidden="true"></span>
+    <p
+      aria-hidden="true"
+      class="absolute bottom-8 right-10 hidden font-dado text-[11px] tracking-[0.18em] text-oliva-400/50 lg:block"
+    >
+      CA // PRIMEIRO JOGO
+    </p>
+
+    <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-24">
+      <p class="rotulo">Você já sabe o que fazer. Falta só onde.</p>
+      <h2
+        class="mt-4 max-w-[30ch] font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-[56px]"
+      >
+        Encontre um campo<br class="hidden lg:inline" />
+        <span class="text-oliva-500">perto de você</span>
+      </h2>
+
+      <span class="mt-5 flex items-center gap-2" aria-hidden="true">
+        <span class="h-[7px] w-[7px] rounded-full border border-oliva-500"></span>
+        <span class="h-px w-40 bg-oliva-700"></span>
+        <span class="w-16 border-t border-dashed border-oliva-700"></span>
+      </span>
+
+      <p class="mt-5 max-w-[56ch] text-lg leading-relaxed text-texto-2">
+        Filtre por estado e cidade, procure a etiqueta “Aceita iniciante” e
+        “Tem aluguel”, mande mensagem e marque o dia. Sem cadastro para
+        consultar.
+      </p>
+
+      <div class="mt-10 flex flex-wrap items-center gap-5">
+        <span class="cta-brilho inline-flex">
+          <Botao href="/campos">Encontre um campo perto de você</Botao>
+        </span>
+        <Botao href="/guias/guia-do-iniciante" variante="secundario" seta>
+          Guia do primeiro dia
+        </Botao>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       PERGUNTAS
+       ========================================================== -->
+  <section class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-passo" aria-hidden="true">?</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">Perguntas de quem nunca jogou</h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <div class="mt-8 max-w-[72ch]">
+      {
+        PERGUNTAS.map((item) => (
+          <details class="gaveta border-b border-borda">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-display text-lg font-bold uppercase tracking-[0.03em] text-tinta">
+              {item.p}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                class="chevron h-5 w-5 shrink-0 text-oliva-500 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m6 9 6 6 6-6" stroke-linecap="square" />
+              </svg>
+            </summary>
+            <p class="pb-6 leading-relaxed text-texto-2">{item.r}</p>
+          </details>
+        ))
+      }
+    </div>
+
+    <div class="mt-12 flex flex-wrap items-center gap-x-6 gap-y-4">
+      <Botao href="/campos">Encontre um campo perto de você</Botao>
+      <a
+        href="/guias"
+        class="font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+      >
+        Todos os guias
+      </a>
+    </div>
+  </section>
+</Base>
+
+<script>
+  // Mochila do primeiro dia: o que a pessoa marca fica salvo no
+  // navegador até o dia do jogo. Sem servidor, sem conta.
+  const CHAVE = "primeiro-jogo:mochila";
+  const caixas = Array.from(
+    document.querySelectorAll<HTMLInputElement>("[data-mochila-item]"),
+  );
+  const progresso = document.querySelector<HTMLElement>("[data-mochila-progresso]");
+  const limpar = document.querySelector<HTMLButtonElement>("[data-mochila-limpar]");
+
+  const ler = (): string[] => {
+    try {
+      const bruto = localStorage.getItem(CHAVE);
+      const lista = bruto ? JSON.parse(bruto) : [];
+      return Array.isArray(lista) ? lista : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const salvar = (marcados: string[]) => {
+    try {
+      localStorage.setItem(CHAVE, JSON.stringify(marcados));
+    } catch {
+      // Navegador sem armazenamento: a lista só não persiste.
+    }
+  };
+
+  const atualizar = () => {
+    const marcados = caixas.filter((c) => c.checked).map((c) => c.dataset.mochilaItem!);
+    if (progresso) {
+      progresso.textContent =
+        marcados.length === caixas.length
+          ? "Mochila pronta. Só falta o dia."
+          : `${marcados.length} de ${caixas.length} na mochila`;
+    }
+    salvar(marcados);
+  };
+
+  const salvos = new Set(ler());
+  caixas.forEach((caixa) => {
+    caixa.checked = salvos.has(caixa.dataset.mochilaItem!);
+    caixa.addEventListener("change", atualizar);
+  });
+  limpar?.addEventListener("click", () => {
+    caixas.forEach((caixa) => (caixa.checked = false));
+    atualizar();
+  });
+  atualizar();
+</script>
+
+<style>
+  /* Marcador de seção: o número do passo. Mesmo tamanho do marcador de
+     coordenada do Criador de Mapas, mas aqui é passo, não quadrícula. */
+  .tag-passo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    border: 1px solid var(--color-borda-forte);
+    border-bottom: 2px solid var(--color-oliva-500);
+    font-family: var(--font-dado);
+    font-size: 0.8125rem;
+    letter-spacing: 0.08em;
+    color: var(--color-oliva-400);
+  }
+
+  .chip-topico {
+    transition:
+      border-color 150ms ease,
+      color 150ms ease;
+  }
+
+  /* Escurece a foto do hero: fechado à esquerda (texto), aberto à
+     direita, e emendando com o fundo em cima e embaixo. */
+  .hero-escurecer {
+    background:
+      linear-gradient(
+        to right,
+        rgba(11, 13, 9, 0.9) 0%,
+        rgba(11, 13, 9, 0.72) 45%,
+        rgba(11, 13, 9, 0.55) 100%
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(11, 13, 9, 0.75) 0%,
+        rgba(11, 13, 9, 0.1) 35%,
+        rgba(11, 13, 9, 0.1) 70%,
+        rgba(11, 13, 9, 0.9) 100%
+      );
+  }
+
+  /* Sombra sobre a foto do quadro para a ficha ler por cima. */
+  .ficha-sombra {
+    background: linear-gradient(
+      to top,
+      rgba(11, 13, 9, 0.75) 0%,
+      rgba(11, 13, 9, 0.2) 45%,
+      transparent 70%
+    );
+  }
+
+  /* Banda do CTA. */
+  .cta-vinheta {
+    background:
+      linear-gradient(
+        to right,
+        var(--color-fundo) 0%,
+        rgba(11, 13, 9, 0.96) 38%,
+        rgba(11, 13, 9, 0.6) 72%,
+        rgba(11, 13, 9, 0.88) 100%
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(11, 13, 9, 0.7) 0%,
+        transparent 30%,
+        transparent 65%,
+        rgba(11, 13, 9, 0.92) 100%
+      );
+  }
+
+  .cta-brilho {
+    filter: drop-shadow(0 6px 18px rgba(169, 189, 102, 0.4));
+  }
+
+  .listra-mini {
+    width: 64px;
+    height: 7px;
+    background: repeating-linear-gradient(
+      -55deg,
+      var(--color-oliva-500) 0 5px,
+      transparent 5px 11px
+    );
+    opacity: 0.75;
+  }
+
+  /* Emblema hexagonal — duas camadas recortadas. */
+  .hexagono {
+    --hex: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    display: flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+    padding: 1.5px;
+    background: var(--color-oliva-500);
+    clip-path: var(--hex);
+  }
+  .hexagono-miolo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: var(--color-fundo);
+    color: var(--color-oliva-300);
+    clip-path: var(--hex);
+  }
+
+  /* Linha do dia: um fio tracejado desce do marcador de cada etapa,
+     como a haste de uma linha do tempo. Fica na coluna do número, onde
+     não há texto. */
+  .linha-do-dia li::before {
+    content: "";
+    position: absolute;
+    left: calc(1.25rem - 0.5px);
+    top: 2.75rem;
+    bottom: 0;
+    border-left: 1px dashed var(--color-borda-forte);
+  }
+
+  /* Caixa de marcar da mochila: o tique é desenhado por cima quando
+     marcada; o texto do item fica riscado. */
+  .caixa-mochila {
+    position: relative;
+  }
+  .caixa-mochila:checked::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border-right: 2.5px solid var(--color-fundo);
+    border-bottom: 2.5px solid var(--color-fundo);
+    transform: rotate(45deg);
+  }
+  .item-mochila:has(.caixa-mochila:checked) .item-mochila-titulo {
+    color: var(--color-texto-2);
+    text-decoration: line-through;
+    text-decoration-color: var(--color-oliva-700);
+  }
+
+  /* ============================================================
+     A ficha do hero se preenche sozinha.
+     Estado base = tudo marcado. A animação só parte do "vazio"; sem
+     ela (reduced motion), a pessoa vê a ficha completa.
+     ============================================================ */
+  .ficha-item {
+    animation: pj-surgir 400ms ease-out both;
+    animation-delay: calc(500ms + var(--i) * 650ms);
+  }
+  .ficha-caixa {
+    animation: pj-marcar 300ms ease-out both;
+    animation-delay: calc(900ms + var(--i) * 650ms);
+  }
+  .ficha-tique {
+    animation: pj-tique 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(950ms + var(--i) * 650ms);
+  }
+  .ficha-pronto {
+    animation: pj-surgir 400ms ease-out 3600ms both;
+  }
+  .ficha-pulso {
+    animation: pj-pulsar 2s ease-in-out 4s infinite;
+  }
+
+  @keyframes pj-surgir {
+    from {
+      opacity: 0;
+      transform: translateX(-6px);
+    }
+  }
+  @keyframes pj-marcar {
+    from {
+      background-color: transparent;
+    }
+    to {
+      background-color: rgba(125, 145, 57, 0.25);
+    }
+  }
+  @keyframes pj-tique {
+    from {
+      opacity: 0;
+      transform: scale(0.3);
+    }
+  }
+  @keyframes pj-pulsar {
+    50% {
+      opacity: 0.3;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ficha-item,
+    .ficha-caixa,
+    .ficha-tique,
+    .ficha-pronto,
+    .ficha-pulso {
+      animation: none;
+    }
+    .ficha-caixa {
+      background-color: rgba(125, 145, 57, 0.25);
+    }
+    .chip-topico {
+      transition: none;
+    }
+  }
+</style>
