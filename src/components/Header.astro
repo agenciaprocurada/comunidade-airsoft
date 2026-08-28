@@ -19,6 +19,7 @@ const links = [
   { href: "/lojas", texto: "Onde comprar" },
   { href: "/armeiros", texto: "Armeiros" },
   { href: "/operacoes", texto: "Operações" },
+  { href: "/criador-de-mapas", texto: "Criador de Mapas" },
   { href: "/guias", texto: "Guias" },
 ];
 
@@ -45,14 +46,18 @@ const linkConta = { href: "/conta", texto: "Minha conta" };
   ]}
 >
   <div
-    class="mx-auto flex max-w-[1240px] items-center justify-between gap-8 px-5 py-4 md:px-12 md:py-5"
+    class="mx-auto flex max-w-[1240px] items-center justify-between gap-6 px-5 py-4 md:px-12 md:py-5 xl:gap-8"
   >
     <a href="/" class="shrink-0" aria-label="Comunidade Airsoft — página inicial">
-      <Logo class="h-10 w-auto md:h-14" />
+      <Logo class="h-10 w-auto xl:h-14" />
     </a>
 
-    <nav aria-label="Principal" class="hidden md:block">
-      <ul class="flex items-center gap-9">
+    {/*
+      Barra horizontal só a partir de lg. Com seis links mais o logo e o
+      botão da conta, 768px não comporta a linha — quebrava em duas.
+    */}
+    <nav aria-label="Principal" class="hidden lg:block">
+      <ul class="flex items-center gap-5 xl:gap-8">
         {
           links.map((link) => {
             const ativo = atual === link.href || atual.startsWith(link.href + "/");
@@ -62,7 +67,7 @@ const linkConta = { href: "/conta", texto: "Minha conta" };
                   href={link.href}
                   aria-current={ativo ? "page" : undefined}
                   class:list={[
-                    "block border-b-2 pb-1 font-display text-lg font-bold uppercase tracking-[0.08em] transition-colors",
+                    "block whitespace-nowrap border-b-2 pb-1 font-display text-base font-bold uppercase tracking-[0.06em] transition-colors xl:text-lg xl:tracking-[0.08em]",
                     ativo
                       ? "border-oliva-500 text-tinta"
                       : "border-transparent text-tinta/75 hover:border-oliva-500 hover:text-tinta",
@@ -78,7 +83,7 @@ const linkConta = { href: "/conta", texto: "Minha conta" };
           <a
             href={linkConta.href}
             aria-current={atual.startsWith("/conta") ? "page" : undefined}
-            class="block border border-borda-forte px-4 py-2 font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-300 transition-colors hover:border-oliva-500 hover:bg-oliva-050 hover:text-oliva-100"
+            class="block whitespace-nowrap border border-borda-forte px-3 py-2 font-display text-[15px] font-bold uppercase tracking-[0.06em] text-oliva-300 xl:px-4 xl:text-base xl:tracking-[0.08em] transition-colors hover:border-oliva-500 hover:bg-oliva-050 hover:text-oliva-100"
           >
             {linkConta.texto}
           </a>
@@ -86,7 +91,7 @@ const linkConta = { href: "/conta", texto: "Minha conta" };
       </ul>
     </nav>
 
-    <details class="relative md:hidden">
+    <details class="relative lg:hidden">
       <summary
         class="cursor-pointer list-none border border-borda-forte bg-fundo/80 px-3 py-2 font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-300"
       >

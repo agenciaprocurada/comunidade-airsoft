@@ -1,0 +1,845 @@
+---
+import Base from "../layouts/Base.astro";
+import Botao from "../components/Botao.astro";
+import { AREAS, CORES, FORMATOS, GRADE_MAX, LIMITE_MAPAS } from "../lib/mapa";
+import { GRUPOS_SIMBOLOS, SIMBOLOS } from "../lib/simbolos";
+
+/**
+ * Landing page do Criador de Mapas.
+ *
+ * Estática e pública de propósito: a ferramenta em si (/mapa) exige
+ * sessão, então quem chega pelo Google bateria num redirect para
+ * /entrar sem nunca ver o que o produto faz. Esta página é a vitrine
+ * indexável; o botão manda para /mapa e o middleware cuida do login.
+ *
+ * O catálogo de símbolos, áreas e cores é IMPORTADO do mesmo módulo
+ * que o editor usa. Se um símbolo entrar ou sair de lá, a página muda
+ * junto — vitrine que descreve ferramenta tem que ler a ferramenta,
+ * não uma cópia do texto.
+ *
+ * A assinatura visual é o mapa do hero, que SE DESENHA no
+ * carregamento: grade, áreas, rota e símbolos entram na mesma ordem
+ * em que a pessoa os desenharia no editor. É o produto se
+ * demonstrando. Com `prefers-reduced-motion` nada anima — o estado
+ * base de cada elemento já é o mapa pronto, a animação só revela.
+ *
+ * As seções são numeradas por coordenada de quadrícula (A1, B2...):
+ * é a convenção central do produto ("contato em B4") aplicada à
+ * própria página.
+ */
+
+const TITULO = "Criador de Mapas táticos de airsoft";
+const DESCRICAO =
+  "Monte o mapa do seu campo de airsoft sobre a imagem de satélite: grade de setores, " +
+  "safe, respawn, CQB, rotas e símbolos. Exporte em PNG e mande no grupo. Grátis.";
+
+const totalSimbolos = Object.keys(SIMBOLOS).length;
+const totalFormatos = Object.keys(FORMATOS).length;
+
+const PASSOS = [
+  {
+    numero: "01",
+    titulo: "Encontre o campo",
+    texto:
+      "Busque pelo nome do sítio, pelo endereço ou cole a coordenada. Depois é " +
+      "arrastar a imagem de satélite até o terreno de jogo caber inteiro — com a " +
+      "mata, as trincheiras e o estacionamento.",
+  },
+  {
+    numero: "02",
+    titulo: "Alinhe a imagem",
+    texto:
+      "Gire o mapa para bater com a leitura de quem está em campo. Norte para cima " +
+      "quase nunca é o mais útil: o que orienta é a entrada, a estrada ou a linha de " +
+      "safe. A rosa dos ventos gira junto e continua apontando o norte real.",
+  },
+  {
+    numero: "03",
+    titulo: "Desenhe a operação",
+    texto:
+      "Marque áreas clicando ponto a ponto, trace rotas com seta, escreva no mapa e " +
+      "solte os símbolos de safe, respawn e CQB. A quadrícula usa letra na coluna e " +
+      "número na linha — o mesmo “B4” que já se fala no rádio.",
+  },
+];
+
+/** Ficha técnica — cada linha é um fato da ferramenta, não um slogan. */
+const FICHA = [
+  {
+    termo: "Escala",
+    valor:
+      "Calculada a partir da latitude e do zoom da imagem. Dá para dizer no " +
+      "briefing que o setor tem 80 metros e estar certo.",
+  },
+  {
+    termo: "Quadrícula",
+    valor:
+      `De 2 a ${GRADE_MAX} colunas, letra na coluna e número na linha — o mesmo ` +
+      "código de posição que já se fala no rádio.",
+  },
+  {
+    termo: "Cores",
+    valor:
+      "Convenção fixa: safe é sempre azul, respawn é sempre verde, área proibida " +
+      "é sempre vermelha. Mapa de campo diferente continua legível pela mesma regra.",
+  },
+  {
+    termo: "Exportação",
+    valor:
+      `PNG em ${totalFormatos} formatos — da folha impressa ao story de celular. ` +
+      "Sai do editor direto para o WhatsApp do jogo.",
+  },
+  {
+    termo: "Satélite",
+    valor:
+      "A imagem já vem, direto no navegador. Você não precisa de conta em serviço " +
+      "de mapa nem de chave de API.",
+  },
+  {
+    termo: "Capacidade",
+    valor:
+      `Até ${LIMITE_MAPAS} mapas salvos na conta, cada um com o enquadramento e ` +
+      "todos os desenhos. Abra de novo semana que vem e mude só o objetivo.",
+  },
+];
+
+const PERGUNTAS = [
+  {
+    p: "O Criador de Mapas é pago?",
+    r: "Não. É gratuito e faz parte da conta da Comunidade Airsoft, que também é gratuita. Não pedimos cartão em momento nenhum.",
+  },
+  {
+    p: "Preciso saber mexer em programa de desenho?",
+    r: "Não. A imagem de satélite já vem pronta e você só clica: um clique por canto para fechar uma área, um clique para soltar um símbolo. Quem monta briefing no papel monta aqui em minutos.",
+  },
+  {
+    p: "Preciso de conta para usar?",
+    r: "Sim. O editor fica na área do jogador: você entra com sua conta Google, completa o cadastro e a ferramenta libera. É de graça e leva menos de dois minutos.",
+  },
+  {
+    p: "Funciona no celular?",
+    r: "Abre no celular, mas o editor foi feito para tela grande — são painéis de ferramentas ao redor do mapa. Para montar, prefira o computador; para mostrar o mapa pronto no campo, o celular resolve.",
+  },
+  {
+    p: "Posso usar o mapa no meu evento pago?",
+    r: "Pode. O mapa é seu, sem marca d'água nossa por cima do seu desenho. Use no briefing, no cartaz da operação e no grupo dos inscritos.",
+  },
+  {
+    p: "Serve para paintball, milsim ou trekking?",
+    r: "Serve para qualquer jogo de campo. Os símbolos são de airsoft (safe, respawn, cronógrafo), mas grade, áreas e rotas funcionam igual em qualquer terreno.",
+  },
+];
+
+const faq = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: PERGUNTAS.map(({ p, r }) => ({
+    "@type": "Question",
+    name: p,
+    acceptedAnswer: { "@type": "Answer", text: r },
+  })),
+};
+
+const aplicativo = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Criador de Mapas — Comunidade Airsoft",
+  url: new URL("/mapa", Astro.site).href,
+  applicationCategory: "DesignApplication",
+  operatingSystem: "Navegador web",
+  inLanguage: "pt-BR",
+  description: DESCRICAO,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "BRL" },
+};
+
+/** Colunas que a quadrícula decorativa do hero rotula. */
+const COLUNAS_HERO = ["A", "B", "C", "D"];
+
+/** Os quatro passos entre "cheguei" e "mapa pronto". */
+const TRAJETO = [
+  { n: "01", t: "Entrar com o Google — sem senha e sem cartão." },
+  { n: "02", t: "Completar o cadastro: WhatsApp, cidade e os termos." },
+  { n: "03", t: "Cadastrar uma réplica na sua ficha — é o que libera as ferramentas." },
+  { n: "04", t: "Abrir o criador e montar o mapa do seu campo." },
+];
+---
+
+<Base titulo={TITULO} descricao={DESCRICAO} dadosEstruturados={[aplicativo, faq]}>
+  <!-- ==========================================================
+       HERO — o mapa se desenha sozinho
+       ========================================================== -->
+  <section class="relative isolate overflow-hidden border-b border-borda">
+    <div class="grade-tatica absolute inset-0 -z-10 opacity-40" aria-hidden="true"></div>
+
+    <div
+      class="mx-auto grid max-w-[1240px] items-center gap-10 px-5 py-14 md:px-12 md:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:gap-14"
+    >
+      <div>
+        <p class="rotulo">Ferramenta gratuita · Roda no navegador</p>
+
+        <h1
+          class="mt-4 font-display text-[44px] font-extrabold uppercase italic leading-[0.9] md:text-[72px]"
+        >
+          Criador de<br />
+          <span class="text-oliva-500">mapas táticos</span>
+        </h1>
+
+        <p class="mt-6 max-w-[52ch] text-lg leading-relaxed text-texto">
+          Monte o mapa do seu campo por cima da imagem de satélite: grade de
+          setores, safe, respawn, CQB, rotas e objetivos. Exporte em PNG e mande
+          no grupo antes de a operação começar.
+        </p>
+
+        <p class="mt-4 max-w-[52ch] leading-relaxed text-texto-2">
+          Feito para quem organiza jogo e hoje explica o campo por áudio, print
+          riscado no dedo ou desenho no chão.
+        </p>
+
+        <div class="mt-9 flex flex-wrap gap-4">
+          <Botao href="/mapa">Criar meu primeiro mapa</Botao>
+          <Botao href="#como-funciona" variante="secundario" seta>
+            Ver como funciona
+          </Botao>
+        </div>
+
+        <p class="mt-5 font-dado text-[13px] uppercase tracking-[0.14em] text-texto-2">
+          Grátis · Sem cartão · O mapa é seu
+        </p>
+      </div>
+
+      <!--
+        A vitrine: um quadro do editor onde o mapa se monta na ordem em
+        que a pessoa o desenharia. É SVG, não captura de tela — não
+        envelhece junto com a interface do editor.
+      -->
+      <div aria-hidden="true" class="moldura-tatica border border-borda-forte bg-fundo">
+        <!-- Barra do quadro: nome da operação e origem da imagem -->
+        <div
+          class="flex items-center justify-between gap-3 border-b border-borda px-3 py-2 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2"
+        >
+          <span class="flex items-center gap-2">
+            <span class="mapa-pulso inline-block h-1.5 w-1.5 bg-oliva-400"></span>
+            Operação domingo — Sítio Alvorada
+          </span>
+          <span class="hidden sm:inline">Satélite · Zoom 18</span>
+        </div>
+
+        <div class="relative aspect-[4/3] overflow-hidden bg-[#1a2016]">
+          <!-- Terreno (a "foto de satélite") -->
+          <svg viewBox="0 0 400 300" class="absolute inset-0 h-full w-full opacity-70">
+            <path d="M0 0h400v300H0z" fill="#232b1d"></path>
+            <path d="M-10 40q90 30 150 0t180 40v230H-10z" fill="#1c2417"></path>
+            <path d="M240 -10q60 60 170 40v120q-90 20-150-30t-20-130z" fill="#2a331f"></path>
+            <path d="M20 210q120-40 200 20t190 10v80H20z" fill="#171d12"></path>
+            <path
+              d="M-10 250q140-60 200-30t220-40"
+              stroke="#4a4636"
+              stroke-width="9"
+              fill="none"></path>
+          </svg>
+
+          <!-- Quadrícula A1..D3 — primeira camada a entrar -->
+          <div class="mapa-grade absolute inset-5 grid grid-cols-4 grid-rows-3 md:inset-6">
+            {
+              [0, 1, 2].map((linha) =>
+                COLUNAS_HERO.map((coluna) => (
+                  <div class="relative border border-oliva-300/25">
+                    <span class="absolute left-1 top-0.5 font-dado text-[10px] tracking-widest text-oliva-300/60">
+                      {coluna}
+                      {linha + 1}
+                    </span>
+                  </div>
+                )),
+              )
+            }
+          </div>
+
+          <!-- Desenho da operação, na ordem do editor -->
+          <svg viewBox="0 0 400 300" class="absolute inset-0 h-full w-full">
+            <!-- Safe: traço se desenha, depois o preenchimento entra -->
+            <polygon
+              class="mapa-traco mapa-traco-1"
+              pathLength="1"
+              points="46,52 128,44 140,110 60,124"
+              fill="#3b82f6"
+              stroke="#3b82f6"
+              stroke-width="2"></polygon>
+
+            <!-- CQB: contorno tracejado entra por revelação -->
+            <g class="mapa-revela mapa-revela-cqb">
+              <polygon
+                points="250,60 344,74 330,142 244,132"
+                fill="#ef4444"
+                fill-opacity="0.16"
+                stroke="#ef4444"
+                stroke-width="2"
+                stroke-dasharray="12 8"></polygon>
+            </g>
+
+            <!-- Objetivo -->
+            <polygon
+              class="mapa-traco mapa-traco-2"
+              pathLength="1"
+              points="150,186 268,178 280,246 156,252"
+              fill="#a855f7"
+              stroke="#a855f7"
+              stroke-width="2"></polygon>
+
+            <!-- Rota: revelada da esquerda para a direita; o tracejado
+                 segue marchando devagar depois de pronta -->
+            <g class="mapa-revela mapa-revela-rota">
+              <path
+                class="mapa-marcha"
+                d="M96 118q20 50 90 46t80 32"
+                fill="none"
+                stroke="#8fae4b"
+                stroke-width="3"
+                stroke-dasharray="14 6"></path>
+              <path d="M258 190l16 6-13 9" fill="none" stroke="#8fae4b" stroke-width="3"
+              ></path>
+            </g>
+
+            <!-- Símbolos pousam depois da área deles -->
+            <g class="mapa-simbolo mapa-simbolo-1">
+              <circle cx="94" cy="88" r="15" fill="#0b0d09" stroke="#3b82f6" stroke-width="2"
+              ></circle>
+              <path
+                d={SIMBOLOS.safe.desenho}
+                transform="translate(82 76)"
+                fill="none"
+                stroke="#3b82f6"
+                stroke-width="1.8"></path>
+            </g>
+            <g class="mapa-simbolo mapa-simbolo-2">
+              <circle cx="296" cy="104" r="15" fill="#0b0d09" stroke="#ef4444" stroke-width="2"
+              ></circle>
+              <path
+                d={SIMBOLOS.cqb.desenho}
+                transform="translate(284 92)"
+                fill="none"
+                stroke="#ef4444"
+                stroke-width="1.8"></path>
+            </g>
+            <g class="mapa-simbolo mapa-simbolo-3">
+              <circle cx="212" cy="214" r="15" fill="#0b0d09" stroke="#a855f7" stroke-width="2"
+              ></circle>
+              <path
+                d={SIMBOLOS.objetivo.desenho}
+                transform="translate(200 202)"
+                fill="none"
+                stroke="#a855f7"
+                stroke-width="1.8"></path>
+            </g>
+          </svg>
+
+          <!-- Chamado de rádio: a última coisa a aparecer -->
+          <div class="mapa-chamado absolute right-[6%] top-[45%] border-l-2 border-latao pl-2">
+            <span class="font-dado text-[10px] uppercase tracking-[0.18em] text-latao">
+              Contato em C2
+            </span>
+          </div>
+
+          <!-- Barra de escala e norte, como no editor -->
+          <div
+            class="absolute bottom-3 left-5 border-b-2 border-l-2 border-r-2 border-tinta/70 px-2 pb-0.5 md:left-6"
+          >
+            <span class="font-dado text-[10px] tracking-widest text-tinta/80">100 m</span>
+          </div>
+          <div
+            class="absolute right-5 top-4 font-dado text-[10px] tracking-[0.2em] text-tinta/60"
+          >
+            N ▲
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       A1 — COMO FUNCIONA
+       ========================================================== -->
+  <section id="como-funciona" class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-setor" aria-hidden="true">A1</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+        Como funciona
+      </h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+      Três passos, tudo dentro do navegador. Nenhum deles pede que você aprenda
+      programa de desenho.
+    </p>
+
+    <ol class="mt-10 grid gap-6 md:grid-cols-3">
+      <li class="moldura-tatica flex flex-col border border-borda bg-papel">
+        <!-- Vinheta: a mira da busca sobre o terreno -->
+        <div aria-hidden="true" class="relative aspect-[16/9] overflow-hidden border-b border-borda bg-[#1a2016]">
+          <svg viewBox="0 0 320 180" class="h-full w-full opacity-80">
+            <path d="M0 0h320v180H0z" fill="#232b1d"></path>
+            <path d="M-10 30q80 26 130 0t150 34v130H-10z" fill="#1c2417"></path>
+            <path d="M200 -10q50 50 130 34v100q-70 16-120-24t-10-110z" fill="#2a331f"></path>
+            <circle cx="160" cy="90" r="34" fill="none" stroke="#a9bd66" stroke-width="1.5"></circle>
+            <path d="M160 42v28M160 110v28M112 90h28M180 90h28" stroke="#a9bd66" stroke-width="1.5"></path>
+            <circle cx="160" cy="90" r="3" fill="#a9bd66"></circle>
+          </svg>
+          <span class="absolute bottom-2 left-3 font-dado text-[10px] tracking-[0.16em] text-oliva-300/70">
+            -29.16, -51.17
+          </span>
+        </div>
+        <div class="p-6">
+          <span class="font-dado text-sm tracking-[0.2em] text-oliva-500">{PASSOS[0].numero}</span>
+          <h3 class="mt-2 font-display text-xl font-bold uppercase tracking-[0.03em]">
+            {PASSOS[0].titulo}
+          </h3>
+          <p class="mt-3 leading-relaxed text-texto-2">{PASSOS[0].texto}</p>
+        </div>
+      </li>
+
+      <li class="moldura-tatica flex flex-col border border-borda bg-papel">
+        <!-- Vinheta: o quadro girando em relação ao enquadramento antigo -->
+        <div aria-hidden="true" class="relative aspect-[16/9] overflow-hidden border-b border-borda bg-[#1a2016]">
+          <svg viewBox="0 0 320 180" class="h-full w-full opacity-80">
+            <path d="M0 0h320v180H0z" fill="#232b1d"></path>
+            <path d="M20 190q100-60 170-20t140-30v50H20z" fill="#171d12"></path>
+            <path d="M-10 60q90 24 150 0t190 30" stroke="#4a4636" stroke-width="7" fill="none"></path>
+            <rect x="90" y="40" width="140" height="100" fill="none" stroke="#98a087" stroke-width="1.5" stroke-dasharray="6 5"></rect>
+            <rect x="90" y="40" width="140" height="100" fill="none" stroke="#a9bd66" stroke-width="2" transform="rotate(-11 160 90)"></rect>
+            <path d="M248 52a52 52 0 0 1 10 24" fill="none" stroke="#a9bd66" stroke-width="1.5"></path>
+            <path d="M255 70l3 8 7-5" fill="none" stroke="#a9bd66" stroke-width="1.5"></path>
+          </svg>
+          <span class="absolute bottom-2 left-3 font-dado text-[10px] tracking-[0.16em] text-oliva-300/70">
+            N ↺ -11°
+          </span>
+        </div>
+        <div class="p-6">
+          <span class="font-dado text-sm tracking-[0.2em] text-oliva-500">{PASSOS[1].numero}</span>
+          <h3 class="mt-2 font-display text-xl font-bold uppercase tracking-[0.03em]">
+            {PASSOS[1].titulo}
+          </h3>
+          <p class="mt-3 leading-relaxed text-texto-2">{PASSOS[1].texto}</p>
+        </div>
+      </li>
+
+      <li class="moldura-tatica flex flex-col border border-borda bg-papel">
+        <!-- Vinheta: área sendo fechada ponto a ponto -->
+        <div aria-hidden="true" class="relative aspect-[16/9] overflow-hidden border-b border-borda bg-[#1a2016]">
+          <svg viewBox="0 0 320 180" class="h-full w-full opacity-80">
+            <path d="M0 0h320v180H0z" fill="#232b1d"></path>
+            <path d="M-10 120q100-40 180 0t160-10v80H-10z" fill="#1c2417"></path>
+            <path d="M84 58 218 46 236 118 120 136" fill="#3b82f6" fill-opacity="0.16" stroke="#3b82f6" stroke-width="2"></path>
+            <path d="M120 136 84 58" stroke="#3b82f6" stroke-width="2" stroke-dasharray="5 5"></path>
+            <g fill="#0b0d09" stroke="#f0f2e9" stroke-width="1.5">
+              <rect x="79" y="53" width="10" height="10"></rect>
+              <rect x="213" y="41" width="10" height="10"></rect>
+              <rect x="231" y="113" width="10" height="10"></rect>
+              <rect x="115" y="131" width="10" height="10"></rect>
+            </g>
+            <path d="M124 140l14 5-5 5z" fill="#f0f2e9"></path>
+          </svg>
+          <span class="absolute bottom-2 left-3 font-dado text-[10px] tracking-[0.16em] text-oliva-300/70">
+            Safe zone · 4 pontos
+          </span>
+        </div>
+        <div class="p-6">
+          <span class="font-dado text-sm tracking-[0.2em] text-oliva-500">{PASSOS[2].numero}</span>
+          <h3 class="mt-2 font-display text-xl font-bold uppercase tracking-[0.03em]">
+            {PASSOS[2].titulo}
+          </h3>
+          <p class="mt-3 leading-relaxed text-texto-2">{PASSOS[2].texto}</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ==========================================================
+       B2 — PAINEL DE SÍMBOLOS
+       ========================================================== -->
+  <section class="border-y border-borda bg-papel/40">
+    <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+      <div class="flex items-center gap-4">
+        <span class="tag-setor" aria-hidden="true">B2</span>
+        <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+          {totalSimbolos} símbolos prontos
+        </h2>
+        <div class="h-px flex-1 bg-borda"></div>
+      </div>
+
+      <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+        Desenhados para airsoft, não baixados de banco de ícone genérico. Cada um
+        já vem com a cor da convenção — você só solta no lugar.
+      </p>
+
+      <!-- A bandeja, como aparece no editor -->
+      <div class="mt-10 border border-borda-forte bg-fundo">
+        <div
+          class="flex items-center justify-between border-b border-borda px-4 py-2.5 font-dado text-[11px] uppercase tracking-[0.16em] text-texto-2"
+        >
+          <span>Painel de símbolos</span>
+          <span>{totalSimbolos} itens</span>
+        </div>
+
+        <div class="grid gap-x-8 gap-y-7 p-5 md:grid-cols-3 md:p-6">
+          {
+            GRUPOS_SIMBOLOS.map((grupo) => (
+              <div>
+                <p class="rotulo">{grupo.rotulo}</p>
+                <ul class="mt-3 flex flex-wrap gap-2">
+                  {grupo.itens.map((chave) => {
+                    const simbolo = SIMBOLOS[chave];
+                    return (
+                      <li
+                        class="chip-simbolo flex items-center gap-2.5 border border-borda bg-papel py-1.5 pl-1.5 pr-3"
+                        style={`--cor-simbolo:${simbolo.cor}`}
+                      >
+                        <span
+                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border"
+                          style={`border-color:${simbolo.cor};background-color:${simbolo.cor}22`}
+                        >
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            class="h-[18px] w-[18px]"
+                            fill="none"
+                            stroke={simbolo.cor}
+                            stroke-width="1.8"
+                          >
+                            <path d={simbolo.desenho} />
+                          </svg>
+                        </span>
+                        <span class="text-[0.875rem] text-texto">{simbolo.rotulo}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))
+          }
+        </div>
+
+        <div
+          class="grid gap-x-8 gap-y-5 border-t border-borda px-5 py-5 md:grid-cols-2 md:px-6"
+        >
+          <div>
+            <p class="rotulo">Áreas com cor fixa</p>
+            <ul class="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+              {
+                Object.values(AREAS).map((area) => (
+                  <li class="flex items-center gap-2 text-[0.875rem] text-texto">
+                    <span
+                      class="h-3 w-3 shrink-0 border"
+                      style={`border-color:${area.cor};background-color:${area.cor}33`}
+                    />
+                    {area.rotulo}
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+          <div>
+            <p class="rotulo">Paleta do traço</p>
+            <ul class="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+              {
+                CORES.map((cor) => (
+                  <li class="flex items-center gap-2 text-[0.875rem] text-texto">
+                    <span
+                      class="h-3 w-3 shrink-0 border border-borda-forte"
+                      style={`background-color:${cor.valor}`}
+                    />
+                    {cor.rotulo}
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       C3 — FICHA TÉCNICA
+       ========================================================== -->
+  <section class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-setor" aria-hidden="true">C3</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+        Ficha técnica
+      </h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <dl class="mt-10 grid md:grid-cols-2 md:gap-x-14">
+      {
+        FICHA.map((item) => (
+          <div class="grid grid-cols-[7.5rem_1fr] gap-4 border-t border-borda py-5 md:grid-cols-[8.5rem_1fr]">
+            <dt class="pt-0.5 font-dado text-[12px] uppercase tracking-[0.16em] text-oliva-400">
+              {item.termo}
+            </dt>
+            <dd class="m-0 text-[1rem] leading-relaxed text-texto">{item.valor}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </section>
+
+  <!-- ==========================================================
+       CTA — CADASTRO
+       ========================================================== -->
+  <section class="border-y border-borda bg-papel/40">
+    <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+      <h2
+        class="max-w-[24ch] font-display text-3xl font-extrabold uppercase italic leading-tight md:text-4xl"
+      >
+        Crie sua conta e monte o primeiro mapa
+      </h2>
+      <p class="mt-5 max-w-[56ch] text-lg leading-relaxed text-texto-2">
+        O editor fica na área do jogador. A conta é gratuita, a entrada é pela
+        sua conta Google e não criamos senha nenhuma.
+      </p>
+
+      <ol class="mt-9 grid gap-px overflow-hidden border border-borda bg-borda md:grid-cols-4">
+        {
+          TRAJETO.map((passo) => (
+            <li class="bg-fundo p-5">
+              <span class="font-dado text-sm tracking-[0.2em] text-oliva-500">{passo.n}</span>
+              <p class="mt-2 text-[0.9375rem] leading-relaxed text-texto">{passo.t}</p>
+            </li>
+          ))
+        }
+      </ol>
+
+      <div class="mt-9 flex flex-wrap gap-4">
+        <Botao href="/mapa">Criar meu primeiro mapa</Botao>
+        <Botao
+          href="/guias/como-organizar-operacao-de-airsoft-briefing"
+          variante="secundario"
+          seta
+        >
+          Guia de briefing
+        </Botao>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       D4 — PERGUNTAS
+       ========================================================== -->
+  <section class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-setor" aria-hidden="true">D4</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+        Perguntas
+      </h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <div class="mt-8 max-w-[72ch]">
+      {
+        PERGUNTAS.map((item) => (
+          <details class="gaveta border-b border-borda">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-display text-lg font-bold uppercase tracking-[0.03em] text-tinta">
+              {item.p}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                class="chevron h-5 w-5 shrink-0 text-oliva-500 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m6 9 6 6 6-6" stroke-linecap="square" />
+              </svg>
+            </summary>
+            <p class="pb-6 leading-relaxed text-texto-2">{item.r}</p>
+          </details>
+        ))
+      }
+    </div>
+
+    <div class="mt-12 flex flex-wrap items-center gap-6">
+      <Botao href="/mapa">Abrir o criador de mapas</Botao>
+      <a
+        href="/campos"
+        class="font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+      >
+        Procurar um campo primeiro
+      </a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* ============================================================
+     Coordenada de seção — a convenção da quadrícula ("B4 no rádio")
+     aplicada à navegação da própria página.
+     ============================================================ */
+  .tag-setor {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    border: 1px solid var(--color-borda-forte);
+    font-family: var(--font-dado);
+    font-size: 0.8125rem;
+    letter-spacing: 0.08em;
+    color: var(--color-oliva-400);
+  }
+
+  /* Chip da bandeja de símbolos: no hover, a borda assume a cor do
+     próprio símbolo — o mesmo feedback do editor. */
+  .chip-simbolo {
+    transition: border-color 150ms ease;
+  }
+  .chip-simbolo:hover {
+    border-color: var(--cor-simbolo);
+  }
+
+  /* ============================================================
+     O mapa do hero se desenha no carregamento.
+
+     Regra de robustez: o estado BASE de cada camada é o mapa pronto.
+     Toda animação parte de "invisível" no `from` e termina no estado
+     base — se ela não rodar (reduced motion, navegador antigo), o
+     visitante vê o mapa completo, nunca um quadro vazio.
+     ============================================================ */
+
+  /* Camada 1 — a quadrícula surge primeiro, como no editor. */
+  .mapa-grade {
+    animation: cm-surgir 600ms ease-out 200ms both;
+  }
+
+  /* Camada 2 — áreas de traço sólido se desenham pelo contorno
+     (pathLength="1" normaliza o perímetro) e só então preenchem. */
+  .mapa-traco {
+    stroke-dasharray: 1;
+    fill-opacity: 0.2;
+    animation:
+      cm-tracar 900ms ease-in-out both,
+      cm-preencher 500ms ease-out both;
+  }
+  .mapa-traco-1 {
+    animation-delay: 700ms, 1400ms;
+  }
+  .mapa-traco-2 {
+    animation-delay: 1900ms, 2600ms;
+  }
+
+  /* Camada 3 — contorno tracejado e rota entram por revelação
+     (tracejado não se desenha por dashoffset sem perder o padrão). */
+  .mapa-revela {
+    animation: cm-revelar 800ms ease-in-out both;
+  }
+  .mapa-revela-cqb {
+    animation-delay: 1300ms;
+  }
+  .mapa-revela-rota {
+    animation-delay: 2500ms;
+    animation-duration: 1000ms;
+  }
+
+  /* Depois de pronta, a rota segue marchando devagar — o único
+     movimento que fica, e é o movimento de uma rota. */
+  .mapa-marcha {
+    animation: cm-marchar 2.4s linear 3.5s infinite;
+  }
+
+  /* Camada 4 — símbolos pousam logo após a área deles. */
+  .mapa-simbolo {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: cm-pousar 350ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .mapa-simbolo-1 {
+    animation-delay: 1800ms;
+  }
+  .mapa-simbolo-2 {
+    animation-delay: 2300ms;
+  }
+  .mapa-simbolo-3 {
+    animation-delay: 2900ms;
+  }
+
+  /* Última entrada: o chamado de rádio. */
+  .mapa-chamado {
+    animation: cm-chamar 400ms ease-out 3600ms both;
+  }
+
+  /* O ponto "gravando" da barra do quadro. */
+  .mapa-pulso {
+    animation: cm-pulsar 2s ease-in-out 4s infinite;
+  }
+
+  @keyframes cm-surgir {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes cm-tracar {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes cm-preencher {
+    from {
+      fill-opacity: 0;
+    }
+  }
+
+  @keyframes cm-revelar {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+
+  @keyframes cm-marchar {
+    to {
+      stroke-dashoffset: -20;
+    }
+  }
+
+  @keyframes cm-pousar {
+    from {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+  }
+
+  @keyframes cm-chamar {
+    from {
+      opacity: 0;
+      transform: translateX(6px);
+    }
+  }
+
+  @keyframes cm-pulsar {
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mapa-grade,
+    .mapa-traco,
+    .mapa-revela,
+    .mapa-marcha,
+    .mapa-simbolo,
+    .mapa-chamado,
+    .mapa-pulso,
+    .chip-simbolo {
+      animation: none;
+      transition: none;
+    }
+  }
+</style>
