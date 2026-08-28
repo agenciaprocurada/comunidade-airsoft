@@ -1,0 +1,146 @@
+---
+/**
+ * Faixa "Apoiadores" — fecha toda página com casca, logo acima do rodapé.
+ *
+ * Duas partes: a vitrine de logos (src/lib/apoiadores.ts) e a chamada
+ * para quem quer entrar nela. Com a lista vazia a vitrine some e fica só
+ * a chamada — a faixa nunca some, porque a chamada é o que importa
+ * enquanto não há parceiro.
+ *
+ * As logos entram em cinza e ganham cor no hover: o site continua sendo
+ * o assunto, e a vitrine não vira um painel de anúncios brigando com o
+ * conteúdo. Cada logo é um link com rel="sponsored" (é o que o Google
+ * pede para link de parceiro) e nofollow não — parceiro real merece o link.
+ *
+ * A logo é encontrada pelo slug via import.meta.glob, como os fundos da
+ * home: faltou o arquivo, o parceiro aparece só com o nome, e o build
+ * passa. Um import direto de arquivo ausente derrubaria o site inteiro.
+ */
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+import { APOIADORES, LINK_PARCERIA } from "../lib/apoiadores";
+
+const arquivos = import.meta.glob<{ default: ImageMetadata }>(
+  "../assets/apoiadores/*.{webp,png,svg}",
+  { eager: true },
+);
+
+const logoDe = (slug: string): ImageMetadata | undefined =>
+  arquivos[`../assets/apoiadores/${slug}.webp`]?.default ??
+  arquivos[`../assets/apoiadores/${slug}.svg`]?.default ??
+  arquivos[`../assets/apoiadores/${slug}.png`]?.default;
+
+const lista = APOIADORES.map((a) => ({ ...a, logo: logoDe(a.slug) }));
+const temApoiadores = lista.length > 0;
+---
+
+<section
+  aria-labelledby="titulo-apoiadores"
+  class="relative isolate overflow-hidden border-t border-borda bg-papel/40"
+>
+  <div class="grade-tatica absolute inset-0 -z-10 opacity-50" aria-hidden="true"></div>
+
+  <div class="mx-auto max-w-[1240px] px-5 py-14 md:px-12 md:py-16">
+    <div class="flex items-center gap-4">
+      <h2
+        id="titulo-apoiadores"
+        class="m-0 font-display text-3xl font-bold uppercase tracking-[0.04em] text-tinta"
+      >
+        Apoiadores
+      </h2>
+      <div class="h-px flex-1 bg-borda"></div>
+      <p class="m-0 hidden font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400 md:block">
+        Quem mantém a comunidade no ar
+      </p>
+    </div>
+
+    {
+      temApoiadores && (
+        <ul class="mt-8 grid grid-cols-2 border-l border-t border-borda sm:grid-cols-3 lg:grid-cols-5">
+          {lista.map((a) => (
+            <li class="border-b border-r border-borda bg-papel">
+              <a
+                href={a.site}
+                target="_blank"
+                rel="sponsored noopener"
+                title={a.nome}
+                class="apoiador flex h-28 items-center justify-center p-6 transition-colors hover:bg-oliva-050"
+              >
+                {a.logo ? (
+                  <Image
+                    src={a.logo}
+                    alt={a.nome}
+                    widths={[240, 480]}
+                    sizes="(min-width: 1024px) 200px, (min-width: 640px) 30vw, 45vw"
+                    class="max-h-14 w-auto max-w-full object-contain"
+                    loading="lazy"
+                  />
+                ) : (
+                  <span class="text-center font-display text-lg font-bold uppercase tracking-[0.04em] text-texto-2">
+                    {a.nome}
+                  </span>
+                )}
+                <span class="sr-only">(abre em nova aba)</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+
+    <div
+      class:list={[
+        "moldura-tatica flex flex-col gap-6 border border-borda bg-papel p-6 md:flex-row md:items-center md:justify-between md:p-8",
+        temApoiadores ? "mt-6" : "mt-8",
+      ]}
+    >
+      <div class="max-w-[60ch]">
+        <p class="rotulo m-0">Parceria</p>
+        <h3 class="m-0 mt-1 font-display text-2xl font-bold uppercase tracking-[0.03em] text-tinta md:text-3xl">
+          Quer ser parceiro da Comunidade Airsoft?
+        </h3>
+        <p class="m-0 mt-2 text-base leading-relaxed text-texto-2">
+          Sua marca em toda página do site, na frente de quem joga, compra e
+          organiza airsoft no Brasil. Loja, campo, fabricante ou evento: chame
+          no WhatsApp e a gente monta a parceria junto.
+        </p>
+      </div>
+      <a
+        href={LINK_PARCERIA}
+        target="_blank"
+        rel="noopener"
+        class="chanfro inline-flex shrink-0 items-center justify-center gap-2.5 border border-oliva-500 bg-oliva-500 px-[26px] py-[13px] font-display text-[17px] font-bold uppercase tracking-[0.06em] text-fundo transition-colors hover:border-oliva-400 hover:bg-oliva-400"
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" class="h-[1.2em] w-[1.2em]" fill="currentColor">
+          <path
+            d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 1.8a8.2 8.2 0 1 1-4.2 15.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 0 1 12 3.8zM8.9 7.3c-.2 0-.5 0-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.2 5 4.3 2.5 1 3 .8 3.5.7.5 0 1.7-.7 1.9-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.3l-2-1c-.3-.1-.5-.1-.7.1l-.9 1.1c-.2.2-.3.2-.6.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.5-.5.3-.5c.1-.2 0-.4 0-.5l-.9-2.2c-.2-.5-.5-.5-.7-.5h-.5z"
+          ></path>
+        </svg>
+        Chamar no WhatsApp
+        <span class="sr-only">(abre em nova aba)</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Logo em cinza, ganha cor no hover/foco. Logo colorida em toda página
+     viraria anúncio brigando com o conteúdo. */
+  .apoiador :global(img) {
+    filter: grayscale(1) brightness(1.4);
+    opacity: 0.75;
+    transition:
+      filter 150ms,
+      opacity 150ms;
+  }
+  .apoiador:hover :global(img),
+  .apoiador:focus-visible :global(img) {
+    filter: none;
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .apoiador :global(img) {
+      transition: none;
+    }
+  }
+</style>

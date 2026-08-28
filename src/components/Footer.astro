@@ -2,6 +2,13 @@
 import Logo from "./Logo.astro";
 import { DEFINICAO, GRUPO_OFICIAL } from "../lib/entidade";
 
+interface Props {
+  /** Sem a margem de cima — quando a faixa de apoiadores já encosta nele. */
+  semMargem?: boolean;
+}
+
+const { semMargem = false } = Astro.props;
+
 const ano = new Date().getFullYear();
 
 const colunas = [
@@ -36,7 +43,7 @@ const colunas = [
 ];
 ---
 
-<footer class="faixa-escura mt-20 border-t border-borda">
+<footer class:list={["faixa-escura border-t border-borda", !semMargem && "mt-20"]}>
   <div class="mx-auto max-w-[1240px] px-5 py-14 md:px-12">
     <div class="grid gap-10 md:grid-cols-[1.2fr_repeat(3,1fr)]">
       <div class="flex flex-col gap-5">
