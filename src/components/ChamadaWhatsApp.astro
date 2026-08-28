@@ -30,13 +30,13 @@ const ICONE =
   class="chamada-wpp fixed inset-x-0 bottom-0 z-40 md:inset-x-auto md:bottom-6 md:right-6 md:w-[360px]"
 >
   <div
-    class="moldura-tatica relative flex items-center gap-3 border-t border-borda-forte bg-papel/95 px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.5)] backdrop-blur md:flex-col md:items-stretch md:gap-4 md:border md:p-5 md:shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+    class="moldura-tatica relative flex items-center gap-3 border-t-4 border-oliva-300 bg-oliva-500 px-4 py-4 text-fundo shadow-[0_-10px_36px_rgba(0,0,0,0.65)] md:border md:border-borda-forte md:bg-papel/95 md:text-tinta md:flex-col md:items-stretch md:gap-4 md:p-5 md:shadow-[0_12px_40px_rgba(0,0,0,0.6)] md:backdrop-blur"
   >
     <button
       type="button"
       data-fechar
       aria-label="Fechar convite"
-      class="absolute -top-3 right-3 inline-flex h-7 w-7 cursor-pointer items-center justify-center border border-borda-forte bg-fundo text-texto-2 transition-colors hover:border-oliva-500 hover:text-tinta md:-right-3"
+      class="absolute -top-4 right-3 inline-flex h-8 w-8 cursor-pointer items-center justify-center border border-oliva-300 bg-fundo text-tinta transition-colors hover:border-oliva-500 hover:text-oliva-300 md:-top-3 md:-right-3 md:h-7 md:w-7 md:border-borda-forte md:text-texto-2 md:hover:text-tinta"
     >
       <svg aria-hidden="true" viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square">
         <path d="M6 6l12 12M18 6 6 18"></path>
@@ -45,7 +45,7 @@ const ICONE =
 
     <div class="flex min-w-0 flex-1 items-center gap-3">
       <span
-        class="inline-flex h-10 w-10 shrink-0 items-center justify-center border border-oliva-700 bg-fundo/70 text-oliva-300 md:h-12 md:w-12"
+        class="inline-flex h-12 w-12 shrink-0 items-center justify-center border border-fundo/40 bg-fundo text-oliva-300 md:border-oliva-700 md:bg-fundo/70"
         aria-hidden="true"
       >
         <svg viewBox="0 0 24 24" class="h-5 w-5 md:h-6 md:w-6" fill="currentColor">
@@ -54,9 +54,12 @@ const ICONE =
       </span>
       <div class="min-w-0">
         <p class="rotulo m-0 hidden md:block">Comunidade oficial</p>
-        <p class="m-0 truncate font-display text-base font-bold uppercase leading-tight tracking-[0.03em] text-tinta md:mt-1 md:whitespace-normal md:text-xl">
+        <p class="m-0 font-display text-base font-extrabold uppercase leading-[1.05] tracking-[0.03em] text-fundo md:mt-1 md:text-xl md:font-bold md:text-tinta">
           <span class="md:hidden">Grupo oficial no WhatsApp</span>
           <span class="hidden md:inline">Grupo da Comunidade Airsoft no WhatsApp</span>
+        </p>
+        <p class="m-0 mt-1 truncate text-[12px] font-semibold leading-tight text-fundo/85 md:hidden">
+          Dúvidas, jogos e operações — grátis
         </p>
         <p class="m-0 hidden text-sm leading-relaxed text-texto-2 md:mt-1.5 md:block">
           Tire dúvida, ache jogo perto de você e saiba das operações antes de
@@ -70,7 +73,7 @@ const ICONE =
       target="_blank"
       rel="noopener"
       data-entrar
-      class="chanfro inline-flex shrink-0 items-center justify-center gap-2 border border-oliva-500 bg-oliva-500 px-4 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-fundo transition-colors hover:border-oliva-400 hover:bg-oliva-400 md:px-[22px] md:py-[12px] md:text-base"
+      class="chanfro inline-flex shrink-0 items-center justify-center gap-2 border border-fundo bg-fundo px-4 py-3 font-display text-base font-bold uppercase tracking-[0.06em] text-oliva-100 transition-colors hover:text-tinta md:border-oliva-500 md:bg-oliva-500 md:px-[22px] md:py-[12px] md:text-fundo md:hover:border-oliva-400 md:hover:bg-oliva-400"
     >
       Entrar
       <svg aria-hidden="true" viewBox="0 0 24 24" class="h-[1.1em] w-[1.1em]" fill="none" stroke="currentColor" stroke-width="2.5">
