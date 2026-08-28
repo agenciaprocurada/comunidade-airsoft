@@ -7,6 +7,7 @@ import heroMobile from "../assets/hero-fundo-mobile.webp";
 import Base from "../layouts/Base.astro";
 import BuscaCampos from "../components/BuscaCampos.astro";
 import Botao from "../components/Botao.astro";
+import { EQUIPES_VISIVEIS } from "../lib/flags";
 
 const campos = await getCollection("campos", ({ data }) => data.status === "publicado");
 const lojas = await getCollection("lojas", ({ data }) => data.status === "publicado");
@@ -15,6 +16,27 @@ const guias = await getCollection("guias", ({ data }) => !data.rascunho);
 
 /** Quantos guias a home mostra antes do botao para o catalogo completo. */
 const GUIAS_NA_HOME = 3;
+
+/**
+ * A lista do subtitulo do hero segue a flag, nao uma string fixa.
+ *
+ * Enquanto EQUIPES_VISIVEIS for false nao existe porta de entrada para
+ * equipes no site: prometer no hero o que o visitante nao acha e pior do
+ * que nao prometer. Ligou a flag, a palavra volta sozinha e ninguem
+ * precisa lembrar de vir editar este paragrafo.
+ */
+const oQueTem = [
+  "Campos",
+  "operações",
+  "lojas",
+  "armeiros",
+  ...(EQUIPES_VISIVEIS ? ["equipes"] : []),
+  "guias",
+  "ferramentas",
+  "informações",
+];
+
+const listaHero = `${oQueTem.slice(0, -1).join(", ")} e ${oQueTem.at(-1)}`;
 
 /**
  * Sorteio no build — o mesmo criterio dos campos. Site estatico sorteado so
@@ -157,24 +179,10 @@ const selos = [
   },
 ];
 
-const organizacao = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "Comunidade Airsoft",
-  url: Astro.site?.href,
-  description:
-    "Ferramentas e diretórios de airsoft no Brasil: campos, lojas, armeiros, operações, guias e criador de mapa tático.",
-};
-
-const site = {
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  name: "Comunidade Airsoft",
-  url: Astro.site?.href,
-  inLanguage: "pt-BR",
-};
-
 /**
+ * Organization e WebSite nao ficam mais aqui: o layout Base emite a entidade
+ * (src/lib/entidade.ts) em toda pagina, com o mesmo @id.
+ *
  * O gateway declarado como ItemList e o que da ao Google a chance de montar
  * sitelinks para as seis secoes — sem isso ele escolhe sozinho.
  */
@@ -195,7 +203,7 @@ const navegacao = {
 <Base
   titulo="Comunidade Airsoft — campos, lojas, operações e ferramentas de airsoft"
   descricao="Tudo de airsoft no Brasil em um lugar só: onde jogar, onde comprar, onde arrumar sua réplica, a agenda de operações, os guias e o criador de mapa tático. De graça, sem cadastro para consultar."
-  dadosEstruturados={[organizacao, site, navegacao]}
+  dadosEstruturados={[navegacao]}
   headerSobreposto
 >
   <!-- ==========================================================
@@ -234,18 +242,15 @@ const navegacao = {
     <div
       class="mx-auto flex min-h-[640px] max-w-[1240px] items-center px-5 pb-24 pt-64 md:min-h-[760px] md:px-12 md:pb-32 md:pt-44"
     >
-      <div class="w-full max-w-[620px]">
+      <div class="w-full max-w-[880px]">
         <h1
-          class="desgaste font-display text-[42px] font-extrabold uppercase italic leading-[0.88] tracking-[0.01em] drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)] md:text-[104px]"
+          class="desgaste font-display text-[30px] font-extrabold uppercase italic leading-[0.94] tracking-[0.01em] drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)] md:text-[54px] lg:text-[62px]"
         >
-          Onde jogar<br />
-          <span class="text-oliva-500">airsoft</span> no <br class="hidden md:inline" />Brasil
+          A maior plataforma de informações e descoberta do <span class="text-oliva-500">airsoft</span> no Brasil
         </h1>
 
-        <p class="mt-7 max-w-[52ch] text-lg leading-relaxed text-texto drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)]">
-          Campo, loja, armeiro, operação e o mapa da sua partida — reunidos em
-          um lugar só, <span class="text-oliva-300">de graça</span>. Sem
-          cadastro para consultar.
+        <p class="mt-7 max-w-[62ch] text-lg leading-relaxed text-texto drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)]">
+          {listaHero} para quem joga ou quer começar no airsoft.
         </p>
       </div>
     </div>

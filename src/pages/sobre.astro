@@ -1,44 +1,401 @@
 ---
+import { getCollection } from "astro:content";
 import Base from "../layouts/Base.astro";
+import TopoPagina from "../components/TopoPagina.astro";
+import Botao from "../components/Botao.astro";
+import { DEFINICAO, GRUPO_OFICIAL, organizacao, refSite } from "../lib/entidade";
+
+/**
+ * Página institucional — a que responde "o que é isso?" para uma pessoa
+ * e, cada vez mais, para um modelo de linguagem. Por isso o texto é
+ * declarativo, cada seção responde a UMA pergunta e o título da seção É
+ * a pergunta. As mesmas perguntas vão no JSON-LD (FAQPage) para que a
+ * resposta tenha a mesma forma no HTML e nos dados estruturados.
+ *
+ * A definição da entidade vem de src/lib/entidade.ts — a mesma frase que
+ * o layout emite em toda página. Esta é a página que a explica por
+ * extenso (a Organization aponta para cá em `mainEntityOfPage`).
+ *
+ * A seção "Como as informações são obtidas?" descreve o que o site já
+ * faz de verdade (selo, data de conferência, grau de confiança, origem
+ * do dado na ficha). Se algum desses mecanismos mudar, esta página tem
+ * que mudar junto — prometer verificação que não existe é pior do que
+ * não prometer.
+ */
+
+/** Data da última revisão deste texto — não do diretório. */
+const atualizado = "28 de agosto de 2026";
+const atualizadoIso = "2026-08-28";
+
+const campos = await getCollection("campos", ({ data }) => data.status === "publicado");
+const lojas = await getCollection("lojas", ({ data }) => data.status === "publicado");
+const armeiros = await getCollection("armeiros", ({ data }) => data.status === "publicado");
+const guias = await getCollection("guias", ({ data }) => !data.rascunho);
+
+const contagem = (total: number, singular: string, plural: string) =>
+  `${total} ${total === 1 ? singular : plural}`;
+
+const nCampos = contagem(campos.length, "campo", "campos");
+const nLojas = contagem(lojas.length, "loja", "lojas");
+const nArmeiros = contagem(armeiros.length, "armeiro", "armeiros");
+const nGuias = contagem(guias.length, "guia", "guias");
+
+/**
+ * O que o site oferece. `href` ausente = seção anunciada mas ainda sem
+ * página pública: dizer "em construção" é melhor do que mandar a pessoa
+ * (ou o robô) para um placeholder com noindex.
+ */
+const oferta = [
+  {
+    titulo: "Campos de airsoft",
+    href: "/campos",
+    dado: nCampos,
+    descricao:
+      "Diretório nacional organizado por estado e cidade, com terreno, estrutura, limites de FPS, preço e contato de cada campo.",
+  },
+  {
+    titulo: "Operações",
+    href: "/operacoes",
+    dado: "Agenda nacional",
+    descricao:
+      "Agenda de gameplays e operações do Brasil inteiro: data, campo, estilo de jogo e inscrição, publicadas pelos próprios organizadores.",
+  },
+  {
+    titulo: "Lojas",
+    href: "/lojas",
+    dado: nLojas,
+    descricao:
+      "Lojas de airsoft online e de porta aberta, com o que vendem e como entrar em contato.",
+  },
+  {
+    titulo: "Armeiros",
+    href: "/armeiros",
+    dado: nArmeiros,
+    descricao:
+      "Quem faz manutenção e upgrade de réplica, em que cidade atende e se recebe pelo correio.",
+  },
+  {
+    titulo: "Equipes",
+    dado: "Em construção",
+    descricao:
+      "Equipes cadastradas pelos próprios jogadores, com perfil, membros e operações. A listagem pública ainda está sendo construída.",
+  },
+  {
+    titulo: "Grupos",
+    dado: "Em construção",
+    descricao:
+      "Grupos regionais de WhatsApp, separados por estado e por tema, para achar gente para jogar.",
+  },
+  {
+    titulo: "Guias",
+    href: "/guias",
+    dado: nGuias,
+    descricao:
+      "Conteúdo gratuito em três níveis: legislação, custo, primeira réplica, bateria, FPS, manutenção, upgrade e regras de jogo.",
+  },
+  {
+    titulo: "Mapas estratégicos",
+    href: "/criador-de-mapas",
+    dado: "Ferramenta grátis",
+    descricao:
+      "Criador de mapa tático: áreas, símbolos e objetivos desenhados sobre a imagem de satélite do campo.",
+  },
+  {
+    titulo: "Informações para iniciantes",
+    href: "/guias/guia-do-iniciante",
+    dado: "Comece aqui",
+    descricao:
+      "Se o airsoft é legal no Brasil, quanto custa começar, o que é obrigatório e como funciona o primeiro dia no campo.",
+  },
+];
+
+/**
+ * As fontes, na ordem em que confiamos nelas. Cada item descreve um
+ * mecanismo que existe no site hoje — o selo, o bloco "Origem do dado",
+ * o grau de confiança, o link de reportar.
+ */
+const fontes = [
+  {
+    titulo: "Informações fornecidas pelos próprios estabelecimentos",
+    texto:
+      "É a fonte mais confiável e a que buscamos para toda ficha. O responsável por um campo ou loja pode reivindicar a própria página, corrigir os dados e publicar operações. Armeiros se cadastram sozinhos, e operações são publicadas pelos organizadores. Uma ficha confirmada pelo responsável recebe o selo “Verificado pelo responsável”.",
+  },
+  {
+    titulo: "Informações públicas",
+    texto:
+      "Site do estabelecimento, perfis no Instagram e no Facebook, Google Maps e listas publicadas pela própria comunidade. Foi assim que o diretório nasceu, num levantamento feito em agosto de 2026. Toda ficha vinda de levantamento mostra os links de origem no bloco “Origem do dado” e deixa claro que ainda não foi confirmada pelo responsável.",
+  },
+  {
+    titulo: "Fontes oficiais",
+    texto:
+      "Quando o assunto é lei ou norma — se o airsoft é legalizado, como transportar réplica, o que a portaria do Exército exige — os guias partem do texto oficial publicado pelo órgão competente, não de resumo de terceiros. Para dados de um estabelecimento, “oficial” é o canal do próprio estabelecimento: site, telefone ou perfil.",
+  },
+  {
+    titulo: "Atualização pela comunidade",
+    texto:
+      "Quem joga sabe antes de qualquer robô que um campo fechou, que uma loja mudou de endereço ou que um telefone não atende mais. Qualquer pessoa pode avisar, e o aviso é conferido antes de virar mudança na ficha. A correção não é automática de propósito: um aviso errado não pode apagar um dado certo.",
+  },
+  {
+    titulo: "Data da última verificação",
+    texto:
+      "Toda ficha mostra quando foi conferida pela última vez (“Conferido em mês/ano”). Quando nunca foi conferida, a ficha diz isso: “Sem conferência registrada”. Além da data, cada dado de levantamento carrega um grau de confiança — alta, média ou baixa — e, quando não é alta, a própria ficha avisa para confirmar por telefone antes de viajar. Não escondemos a ausência de data, nem a dúvida.",
+  },
+  {
+    titulo: "Possibilidade de correção",
+    texto:
+      "Achou dado errado, desatualizado ou faltando? No fim de cada ficha há o link “Reportar informação desatualizada”. Se você é o responsável pelo lugar, use “Reivindicar esta página” para assumir a ficha e editar diretamente. E o grupo oficial no WhatsApp está aberto para qualquer aviso.",
+  },
+];
+
+/**
+ * As perguntas do HTML, repetidas nos dados estruturados. Respostas
+ * curtas e autossuficientes: é o trecho que um buscador ou um modelo de
+ * linguagem cita quando descreve o site.
+ */
+const perguntas = [
+  {
+    pergunta: "O que é a Comunidade Airsoft?",
+    resposta: `${DEFINICAO} O projeto reúne campos, operações, lojas, armeiros, equipes, grupos, guias e ferramentas relacionadas ao esporte no Brasil, de graça. Consultar não exige cadastro.`,
+  },
+  {
+    pergunta: "Qual é o objetivo da Comunidade Airsoft?",
+    resposta:
+      "Facilitar a descoberta de informações sobre airsoft no Brasil. A informação existe, mas está espalhada em grupos de WhatsApp, perfis de Instagram e grupos de Facebook; a plataforma organiza tudo em um lugar só, diz de onde cada dado veio e deixa aberto para consulta.",
+  },
+  {
+    pergunta: "O que você encontra na Comunidade Airsoft?",
+    resposta: `Campos de airsoft (${nCampos}), agenda de operações, lojas (${nLojas}), armeiros (${nArmeiros}), equipes, grupos de WhatsApp, guias (${nGuias}), um criador de mapas estratégicos e informações para iniciantes.`,
+  },
+  {
+    pergunta: "Como as informações da Comunidade Airsoft são obtidas?",
+    resposta:
+      "De quatro fontes, nesta ordem de confiança: informações fornecidas pelos próprios estabelecimentos (ficha reivindicada ou cadastro próprio, que recebe o selo “Verificado pelo responsável”); informações públicas (site, redes sociais, Google Maps e listas da comunidade, com o link de origem exibido na ficha); fontes oficiais, para tudo que é lei ou norma; e atualizações enviadas pela comunidade, conferidas antes de entrar. Toda ficha mostra a data da última verificação, o grau de confiança do dado e um link para reportar correção.",
+  },
+  {
+    pergunta: "A Comunidade Airsoft vende réplicas?",
+    resposta:
+      "Não. A Comunidade Airsoft não é loja, campo nem equipe. Não vende, importa ou intermedia a compra de réplicas ou de qualquer produto controlado, e não organiza operações — conecta quem organiza a quem joga.",
+  },
+];
+
+const site = Astro.site!;
+
+const paginaSobre = {
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  name: "Sobre a Comunidade Airsoft",
+  url: new URL("/sobre", site).href,
+  inLanguage: "pt-BR",
+  dateModified: atualizadoIso,
+  description:
+    "O que é a Comunidade Airsoft, qual é o objetivo, o que você encontra e como as informações são obtidas e verificadas.",
+  isPartOf: refSite(site),
+  // A entidade por extenso: aqui é a página que a define.
+  mainEntity: organizacao(site),
+};
+
+const faq = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  inLanguage: "pt-BR",
+  isPartOf: refSite(site),
+  mainEntity: perguntas.map((p) => ({
+    "@type": "Question",
+    name: p.pergunta,
+    acceptedAnswer: { "@type": "Answer", text: p.resposta },
+  })),
+};
 ---
 
 <Base
   titulo="Sobre a Comunidade Airsoft"
-  descricao="A Comunidade Airsoft é um diretório gratuito de campos, lojas, operações e equipes de airsoft no Brasil. Território neutro: não somos loja, campo nem equipe."
+  descricao="Comunidade Airsoft é uma plataforma brasileira de informação e descoberta dedicada ao airsoft: campos, operações, lojas, armeiros, equipes, grupos, guias e ferramentas. Saiba o objetivo do projeto e como as informações são obtidas e verificadas."
+  dadosEstruturados={[paginaSobre, faq]}
 >
-  <div class="mx-auto max-w-[68ch] px-5 py-12 md:px-12">
-    <h1 class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-5xl">
-      Sobre
-    </h1>
+  <TopoPagina
+    trilha={[{ texto: "Sobre" }]}
+    dados={[
+      { icone: "pino", texto: nCampos },
+      { icone: "loja", texto: nLojas },
+      { icone: "chave", texto: nArmeiros },
+      { icone: "documento", texto: nGuias },
+      { icone: "cadeado", texto: "Sem cadastro" },
+    ]}
+    codigo="07"
+  >
+    Sobre a Comunidade Airsoft
+    <p slot="descricao">
+      {DEFINICAO} Reúne o que um airsofter precisa saber: onde jogar, onde
+      comprar, quem arruma a réplica, quando é a próxima operação e como o
+      esporte funciona.
+    </p>
+  </TopoPagina>
 
-    <p class="mt-6 text-lg leading-relaxed text-texto">
-      A informação sobre airsoft no Brasil existe — só está espalhada em
-      grupos de WhatsApp, perfis de Instagram e grupos regionais de Facebook.
-      Não havia um lugar único para responder às três perguntas básicas de
-      quem joga: onde eu jogo, onde eu compro e com quem eu jogo.
+  <article class="sobre mx-auto max-w-[1240px] px-5 pb-8 md:px-12 md:pb-12">
+    <p
+      class="mt-8 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400"
+    >
+      Texto atualizado em <time datetime={atualizadoIso}>{atualizado}</time>
     </p>
 
-    <p class="mt-4 text-lg leading-relaxed text-texto">
-      A Comunidade Airsoft organiza essa informação e deixa aberta, de graça,
-      sem exigir cadastro para consultar.
-    </p>
+    <!-- O que é -->
+    <section id="o-que-e" class="mt-12 max-w-[72ch]">
+      <h2>O que é a Comunidade Airsoft?</h2>
+      <p class="destaque">{DEFINICAO}</p>
+      <p>
+        O projeto reúne campos, operações, lojas, armeiros, equipes, grupos,
+        guias e ferramentas relacionadas ao esporte no Brasil. É gratuito, e
+        consultar não exige cadastro. Criar conta só é necessário para
+        publicar: assumir uma ficha, cadastrar uma equipe, divulgar uma
+        operação ou salvar um mapa.
+      </p>
+      <p>
+        É território neutro. Não somos loja, não somos campo e não somos
+        equipe — é isso que permite que lojas e campos concorrentes convivam
+        aqui sem enxergar a plataforma como ameaça.
+      </p>
+    </section>
 
-    <h2 class="mt-10 font-display text-2xl font-bold uppercase">
-      Território neutro
-    </h2>
-    <p class="mt-3 leading-relaxed text-texto">
-      Não somos loja, não somos campo e não somos equipe. É isso que permite
-      que lojas e campos concorrentes convivam aqui sem enxergar a plataforma
-      como ameaça.
-    </p>
+    <!-- Objetivo -->
+    <section id="objetivo" class="mt-14 max-w-[72ch]">
+      <h2>Qual é o objetivo?</h2>
+      <p class="destaque">
+        Facilitar a descoberta de informações sobre airsoft no Brasil.
+      </p>
+      <p>
+        A informação existe — só está espalhada em grupos de WhatsApp, perfis
+        de Instagram e grupos regionais de Facebook. Não havia um lugar único
+        para responder às perguntas básicas de quem joga: onde eu jogo, onde
+        eu compro, quem arruma a minha réplica e com quem eu jogo. A Comunidade
+        Airsoft organiza essa informação, diz de onde ela veio e a deixa
+        aberta.
+      </p>
+    </section>
 
-    <h2 class="mt-8 font-display text-2xl font-bold uppercase">
-      O que não fazemos
-    </h2>
-    <ul class="mt-3 ml-5 flex list-[square] flex-col gap-2 text-texto">
-      <li>Não vendemos réplicas nem qualquer produto controlado.</li>
-      <li>Não importamos nem intermediamos compra de réplicas.</li>
-      <li>Não organizamos operações — conectamos quem organiza a quem joga.</li>
-    </ul>
-  </div>
+    <!-- O que você encontra -->
+    <section id="o-que-voce-encontra" class="mt-14">
+      <h2>O que você encontra?</h2>
+      <p class="max-w-[72ch]">
+        Nove frentes, todas de graça. Os números abaixo são contados a cada
+        publicação do site, não digitados à mão.
+      </p>
+
+      <ul class="mt-8 grid gap-px border border-borda bg-borda sm:grid-cols-2 lg:grid-cols-3">
+        {
+          oferta.map((item) => (
+            <li class="flex flex-col bg-papel p-5">
+              <p class="rotulo">{item.dado}</p>
+              <h3 class="mt-2 font-display text-xl font-bold uppercase">
+                {item.href ? (
+                  <a href={item.href} class="transition-colors hover:text-oliva-300">
+                    {item.titulo}
+                  </a>
+                ) : (
+                  item.titulo
+                )}
+              </h3>
+              <p class="mt-2 text-base leading-relaxed text-texto-2">{item.descricao}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <!-- Como as informações são obtidas -->
+    <section id="como-as-informacoes-sao-obtidas" class="mt-16">
+      <h2>Como as informações são obtidas?</h2>
+      <p class="destaque max-w-[72ch]">
+        Cada ficha diz de onde o dado veio, quando foi conferido pela última
+        vez e quanto confiamos nele. Estas são as fontes, na ordem em que
+        confiamos nelas.
+      </p>
+
+      <ol class="mt-8 grid gap-px border border-borda bg-borda md:grid-cols-2">
+        {
+          fontes.map((fonte, i) => (
+            <li class="bg-papel p-5 md:p-6">
+              <p class="rotulo">Fonte {String(i + 1).padStart(2, "0")}</p>
+              <h3 class="mt-2 font-display text-xl font-bold uppercase">{fonte.titulo}</h3>
+              <p class="mt-3 text-base leading-relaxed text-texto">{fonte.texto}</p>
+            </li>
+          ))
+        }
+      </ol>
+
+      <div class="mt-8 max-w-[72ch] border-l-2 border-oliva-500 bg-oliva-050 p-5">
+        <p class="text-base leading-relaxed text-texto">
+          <strong class="text-tinta">Em resumo:</strong> dado confirmado pelo
+          responsável leva selo; dado de levantamento mostra a origem e o grau
+          de confiança; toda ficha mostra a data da última verificação ou
+          declara que não há uma; e qualquer pessoa pode pedir correção.
+        </p>
+      </div>
+    </section>
+
+    <!-- O que não fazemos -->
+    <section id="o-que-nao-fazemos" class="mt-16 max-w-[72ch]">
+      <h2>O que a Comunidade Airsoft não faz?</h2>
+      <ul class="lista">
+        <li>Não vendemos réplicas nem qualquer produto controlado.</li>
+        <li>Não importamos nem intermediamos compra de réplicas.</li>
+        <li>Não organizamos operações — conectamos quem organiza a quem joga.</li>
+        <li>Não cobramos para consultar, e não exigimos cadastro para isso.</li>
+        <li>
+          Não publicamos endereço de armeiro sem autorização: a maioria
+          trabalha em casa, e a ficha mostra só cidade e estado por padrão.
+        </li>
+      </ul>
+    </section>
+
+    <!-- Correção e contato -->
+    <section id="corrigir" class="mt-16 max-w-[72ch]">
+      <h2>Encontrou algo errado?</h2>
+      <p>
+        Use o link “Reportar informação desatualizada” no fim da ficha, ou
+        avise no grupo oficial. Se o lugar é seu, reivindique a página e
+        corrija você mesmo.
+      </p>
+      <div class="mt-6 flex flex-wrap gap-3">
+        <Botao href={GRUPO_OFICIAL} target="_blank" rel="noopener" seta>
+          Grupo oficial no WhatsApp
+        </Botao>
+        <Botao href="/campos" variante="secundario">Ver campos</Botao>
+      </div>
+    </section>
+  </article>
+
+  <style>
+    .sobre h2 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.75rem;
+      line-height: 1.05;
+      text-transform: uppercase;
+      color: var(--color-tinta);
+    }
+    @media (min-width: 768px) {
+      .sobre h2 {
+        font-size: 2.125rem;
+      }
+    }
+    .sobre section > p {
+      margin-top: 1rem;
+      color: var(--color-texto);
+      line-height: 1.65;
+    }
+    .sobre section > p.destaque {
+      margin-top: 1.25rem;
+      font-size: 1.25rem;
+      color: var(--color-tinta);
+    }
+    .sobre .lista {
+      margin: 1rem 0 0 1.25rem;
+      list-style: square;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      color: var(--color-texto);
+      line-height: 1.6;
+    }
+  </style>
 </Base>

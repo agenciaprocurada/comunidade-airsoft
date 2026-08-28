@@ -3,6 +3,7 @@ import { getCollection, render } from "astro:content";
 import { Image } from "astro:assets";
 import Base from "../../layouts/Base.astro";
 import Trilha from "../../components/Trilha.astro";
+import { NOME, refOrganizacao, refSite } from "../../lib/entidade";
 
 export async function getStaticPaths() {
   const guias = await getCollection("guias", ({ data }) => !data.rascunho);
@@ -39,8 +40,14 @@ const artigo = {
   ...(d.imagem ? { image: new URL(d.imagem.src, Astro.site).href } : {}),
   datePublished: d.publicado_em.toISOString(),
   ...(d.atualizado_em ? { dateModified: d.atualizado_em.toISOString() } : {}),
-  author: { "@type": "Organization", name: d.autor },
-  publisher: { "@type": "Organization", name: "Comunidade Airsoft" },
+  // Autor e editor apontam para a entidade do layout (mesmo @id), em vez
+  // de redescrever a organizacao em cada artigo.
+  author:
+    d.autor === NOME
+      ? refOrganizacao(Astro.site!)
+      : { "@type": "Organization", name: d.autor },
+  publisher: refOrganizacao(Astro.site!),
+  isPartOf: refSite(Astro.site!),
   inLanguage: "pt-BR",
 };
 

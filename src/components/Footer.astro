@@ -1,5 +1,6 @@
 ---
 import Logo from "./Logo.astro";
+import { DEFINICAO } from "../lib/entidade";
 
 const ano = new Date().getFullYear();
 
@@ -36,9 +37,13 @@ const colunas = [
     <div class="grid gap-10 md:grid-cols-[1.2fr_repeat(3,1fr)]">
       <div class="flex flex-col gap-5">
         <Logo class="h-11 w-auto self-start" />
+        {/* A definição da entidade, a mesma de /sobre e do JSON-LD, em toda página. */}
         <p class="max-w-[36ch] text-base leading-relaxed text-oliva-100">
-          Onde encontrar campo, operação, loja, equipe e gente para jogar
-          airsoft no Brasil.
+          {DEFINICAO}
+        </p>
+        <p class="max-w-[36ch] text-sm leading-relaxed text-oliva-300">
+          Campo, operação, loja, armeiro, equipe e guia em um lugar só.
+          <a href="/sobre" class="underline hover:text-oliva-100">Saiba mais</a>.
         </p>
       </div>
 

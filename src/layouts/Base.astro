@@ -2,6 +2,7 @@
 import "../styles/global.css";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import { organizacao, website } from "../lib/entidade";
 
 interface Props {
   titulo: string;
@@ -49,6 +50,19 @@ const urlImagem = new URL(imagem, Astro.site).href;
 // O título da home não repete o nome do site.
 const tituloCompleto =
   Astro.url.pathname === "/" ? titulo : `${titulo} | Comunidade Airsoft`;
+
+/**
+ * A entidade em TODA página: a mesma Organization (com o mesmo `@id`) e o
+ * mesmo WebSite, definidos em src/lib/entidade.ts. Os dados estruturados
+ * de cada página (artigo, ficha, listagem) apontam para esses `@id` em vez
+ * de redescrever a organização — o site inteiro converge para uma entidade
+ * só, e /sobre é a página que a explica.
+ */
+const entidade = {
+  "@context": "https://schema.org",
+  "@graph": [organizacao(Astro.site!), website(Astro.site!)],
+};
+const todosDados = [entidade, ...dadosEstruturados];
 ---
 
 <!doctype html>
@@ -100,7 +114,7 @@ const tituloCompleto =
     />
 
     {
-      dadosEstruturados.map((dado) => (
+      todosDados.map((dado) => (
         <script
           is:inline
           type="application/ld+json"
