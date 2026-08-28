@@ -71,6 +71,10 @@ troca a BB leve por uma pesada, a mesma energia empurra mais massa — então
 Ou seja: **a mesma réplica "marca menos FPS" com BB pesada sem ficar mais
 fraca.** Ela só está entregando a mesma energia de outro jeito.
 
+Para fazer essa conta com os seus números, use a
+[calculadora de FPS](/calculadora-de-fps): ela converte FPS em joules e mostra
+quanto a sua réplica marca com cada peso de BB.
+
 É por isso que o limite de FPS **sempre** vem acompanhado do peso de
 referência. "400 FPS" sem dizer o peso da BB não significa nada.
 

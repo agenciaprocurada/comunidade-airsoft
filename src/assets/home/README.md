@@ -19,7 +19,7 @@ nome fixo. Consequência prática:
 | `onde-jogar.webp` | Onde jogar |
 | `onde-comprar.webp` | Onde comprar |
 | `onde-arrumar.webp` | Onde arrumar |
-| `operacoes.webp` | Operações |
+| `calculadora-de-fps.webp` | Calculadora de FPS |
 | `guia-de-airsoft.webp` | Guia de airsoft |
 
 Nome errado = cartão sem foto, silenciosamente. Confira a tabela.

@@ -64,7 +64,8 @@ mais fraca. A energia é praticamente a mesma; só está empurrando mais massa.
 
 É por isso que o limite de FPS do campo sempre vem com o peso de referência
 (quase sempre 0.20 g). Detalhe completo em
-[o que é FPS no airsoft](/guias/o-que-e-fps-no-airsoft).
+[o que é FPS no airsoft](/guias/o-que-e-fps-no-airsoft) — e a conta pronta na
+[calculadora de FPS](/calculadora-de-fps).
 
 ## Biodegradável: quando importa
 

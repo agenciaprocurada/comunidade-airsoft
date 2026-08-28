@@ -1,0 +1,923 @@
+---
+import Base from "../layouts/Base.astro";
+import TopoPagina from "../components/TopoPagina.astro";
+import Botao from "../components/Botao.astro";
+import {
+  CATEGORIAS,
+  LIMITES,
+  PESOS_BB,
+  PESO_REFERENCIA,
+  categoriaDe,
+  formatar,
+  fpsDe,
+  fpsParaMs,
+  joulesDe,
+  rotuloPeso,
+} from "../lib/fps";
+
+/**
+ * Calculadora de FPS, joules e peso de BB.
+ *
+ * Ferramenta aberta: sem conta, sem cadastro, sem servidor. A conta é
+ * feita no navegador com o mesmo módulo (src/lib/fps.ts) que gera as
+ * tabelas fixas desta página no build. Assim o HTML já nasce com números
+ * de verdade — quem chega sem JavaScript vê o estado padrão (400 FPS com
+ * BB 0.20 g) e as tabelas de referência; o script só troca os números
+ * conforme a pessoa digita.
+ *
+ * Os parâmetros ficam na URL (?fps=380&bb=0.25&limite=400) para que o
+ * resultado possa ser colado no grupo. Só leitura: nada é gravado.
+ */
+
+const TITULO = "Calculadora de FPS, joules e peso de BB para airsoft";
+const DESCRICAO =
+  "Converta FPS em joules, joules em FPS e descubra quanto sua réplica marca com " +
+  "BB de outro peso. Confira se passa no limite do campo. Grátis, sem cadastro.";
+
+/* Estado padrão — o que aparece antes de qualquer interação. */
+const PADRAO = { fps: 400, bb: PESO_REFERENCIA };
+const padraoJ = joulesDe(PADRAO.fps, PADRAO.bb);
+
+/* Tabela de referência: FPS com 0.20 g → joules e FPS equivalente nos
+   pesos mais usados. É o que a pessoa procura no Google ("400 fps em
+   joules") e serve de conteúdo indexável independente do script. */
+const FPS_REFERENCIA = [280, 300, 320, 330, 350, 370, 380, 400, 420, 450, 480, 500, 550];
+const PESOS_TABELA = [0.2, 0.25, 0.28, 0.3, 0.32, 0.36, 0.4];
+
+const PASSOS = [
+  {
+    n: "01",
+    t: "Escolha o que você sabe",
+    d: "O FPS que o cronógrafo marcou ou o limite em joules que o campo publicou.",
+  },
+  {
+    n: "02",
+    t: "Marque o peso da BB",
+    d: "O peso usado na cronagem. Se cronou com 0.20 g, é 0.20 g — não o que você joga.",
+  },
+  {
+    n: "03",
+    t: "Leia o resultado",
+    d: "Energia em joules, velocidade em m/s e quanto a mesma réplica marca com cada peso.",
+  },
+];
+
+const PERGUNTAS = [
+  {
+    p: "Como converter FPS em joules?",
+    r: "Energia = ½ × massa × velocidade². Converta o FPS para metros por segundo (multiplique por 0,3048), eleve ao quadrado, multiplique pela massa da BB em quilos (0.20 g = 0,0002 kg) e divida por dois. 400 FPS com BB 0.20 g dá 1,49 J. A calculadora faz isso na hora.",
+  },
+  {
+    p: "Quantos joules são 400 FPS?",
+    r: "Depende do peso da BB. Com 0.20 g, 400 FPS são 1,49 J. Com 0.25 g, os mesmos 400 FPS seriam 1,86 J — por isso o campo sempre informa o peso junto com o limite.",
+  },
+  {
+    p: "Por que minha réplica marca menos FPS com BB mais pesada?",
+    r: "Porque a energia da réplica é praticamente a mesma e ela está empurrando mais massa. A velocidade cai, mas a energia no impacto não. É o mesmo tiro medido de outro jeito.",
+  },
+  {
+    p: "Posso cronar com BB pesada para passar no limite?",
+    r: "Só se o campo cronar com o peso que você vai jogar e com limite em joules. Se o limite é em FPS com 0.20 g, cronar com BB pesada é burla: o número cai, a energia não. Use a calculadora para ver o FPS equivalente em 0.20 g.",
+  },
+  {
+    p: "A conversão vale para GBB e HPA?",
+    r: "Como referência, sim; como garantia, não. Em réplicas a gás e HPA a BB pesada pode entregar mais energia do que a leve, o chamado joule creep. Nessas réplicas, crone com o peso que vai usar.",
+  },
+  {
+    p: "Qual é o limite de FPS no Brasil?",
+    r: "Não existe limite nacional em lei. Cada campo define o seu por segurança. As faixas comuns são 350 FPS para CQB, 400 para fuzil, 500 para DMR e 550 para sniper, sempre com BB 0.20 g. Confira na ficha do campo.",
+  },
+];
+
+const faq = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: PERGUNTAS.map(({ p, r }) => ({
+    "@type": "Question",
+    name: p,
+    acceptedAnswer: { "@type": "Answer", text: r },
+  })),
+};
+
+const aplicativo = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Calculadora de FPS — Comunidade Airsoft",
+  url: new URL("/calculadora-de-fps", Astro.site).href,
+  applicationCategory: "UtilitiesApplication",
+  operatingSystem: "Navegador web",
+  inLanguage: "pt-BR",
+  description: DESCRICAO,
+  isAccessibleForFree: true,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "BRL" },
+};
+
+const classeCampo =
+  "w-full border border-borda-forte bg-fundo px-4 py-3 font-dado text-2xl text-tinta transition-colors placeholder:text-desabilitado hover:border-oliva-500 focus:border-oliva-400 focus:outline-none";
+---
+
+<Base titulo={TITULO} descricao={DESCRICAO} dadosEstruturados={[aplicativo, faq]}>
+  <TopoPagina
+    trilha={[{ texto: "Calculadora de FPS" }]}
+    dados={[
+      { icone: "alvo", texto: "FPS ⇄ Joules" },
+      { icone: "caixa", texto: `${PESOS_BB.length} pesos de BB` },
+      { icone: "selo", texto: "Grátis" },
+      { icone: "cadeado", texto: "Sem cadastro" },
+    ]}
+    codigo="08"
+  >
+    Calculadora de FPS
+    <p slot="descricao">
+      Converta FPS em joules, joules em FPS e veja quanto a sua réplica marca com
+      BB de outro peso. Digite o que o cronógrafo mostrou e confira se passa no
+      limite do campo.
+    </p>
+  </TopoPagina>
+
+  <!-- ================================================================
+       A calculadora
+       ================================================================ -->
+  <section
+    class="mx-auto max-w-[1240px] px-5 py-12 md:px-12 md:py-16"
+    aria-labelledby="titulo-calculadora"
+  >
+    <h2 id="titulo-calculadora" class="sr-only">Calculadora</h2>
+
+    <div
+      data-calc
+      data-padrao-fps={PADRAO.fps}
+      data-padrao-bb={PADRAO.bb}
+      class="moldura-tatica grid border border-borda bg-papel lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]"
+    >
+      <!-- Entradas -->
+      <form class="border-b border-borda p-5 md:p-8 lg:border-b-0 lg:border-r" novalidate>
+        <p class="rotulo m-0">Entrada</p>
+
+        <!-- O que a pessoa sabe -->
+        <fieldset class="mt-4 border-0 p-0">
+          <legend class="sr-only">O que você sabe</legend>
+          <div class="grid grid-cols-2 border border-borda-forte" role="radiogroup">
+            <label class="seletor">
+              <input type="radio" name="modo" value="fps" checked class="peer sr-only" />
+              <span class="seletor-face">Sei o FPS</span>
+            </label>
+            <label class="seletor">
+              <input type="radio" name="modo" value="joules" class="peer sr-only" />
+              <span class="seletor-face">Sei os joules</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Valor -->
+        <label class="mt-6 block">
+          <span class="font-display text-base font-bold uppercase tracking-[0.06em] text-tinta">
+            <span data-rotulo-valor>Velocidade medida</span>
+          </span>
+          <span class="relative mt-2 block">
+            <input
+              type="number"
+              name="valor"
+              inputmode="decimal"
+              min={LIMITES.fps.min}
+              max={LIMITES.fps.max}
+              step="any"
+              value={PADRAO.fps}
+              class:list={[classeCampo, "pr-20"]}
+              aria-describedby="ajuda-valor"
+            />
+            <span
+              data-unidade
+              class="pointer-events-none absolute inset-y-0 right-4 flex items-center font-dado text-sm uppercase tracking-[0.16em] text-oliva-400"
+            >
+              FPS
+            </span>
+          </span>
+          <span id="ajuda-valor" data-ajuda-valor class="mt-2 block text-sm text-texto-2">
+            O número que o cronógrafo mostrou.
+          </span>
+        </label>
+
+        <!-- Peso da BB -->
+        <fieldset class="mt-6 border-0 p-0">
+          <legend class="font-display text-base font-bold uppercase tracking-[0.06em] text-tinta">
+            Peso da BB usada
+          </legend>
+          <div class="mt-2 flex flex-wrap gap-1.5" data-chips>
+            {
+              PESOS_BB.map((peso) => (
+                <button
+                  type="button"
+                  data-chip={peso}
+                  aria-pressed={peso === PADRAO.bb ? "true" : "false"}
+                  class="chip"
+                >
+                  {rotuloPeso(peso)}
+                </button>
+              ))
+            }
+          </div>
+          <label class="mt-3 flex items-center gap-3">
+            <span class="whitespace-nowrap text-sm text-texto-2">Outro peso:</span>
+            <span class="relative block w-32">
+              <input
+                type="number"
+                name="bb"
+                inputmode="decimal"
+                min={LIMITES.bb.min}
+                max={LIMITES.bb.max}
+                step="0.01"
+                value={PADRAO.bb.toFixed(2)}
+                class="w-full border border-borda-forte bg-fundo px-3 py-2 pr-8 font-dado text-base text-tinta transition-colors hover:border-oliva-500 focus:border-oliva-400 focus:outline-none"
+                aria-label="Peso da BB em gramas"
+              />
+              <span
+                class="pointer-events-none absolute inset-y-0 right-3 flex items-center font-dado text-xs uppercase text-oliva-400"
+              >
+                g
+              </span>
+            </span>
+          </label>
+        </fieldset>
+
+        <!-- Limite do campo (opcional) -->
+        <label class="mt-6 block border-t border-borda pt-6">
+          <span class="font-display text-base font-bold uppercase tracking-[0.06em] text-tinta">
+            Limite do campo
+            <span class="font-texto text-sm font-normal normal-case tracking-normal text-texto-2">
+              — opcional
+            </span>
+          </span>
+          <span class="relative mt-2 block">
+            <input
+              type="number"
+              name="limite"
+              inputmode="decimal"
+              min={LIMITES.fps.min}
+              max={LIMITES.fps.max}
+              step="any"
+              placeholder="Ex.: 400"
+              class:list={[classeCampo, "pr-36 text-xl"]}
+              aria-describedby="ajuda-limite"
+            />
+            <span
+              class="pointer-events-none absolute inset-y-0 right-4 flex items-center font-dado text-xs uppercase tracking-[0.14em] text-oliva-400"
+            >
+              FPS · BB 0.20 g
+            </span>
+          </span>
+          <span id="ajuda-limite" class="mt-2 block text-sm text-texto-2">
+            O limite da sua categoria, como o campo publica: em FPS com BB 0.20 g.
+          </span>
+        </label>
+
+        <p data-erro hidden class="mt-4 border border-alerta/60 bg-alerta-bg px-4 py-3 text-sm text-alerta-texto"></p>
+      </form>
+
+      <!-- Resultado -->
+      <div class="relative p-5 md:p-8" aria-live="polite">
+        <div class="grade-tatica pointer-events-none absolute inset-0 opacity-40" aria-hidden="true"></div>
+
+        <div class="relative">
+          <p class="rotulo m-0">Resultado</p>
+
+          <div class="mt-4 grid gap-px border border-borda bg-borda sm:grid-cols-3">
+            <div class="bg-papel-2 p-4">
+              <p class="m-0 font-dado text-[11px] uppercase tracking-[0.16em] text-texto-2">Energia</p>
+              <p class="m-0 mt-1 font-display text-4xl font-extrabold leading-none text-tinta">
+                <span data-saida="joules">{formatar(padraoJ)}</span>
+                <span class="text-xl font-bold text-oliva-300">J</span>
+              </p>
+            </div>
+            <div class="bg-papel-2 p-4">
+              <p class="m-0 font-dado text-[11px] uppercase tracking-[0.16em] text-texto-2">Velocidade</p>
+              <p class="m-0 mt-1 font-display text-4xl font-extrabold leading-none text-tinta">
+                <span data-saida="fps">{formatar(PADRAO.fps, 0)}</span>
+                <span class="text-xl font-bold text-oliva-300">FPS</span>
+              </p>
+            </div>
+            <div class="bg-papel-2 p-4">
+              <p class="m-0 font-dado text-[11px] uppercase tracking-[0.16em] text-texto-2">Em metros</p>
+              <p class="m-0 mt-1 font-display text-4xl font-extrabold leading-none text-tinta">
+                <span data-saida="ms">{formatar(fpsParaMs(PADRAO.fps), 1)}</span>
+                <span class="text-xl font-bold text-oliva-300">m/s</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Faixa comum + veredito do limite -->
+          <div class="mt-4 grid gap-3 sm:grid-cols-2">
+            <div class="border border-borda bg-fundo/60 px-4 py-3">
+              <p class="m-0 font-dado text-[11px] uppercase tracking-[0.16em] text-texto-2">
+                Equivale, com BB 0.20 g, a
+              </p>
+              <p class="m-0 mt-1 font-display text-2xl font-bold leading-tight text-tinta">
+                <span data-saida="fps-ref">{formatar(PADRAO.fps, 0)}</span> FPS
+              </p>
+              <p class="m-0 mt-1 text-sm text-texto-2">
+                Faixa comum: <span class="text-oliva-300" data-saida="categoria">{categoriaDe(padraoJ)}</span>
+              </p>
+            </div>
+            <div data-veredito class="border border-borda bg-fundo/60 px-4 py-3" data-estado="vazio">
+              <p class="m-0 font-dado text-[11px] uppercase tracking-[0.16em] text-texto-2">
+                Limite do campo
+              </p>
+              <p class="m-0 mt-1 font-display text-2xl font-bold leading-tight text-texto-2" data-saida="veredito">
+                Informe o limite ao lado
+              </p>
+              <p class="m-0 mt-1 text-sm text-texto-2" data-saida="margem"></p>
+            </div>
+          </div>
+
+          <!-- Equivalência entre pesos -->
+          <div class="mt-6">
+            <div class="flex items-baseline justify-between gap-4">
+              <h3 class="m-0 font-display text-lg font-bold uppercase tracking-[0.04em] text-tinta">
+                A mesma réplica com outra BB
+              </h3>
+              <p class="m-0 font-dado text-[11px] uppercase tracking-[0.14em] text-texto-2">
+                mesma energia
+              </p>
+            </div>
+            <div class="mt-3 overflow-x-auto">
+              <table class="w-full border-collapse text-left">
+                <thead>
+                  <tr class="border-b border-borda-forte font-dado text-[11px] uppercase tracking-[0.14em] text-texto-2">
+                    <th scope="col" class="py-2 pr-3 font-normal">BB</th>
+                    <th scope="col" class="py-2 pr-3 text-right font-normal">FPS</th>
+                    <th scope="col" class="py-2 text-right font-normal">m/s</th>
+                  </tr>
+                </thead>
+                <tbody class="font-dado text-base">
+                  {
+                    PESOS_BB.map((peso) => {
+                      const fps = fpsDe(padraoJ, peso);
+                      return (
+                        <tr
+                          data-linha={peso}
+                          class="linha-peso border-b border-borda"
+                          aria-current={peso === PADRAO.bb ? "true" : undefined}
+                        >
+                          <th scope="row" class="py-2 pr-3 font-normal text-tinta">
+                            {rotuloPeso(peso)}
+                          </th>
+                          <td class="py-2 pr-3 text-right text-tinta" data-celula="fps">
+                            {formatar(fps, 0)}
+                          </td>
+                          <td class="py-2 text-right text-texto-2" data-celula="ms">
+                            {formatar(fpsParaMs(fps), 1)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  }
+                </tbody>
+              </table>
+            </div>
+            <p class="m-0 mt-3 text-sm leading-relaxed text-texto-2">
+              Vale para AEG e springer, em que a energia não muda com a BB. Em GBB e
+              HPA a BB pesada pode subir a energia (<em>joule creep</em>): crone com o
+              peso que vai usar.
+            </p>
+          </div>
+
+          <div class="mt-6 flex flex-wrap items-center gap-3 border-t border-borda pt-5">
+            <button
+              type="button"
+              data-copiar
+              class="inline-flex items-center gap-2 border border-borda-forte bg-papel px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.08em] text-oliva-300 transition-colors hover:border-oliva-500 hover:bg-oliva-050 hover:text-oliva-100"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square">
+                <path d="M9 9h11v11H9zM4 15V4h11" />
+              </svg>
+              <span data-copiar-rotulo>Copiar link do resultado</span>
+            </button>
+            <p class="m-0 text-sm text-texto-2">
+              O link guarda os números — cole no grupo.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       Como usar
+       ================================================================ -->
+  <section class="border-y border-borda bg-papel/40">
+    <div class="mx-auto max-w-[1240px] px-5 py-14 md:px-12 md:py-16">
+      <div class="flex items-center gap-4">
+        <h2 class="m-0 font-display text-3xl font-bold uppercase tracking-[0.04em]">Como usar</h2>
+        <div class="h-px flex-1 bg-borda"></div>
+      </div>
+      <ol class="mt-8 grid gap-px border border-borda bg-borda md:grid-cols-3">
+        {
+          PASSOS.map((passo) => (
+            <li class="bg-papel p-6">
+              <span class="font-dado text-sm tracking-[0.2em] text-oliva-400">{passo.n}</span>
+              <h3 class="m-0 mt-2 font-display text-xl font-bold uppercase tracking-[0.03em] text-tinta">
+                {passo.t}
+              </h3>
+              <p class="m-0 mt-2 text-base leading-relaxed text-texto-2">{passo.d}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       A conta
+       ================================================================ -->
+  <section class="mx-auto max-w-[1240px] px-5 py-14 md:px-12 md:py-16">
+    <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div>
+        <div class="flex items-center gap-4">
+          <h2 class="m-0 font-display text-3xl font-bold uppercase tracking-[0.04em]">
+            A conta por trás
+          </h2>
+          <div class="h-px flex-1 bg-borda"></div>
+        </div>
+        <p class="mt-6 max-w-[60ch] leading-relaxed text-texto">
+          FPS é velocidade. Joule é energia — o que a BB entrega no impacto. A ligação
+          entre os dois é a fórmula da energia cinética:
+        </p>
+        <p class="mt-4 border border-borda-forte bg-papel px-5 py-4 font-dado text-lg text-oliva-100">
+          E = ½ × m × v²
+        </p>
+        <ul class="mt-4 max-w-[60ch] space-y-2 pl-5 text-texto">
+          <li><strong class="text-tinta">m</strong> é a massa da BB em quilos: 0.20 g = 0,0002 kg.</li>
+          <li>
+            <strong class="text-tinta">v</strong> é a velocidade em metros por segundo: 1 pé
+            = 0,3048 m, então 400 FPS = 121,9 m/s.
+          </li>
+          <li><strong class="text-tinta">E</strong> sai em joules.</li>
+        </ul>
+        <p class="mt-4 max-w-[60ch] leading-relaxed text-texto">
+          Exemplo: 400 FPS com BB 0.20 g → ½ × 0,0002 × 121,9² =
+          <strong class="text-tinta">{formatar(joulesDe(400, 0.2))} J</strong>. Como a
+          velocidade entra ao quadrado, dobrar o FPS quadruplica a energia — por isso
+          "um pouquinho acima do limite" pesa mais do que parece.
+        </p>
+      </div>
+      <div>
+        <div class="flex items-center gap-4">
+          <h2 class="m-0 font-display text-3xl font-bold uppercase tracking-[0.04em]">
+            Faixas comuns
+          </h2>
+          <div class="h-px flex-1 bg-borda"></div>
+        </div>
+        <p class="mt-6 max-w-[60ch] leading-relaxed text-texto">
+          Limites que aparecem com frequência nos campos do Brasil, com BB 0.20 g. Não
+          é regra nacional: <strong class="text-tinta">cada campo define o seu</strong>
+          e o valor real está na <a href="/campos" class="text-oliva-300 underline hover:text-oliva-100">ficha do campo</a>.
+        </p>
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full border-collapse text-left">
+            <thead>
+              <tr class="border-b border-borda-forte font-dado text-[11px] uppercase tracking-[0.14em] text-texto-2">
+                <th scope="col" class="py-2 pr-3 font-normal">Categoria</th>
+                <th scope="col" class="py-2 pr-3 text-right font-normal">Até (FPS)</th>
+                <th scope="col" class="py-2 text-right font-normal">Em joules</th>
+              </tr>
+            </thead>
+            <tbody class="text-base">
+              {
+                CATEGORIAS.map((c) => (
+                  <tr class="border-b border-borda">
+                    <th scope="row" class="py-2.5 pr-3 font-normal text-tinta">{c.nome}</th>
+                    <td class="py-2.5 pr-3 text-right font-dado text-tinta">{c.ate}</td>
+                    <td class="py-2.5 text-right font-dado text-texto-2">
+                      {formatar(joulesDe(c.ate, PESO_REFERENCIA))} J
+                    </td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       Tabela de referência
+       ================================================================ -->
+  <section class="border-y border-borda bg-papel/40">
+    <div class="mx-auto max-w-[1240px] px-5 py-14 md:px-12 md:py-16">
+      <div class="flex items-center gap-4">
+        <h2 class="m-0 font-display text-3xl font-bold uppercase tracking-[0.04em]">
+          Tabela de FPS por peso de BB
+        </h2>
+        <div class="h-px flex-1 bg-borda"></div>
+      </div>
+      <p class="mt-6 max-w-[64ch] leading-relaxed text-texto">
+        Cada linha é uma réplica cronada com BB 0.20 g. As colunas mostram a energia e
+        quanto a <em>mesma</em> réplica marca com cada peso — sem mudar nada nela.
+      </p>
+      <div class="mt-6 overflow-x-auto border border-borda bg-papel">
+        <table class="w-full border-collapse text-left">
+          <thead>
+            <tr class="border-b border-borda-forte bg-papel-2 font-dado text-[11px] uppercase tracking-[0.14em] text-texto-2">
+              <th scope="col" class="px-3 py-3 font-normal">FPS (0.20 g)</th>
+              <th scope="col" class="px-3 py-3 text-right font-normal">Joules</th>
+              {
+                PESOS_TABELA.filter((p) => p !== PESO_REFERENCIA).map((peso) => (
+                  <th scope="col" class="px-3 py-3 text-right font-normal">{rotuloPeso(peso)}</th>
+                ))
+              }
+            </tr>
+          </thead>
+          <tbody class="font-dado text-base">
+            {
+              FPS_REFERENCIA.map((fps) => {
+                const j = joulesDe(fps, PESO_REFERENCIA);
+                return (
+                  <tr class="border-b border-borda last:border-b-0 hover:bg-oliva-050">
+                    <th scope="row" class="px-3 py-2.5 font-normal text-tinta">{fps}</th>
+                    <td class="px-3 py-2.5 text-right text-oliva-300">{formatar(j)}</td>
+                    {PESOS_TABELA.filter((p) => p !== PESO_REFERENCIA).map((peso) => (
+                      <td class="px-3 py-2.5 text-right text-texto">{formatar(fpsDe(j, peso), 0)}</td>
+                    ))}
+                  </tr>
+                );
+              })
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       Perguntas
+       ================================================================ -->
+  <section class="mx-auto max-w-[1240px] px-5 py-14 md:px-12 md:py-16">
+    <div class="flex items-center gap-4">
+      <h2 class="m-0 font-display text-3xl font-bold uppercase tracking-[0.04em]">Perguntas</h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <div class="mt-8 max-w-[72ch]">
+      {
+        PERGUNTAS.map((item) => (
+          <details class="gaveta border-b border-borda">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-display text-lg font-bold uppercase tracking-[0.03em] text-tinta">
+              {item.p}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                class="chevron h-5 w-5 shrink-0 text-oliva-500 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m6 9 6 6 6-6" stroke-linecap="square" />
+              </svg>
+            </summary>
+            <p class="pb-6 leading-relaxed text-texto-2">{item.r}</p>
+          </details>
+        ))
+      }
+    </div>
+
+    <div class="mt-12 flex flex-wrap items-center gap-x-6 gap-y-4">
+      <Botao href="/guias/o-que-e-fps-no-airsoft" seta>Entender FPS a fundo</Botao>
+      <a
+        href="/guias/qual-bb-usar-no-airsoft"
+        class="font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+      >
+        Qual BB usar
+      </a>
+      <a
+        href="/campos"
+        class="font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+      >
+        Ver o limite do seu campo
+      </a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* Seletor "Sei o FPS / Sei os joules": dois rádios com cara de botão. */
+  .seletor {
+    display: block;
+    cursor: pointer;
+  }
+  .seletor + .seletor {
+    border-left: 1px solid var(--color-borda-forte);
+  }
+  .seletor-face {
+    display: block;
+    padding: 0.7rem 0.5rem;
+    text-align: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-texto-2);
+    transition: background-color 120ms, color 120ms;
+  }
+  .seletor:hover .seletor-face {
+    color: var(--color-tinta);
+  }
+  .seletor .peer:checked + .seletor-face {
+    background: var(--color-oliva-500);
+    color: var(--color-fundo);
+  }
+  .seletor .peer:focus-visible + .seletor-face {
+    outline: 2px solid var(--color-oliva-300);
+    outline-offset: -2px;
+  }
+
+  /* Chips de peso: o pressionado fica no acento. */
+  .chip {
+    border: 1px solid var(--color-borda-forte);
+    background: var(--color-fundo);
+    padding: 0.5rem 0.75rem;
+    font-family: var(--font-dado);
+    font-size: 0.875rem;
+    color: var(--color-texto);
+    cursor: pointer;
+    transition: border-color 120ms, background-color 120ms, color 120ms;
+  }
+  .chip:hover {
+    border-color: var(--color-oliva-500);
+    color: var(--color-tinta);
+  }
+  .chip[aria-pressed="true"] {
+    border-color: var(--color-oliva-500);
+    background: var(--color-oliva-500);
+    color: var(--color-fundo);
+  }
+
+  /* Linha do peso escolhido na tabela de equivalência. */
+  .linha-peso[aria-current="true"] {
+    background: var(--color-oliva-050);
+  }
+  .linha-peso[aria-current="true"] th,
+  .linha-peso[aria-current="true"] td {
+    color: var(--color-oliva-100);
+  }
+
+  /* Veredito do limite: verde dentro, laranja acima. */
+  [data-veredito][data-estado="ok"] {
+    border-color: color-mix(in srgb, var(--color-ok) 70%, transparent);
+    background: var(--color-ok-bg);
+  }
+  [data-veredito][data-estado="ok"] [data-saida="veredito"] {
+    color: var(--color-ok-texto);
+  }
+  [data-veredito][data-estado="acima"] {
+    border-color: color-mix(in srgb, var(--color-alerta) 70%, transparent);
+    background: var(--color-alerta-bg);
+  }
+  [data-veredito][data-estado="acima"] [data-saida="veredito"] {
+    color: var(--color-alerta-texto);
+  }
+
+  /* Some com as setinhas do campo numérico: o número grande é o foco. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+</style>
+
+<script>
+  import {
+    LIMITES,
+    PESO_REFERENCIA,
+    categoriaDe,
+    formatar,
+    fpsDe,
+    fpsParaMs,
+    joulesDe,
+  } from "../lib/fps";
+
+  const raiz = document.querySelector<HTMLElement>("[data-calc]");
+
+  if (raiz) {
+    const form = raiz.querySelector("form")!;
+    const campoValor = form.elements.namedItem("valor") as HTMLInputElement;
+    const campoBb = form.elements.namedItem("bb") as HTMLInputElement;
+    const campoLimite = form.elements.namedItem("limite") as HTMLInputElement;
+    const radiosModo = Array.from(
+      form.querySelectorAll<HTMLInputElement>("input[name='modo']"),
+    );
+    const chips = Array.from(raiz.querySelectorAll<HTMLButtonElement>("[data-chip]"));
+    const erro = raiz.querySelector<HTMLElement>("[data-erro]")!;
+    const rotuloValor = raiz.querySelector<HTMLElement>("[data-rotulo-valor]")!;
+    const unidade = raiz.querySelector<HTMLElement>("[data-unidade]")!;
+    const ajudaValor = raiz.querySelector<HTMLElement>("[data-ajuda-valor]")!;
+    const veredito = raiz.querySelector<HTMLElement>("[data-veredito]")!;
+    const linhas = Array.from(raiz.querySelectorAll<HTMLTableRowElement>("[data-linha]"));
+    const botaoCopiar = raiz.querySelector<HTMLButtonElement>("[data-copiar]")!;
+    const rotuloCopiar = raiz.querySelector<HTMLElement>("[data-copiar-rotulo]")!;
+
+    const saida = (nome: string) =>
+      raiz.querySelector<HTMLElement>(`[data-saida="${nome}"]`)!;
+
+    const modo = () => radiosModo.find((r) => r.checked)?.value ?? "fps";
+
+    /* Aceita vírgula: "1,49" é como se escreve por aqui. */
+    const numero = (texto: string) => {
+      const n = Number(texto.trim().replace(",", "."));
+      return Number.isFinite(n) ? n : NaN;
+    };
+
+    const TEXTOS = {
+      fps: {
+        rotulo: "Velocidade medida",
+        unidade: "FPS",
+        ajuda: "O número que o cronógrafo mostrou.",
+        min: LIMITES.fps.min,
+        max: LIMITES.fps.max,
+      },
+      joules: {
+        rotulo: "Energia",
+        unidade: "J",
+        ajuda: "O limite em joules que o campo publicou, ou a energia que você quer converter.",
+        min: LIMITES.joules.min,
+        max: LIMITES.joules.max,
+      },
+    } as const;
+
+    function aplicarModo() {
+      const t = TEXTOS[modo() as keyof typeof TEXTOS];
+      rotuloValor.textContent = t.rotulo;
+      unidade.textContent = t.unidade;
+      ajudaValor.textContent = t.ajuda;
+      campoValor.min = String(t.min);
+      campoValor.max = String(t.max);
+      campoValor.step = "any";
+    }
+
+    function marcarChip(peso: number) {
+      for (const chip of chips) {
+        const igual = Math.abs(Number(chip.dataset.chip) - peso) < 0.0005;
+        chip.setAttribute("aria-pressed", igual ? "true" : "false");
+      }
+      for (const linha of linhas) {
+        const igual = Math.abs(Number(linha.dataset.linha) - peso) < 0.0005;
+        if (igual) linha.setAttribute("aria-current", "true");
+        else linha.removeAttribute("aria-current");
+      }
+    }
+
+    function mostrarErro(mensagem: string | null) {
+      erro.hidden = !mensagem;
+      erro.textContent = mensagem ?? "";
+    }
+
+    function atualizarUrl(valor: number, bb: number, limite: number | null) {
+      /* No estado padrão a URL fica limpa: quem só abriu a página não
+         ganha ?fps=400 pendurado no endereço. */
+      const padrao =
+        modo() === "fps" &&
+        valor === Number(raiz!.dataset.padraoFps) &&
+        Math.abs(bb - Number(raiz!.dataset.padraoBb)) < 0.0005 &&
+        limite === null;
+      if (padrao) {
+        history.replaceState(null, "", location.pathname);
+        return;
+      }
+      const params = new URLSearchParams();
+      params.set(modo() === "fps" ? "fps" : "j", String(valor));
+      params.set("bb", bb.toFixed(2));
+      if (limite) params.set("limite", String(limite));
+      history.replaceState(null, "", `${location.pathname}?${params}`);
+    }
+
+    function calcular() {
+      const bb = numero(campoBb.value);
+      const valor = numero(campoValor.value);
+      const limiteBruto = campoLimite.value.trim() === "" ? null : numero(campoLimite.value);
+
+      if (!(bb >= LIMITES.bb.min && bb <= LIMITES.bb.max)) {
+        mostrarErro(`Peso da BB entre ${LIMITES.bb.min} g e ${LIMITES.bb.max} g.`);
+        return;
+      }
+      marcarChip(bb);
+
+      const t = TEXTOS[modo() as keyof typeof TEXTOS];
+      if (!(valor >= t.min && valor <= t.max)) {
+        mostrarErro(`Informe um valor entre ${t.min} e ${t.max} ${t.unidade}.`);
+        return;
+      }
+      if (limiteBruto !== null && !(limiteBruto >= LIMITES.fps.min && limiteBruto <= LIMITES.fps.max)) {
+        mostrarErro("O limite do campo precisa ser um FPS válido (ou fique em branco).");
+        return;
+      }
+      mostrarErro(null);
+
+      const joules = modo() === "fps" ? joulesDe(valor, bb) : valor;
+      const fps = modo() === "fps" ? valor : fpsDe(joules, bb);
+      const fpsRef = fpsDe(joules, PESO_REFERENCIA);
+
+      saida("joules").textContent = formatar(joules);
+      saida("fps").textContent = formatar(fps, 0);
+      saida("ms").textContent = formatar(fpsParaMs(fps), 1);
+      saida("fps-ref").textContent = formatar(fpsRef, 0);
+      saida("categoria").textContent = categoriaDe(joules);
+
+      for (const linha of linhas) {
+        const peso = Number(linha.dataset.linha);
+        const fpsPeso = fpsDe(joules, peso);
+        linha.querySelector<HTMLElement>("[data-celula='fps']")!.textContent = formatar(fpsPeso, 0);
+        linha.querySelector<HTMLElement>("[data-celula='ms']")!.textContent = formatar(
+          fpsParaMs(fpsPeso),
+          1,
+        );
+      }
+
+      if (limiteBruto === null) {
+        veredito.dataset.estado = "vazio";
+        saida("veredito").textContent = "Informe o limite ao lado";
+        saida("margem").textContent = "";
+      } else {
+        /* Compara em energia, não em FPS: é o que o limite realmente significa. */
+        const limiteJ = joulesDe(limiteBruto, PESO_REFERENCIA);
+        const dentro = joules <= limiteJ + 1e-9;
+        const diferenca = Math.abs(fpsRef - limiteBruto);
+        veredito.dataset.estado = dentro ? "ok" : "acima";
+        saida("veredito").textContent = dentro ? "Dentro do limite" : "Acima do limite";
+        saida("margem").textContent = dentro
+          ? `Folga de ${formatar(diferenca, 0)} FPS (com BB 0.20 g) · limite ${formatar(limiteJ)} J`
+          : `${formatar(diferenca, 0)} FPS acima, com BB 0.20 g · limite ${formatar(limiteJ)} J`;
+      }
+
+      atualizarUrl(valor, bb, limiteBruto);
+    }
+
+    /* Lê o link compartilhado: ?fps=380&bb=0.25&limite=400 ou ?j=1.2&bb=0.28 */
+    function lerUrl() {
+      const params = new URLSearchParams(location.search);
+      const fps = params.get("fps");
+      const j = params.get("j");
+      const bb = params.get("bb");
+      const limite = params.get("limite");
+
+      if (j !== null && !Number.isNaN(numero(j))) {
+        radiosModo.forEach((r) => (r.checked = r.value === "joules"));
+        campoValor.value = j;
+      } else if (fps !== null && !Number.isNaN(numero(fps))) {
+        radiosModo.forEach((r) => (r.checked = r.value === "fps"));
+        campoValor.value = fps;
+      }
+      if (bb !== null && !Number.isNaN(numero(bb))) campoBb.value = numero(bb).toFixed(2);
+      if (limite !== null && !Number.isNaN(numero(limite))) campoLimite.value = limite;
+    }
+
+    for (const chip of chips) {
+      chip.addEventListener("click", () => {
+        campoBb.value = Number(chip.dataset.chip).toFixed(2);
+        calcular();
+      });
+    }
+
+    for (const radio of radiosModo) {
+      radio.addEventListener("change", () => {
+        /* Troca de modo converte o valor no lugar: 400 FPS vira 1,49 J e
+           volta — a pessoa não perde o que digitou. */
+        const bb = numero(campoBb.value);
+        const valor = numero(campoValor.value);
+        if (Number.isFinite(valor) && Number.isFinite(bb) && bb > 0) {
+          campoValor.value =
+            radio.value === "joules"
+              ? joulesDe(valor, bb).toFixed(2)
+              : fpsDe(valor, bb).toFixed(0);
+        }
+        aplicarModo();
+        calcular();
+      });
+    }
+
+    form.addEventListener("input", calcular);
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      calcular();
+    });
+
+    botaoCopiar.addEventListener("click", async () => {
+      const original = "Copiar link do resultado";
+      try {
+        await navigator.clipboard.writeText(location.href);
+        rotuloCopiar.textContent = "Link copiado";
+      } catch {
+        rotuloCopiar.textContent = "Copie o endereço da barra";
+      }
+      setTimeout(() => (rotuloCopiar.textContent = original), 2200);
+    });
+
+    lerUrl();
+    aplicarModo();
+    calcular();
+  }
+</script>

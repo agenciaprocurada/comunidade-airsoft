@@ -99,6 +99,22 @@ const portas = [
     icone: `<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" /><path d="M9 4v14M15 6v14" />`,
   },
   {
+    /*
+      Segunda porta de proposito: as duas ferramentas ficam lado a lado.
+      Entrou no lugar de /operacoes, que segue no rodape e na ficha dos
+      campos.
+    */
+    href: "/calculadora-de-fps",
+    titulo: "Calculadora de FPS",
+    descricao:
+      "Converta FPS em joules, veja quanto sua réplica marca com cada BB e confira se passa no limite do campo.",
+    dado: "Ferramenta grátis",
+    acao: "Calcular",
+    fundo: fundo("calculadora-de-fps"),
+    // Cronografo: a caixa com o tunel e o mostrador.
+    icone: `<path d="M3 8h18v9H3z" /><circle cx="15.5" cy="12.5" r="2.5" /><path d="M6 11v3M9 11v3" stroke-linecap="square" />`,
+  },
+  {
     href: "/campos",
     titulo: "Onde jogar",
     descricao:
@@ -127,21 +143,6 @@ const portas = [
     acao: "Ver armeiros",
     fundo: fundo("onde-arrumar"),
     icone: `<path d="M15.5 3.5a5 5 0 0 0-6 6.6L3 16.6V21h4.4l6.5-6.5a5 5 0 0 0 6.6-6l-3.1 3.1-2.9-.6-.6-2.9z" />`,
-  },
-  {
-    /*
-      /operacoes e renderizada sob demanda (a agenda vem do banco), entao a
-      home nao tem como contar quantas estao abertas sem virar dinamica
-      junto. O rotulo aqui e fixo de proposito.
-    */
-    href: "/operacoes",
-    titulo: "Operações",
-    descricao:
-      "A agenda de gameplays do Brasil inteiro: data, campo, estilo e lote de inscrição.",
-    dado: "Agenda nacional",
-    acao: "Ver agenda",
-    fundo: fundo("operacoes"),
-    icone: `<path d="M4 6h16v15H4z" /><path d="M4 11h16M9 3v4M15 3v4" stroke-linecap="square" />`,
   },
   {
     href: "/guias",

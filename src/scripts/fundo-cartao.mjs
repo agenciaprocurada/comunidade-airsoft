@@ -34,7 +34,7 @@ const NOMES = [
   "onde-jogar",
   "onde-comprar",
   "onde-arrumar",
-  "operacoes",
+  "calculadora-de-fps",
   "guia-de-airsoft",
 ];
 
