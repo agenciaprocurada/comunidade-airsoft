@@ -45,6 +45,7 @@ const ICONE =
 
     <div class="flex min-w-0 flex-1 items-center gap-3">
       <span
+        data-icone
         class="inline-flex h-12 w-12 shrink-0 items-center justify-center border border-fundo/40 bg-fundo text-oliva-300 md:border-oliva-700 md:bg-fundo/70"
         aria-hidden="true"
       >
@@ -59,7 +60,7 @@ const ICONE =
           <span class="hidden md:inline">Grupo da Comunidade Airsoft no WhatsApp</span>
         </p>
         <p class="m-0 mt-1 truncate text-[12px] font-semibold leading-tight text-fundo/85 md:hidden">
-          Dúvidas, jogos e operações — grátis
+          Dúvidas, jogos e operações
         </p>
         <p class="m-0 hidden text-sm leading-relaxed text-texto-2 md:mt-1.5 md:block">
           Tire dúvida, ache jogo perto de você e saiba das operações antes de
@@ -96,8 +97,53 @@ const ICONE =
       transform: translateY(16px);
     }
   }
-  @media (prefers-reduced-motion: reduce) {
+  /* No celular a entrada é de chamar atenção mesmo: a barra sobe de fora
+     da tela com um leve "quique", o ícone do WhatsApp balança como um
+     telefone tocando e o botão Entrar pulsa duas vezes. Tudo acaba em
+     menos de 3 s e não se repete — depois disso a barra fica quieta. */
+  @media (max-width: 767px) {
     .chamada-wpp:not([hidden]) {
+      animation: chamada-wpp-sobe 620ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+    }
+    @keyframes chamada-wpp-sobe {
+      from {
+        transform: translateY(110%);
+      }
+    }
+
+    .chamada-wpp:not([hidden]) [data-icone] {
+      animation: chamada-wpp-toca 800ms ease-in-out 650ms 1 both;
+      transform-origin: 50% 80%;
+    }
+    @keyframes chamada-wpp-toca {
+      15%,
+      55% {
+        transform: rotate(-14deg);
+      }
+      35%,
+      75% {
+        transform: rotate(14deg);
+      }
+      100% {
+        transform: rotate(0);
+      }
+    }
+
+    .chamada-wpp:not([hidden]) [data-entrar] {
+      animation: chamada-wpp-pulso 900ms ease-in-out 900ms 2;
+    }
+    @keyframes chamada-wpp-pulso {
+      50% {
+        transform: scale(1.07);
+        box-shadow: 0 0 0 6px rgba(11, 13, 9, 0.28);
+      }
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chamada-wpp:not([hidden]),
+    .chamada-wpp:not([hidden]) [data-icone],
+    .chamada-wpp:not([hidden]) [data-entrar] {
       animation: none;
     }
   }
