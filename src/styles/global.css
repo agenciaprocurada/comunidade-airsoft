@@ -125,6 +125,16 @@
     );
   }
 
+  /* Convite flutuante do WhatsApp (ChamadaWhatsApp.astro). No celular ele
+     é uma barra fixa no pé da tela; o body ganha o mesmo tanto de respiro
+     para o rodapé não ficar escondido atrás dela. No desktop o cartão
+     flutua no canto e não precisa de espaço. */
+  @media (max-width: 767px) {
+    .com-chamada-wpp {
+      padding-bottom: var(--chamada-wpp-altura, 0px);
+    }
+  }
+
   /* Rótulo em mono — número, hora, coordenada, FPS, patente. */
   .rotulo {
     font-family: var(--font-dado);

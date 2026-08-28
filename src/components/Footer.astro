@@ -1,6 +1,6 @@
 ---
 import Logo from "./Logo.astro";
-import { DEFINICAO } from "../lib/entidade";
+import { DEFINICAO, GRUPO_OFICIAL } from "../lib/entidade";
 
 const ano = new Date().getFullYear();
 
@@ -28,6 +28,7 @@ const colunas = [
     titulo: "A plataforma",
     links: [
       { href: "/sobre", texto: "Sobre" },
+      { href: GRUPO_OFICIAL, texto: "Comunidade no WhatsApp", externo: true },
       { href: "/termos", texto: "Termos de Uso" },
       { href: "/privacidade", texto: "Política de Privacidade" },
     ],
@@ -61,6 +62,8 @@ const colunas = [
                 <li>
                   <a
                     href={link.href}
+                    target={"externo" in link ? "_blank" : undefined}
+                    rel={"externo" in link ? "noopener" : undefined}
                     class="text-base text-texto transition-colors hover:text-oliva-300"
                   >
                     {link.texto}
