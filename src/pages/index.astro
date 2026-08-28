@@ -8,6 +8,8 @@ import BuscaCampos from "../components/BuscaCampos.astro";
 import Botao from "../components/Botao.astro";
 
 const campos = await getCollection("campos", ({ data }) => data.status === "publicado");
+const lojas = await getCollection("lojas", ({ data }) => data.status === "publicado");
+const armeiros = await getCollection("armeiros", ({ data }) => data.status === "publicado");
 const guias = await getCollection("guias", ({ data }) => !data.rascunho);
 
 /** Quantos guias a home mostra antes do botao para o catalogo completo. */
@@ -25,13 +27,95 @@ for (let i = sorteioGuias.length - 1; i > 0; i--) {
   [sorteioGuias[i], sorteioGuias[j]] = [sorteioGuias[j], sorteioGuias[i]];
 }
 
+/**
+ * Contagem so vira rotulo quando existe. Diretorio que nasce vazio — o de
+ * armeiros e assim — anunciaria "0 armeiros" no cartao, que e pior do que
+ * nao dizer numero nenhum.
+ */
+const contagem = (total: number, singular: string, plural: string, vazio: string) =>
+  total > 0 ? `${total} ${total === 1 ? singular : plural}` : vazio;
+
+/**
+ * ==========================================================
+ * GATEWAY — as seis portas do site
+ * ==========================================================
+ * A home nao tenta ser uma das ferramentas: ela pergunta o que o jogador
+ * veio fazer e entrega. O criador de mapa vem primeiro porque e a unica
+ * coisa aqui que nao existe em nenhum outro lugar.
+ *
+ * Os rotulos repetem a pergunta do jogador ("onde arrumar"), nao o nome
+ * interno da secao ("armeiros"). As URLs, essas, estao congeladas: mudar
+ * rotulo e de graca, mudar URL custa ranking.
+ */
+const portas = [
+  {
+    href: "/criador-de-mapas",
+    titulo: "Criador de mapa estratégico",
+    descricao:
+      "Desenhe o mapa da sua operação: áreas, símbolos e objetivos sobre o satélite do campo.",
+    dado: "Ferramenta grátis",
+    acao: "Criar mapa",
+    icone: `<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" /><path d="M9 4v14M15 6v14" />`,
+  },
+  {
+    href: "/campos",
+    titulo: "Onde jogar",
+    descricao:
+      "Encontre campos de airsoft perto de você, com estrutura, preço e contato de cada um.",
+    dado: contagem(campos.length, "campo", "campos", "Diretório nacional"),
+    acao: "Ver campos",
+    icone: `<circle cx="12" cy="12" r="7" /><path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke-linecap="square" />`,
+  },
+  {
+    href: "/lojas",
+    titulo: "Onde comprar",
+    descricao:
+      "O acervo mais completo de lojas de airsoft do Brasil — online e de porta aberta.",
+    dado: contagem(lojas.length, "loja", "lojas", "Diretório nacional"),
+    acao: "Ver lojas",
+    icone: `<path d="M4 8h16l-1.2 13H5.2z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" />`,
+  },
+  {
+    href: "/armeiros",
+    titulo: "Onde arrumar",
+    descricao:
+      "A lista dos armeiros do Brasil: quem abre a sua réplica, o que faz e quem recebe pelo correio.",
+    dado: contagem(armeiros.length, "armeiro", "armeiros", "Manutenção e upgrade"),
+    acao: "Ver armeiros",
+    icone: `<path d="M15.5 3.5a5 5 0 0 0-6 6.6L3 16.6V21h4.4l6.5-6.5a5 5 0 0 0 6.6-6l-3.1 3.1-2.9-.6-.6-2.9z" />`,
+  },
+  {
+    /*
+      /operacoes e renderizada sob demanda (a agenda vem do banco), entao a
+      home nao tem como contar quantas estao abertas sem virar dinamica
+      junto. O rotulo aqui e fixo de proposito.
+    */
+    href: "/operacoes",
+    titulo: "Operações",
+    descricao:
+      "A agenda de gameplays do Brasil inteiro: data, campo, estilo e lote de inscrição.",
+    dado: "Agenda nacional",
+    acao: "Ver agenda",
+    icone: `<path d="M4 6h16v15H4z" /><path d="M4 11h16M9 3v4M15 3v4" stroke-linecap="square" />`,
+  },
+  {
+    href: "/guias",
+    titulo: "Guia de airsoft",
+    descricao:
+      "Aprenda do básico ao avançado: primeira réplica, bateria, FPS, manutenção e regras de jogo.",
+    dado: contagem(guias.length, "guia", "guias", "Do básico ao avançado"),
+    acao: "Ver guias",
+    icone: `<path d="M5 3h11l3 3v15H5z" /><path d="M9 9h7M9 13h7M9 17h4" stroke-linecap="square" />`,
+  },
+];
+
 const organizacao = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "Comunidade Airsoft",
   url: Astro.site?.href,
   description:
-    "Diretório de campos, lojas, operações e equipes de airsoft no Brasil.",
+    "Ferramentas e diretórios de airsoft no Brasil: campos, lojas, armeiros, operações, guias e criador de mapa tático.",
 };
 
 const site = {
@@ -42,18 +126,37 @@ const site = {
   inLanguage: "pt-BR",
 };
 
+/**
+ * O gateway declarado como ItemList e o que da ao Google a chance de montar
+ * sitelinks para as seis secoes — sem isso ele escolhe sozinho.
+ */
+const navegacao = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: "Ferramentas da Comunidade Airsoft",
+  itemListElement: portas.map((porta, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    name: porta.titulo,
+    description: porta.descricao,
+    url: new URL(porta.href, Astro.site).href,
+  })),
+};
 ---
 
 <Base
-  titulo="Comunidade Airsoft — campos, lojas e operações de airsoft no Brasil"
-  descricao="Onde jogar, onde comprar e com quem jogar airsoft no Brasil. Diretório gratuito de campos, lojas, operações e equipes, com guias para quem está começando."
-  dadosEstruturados={[organizacao, site]}
+  titulo="Comunidade Airsoft — campos, lojas, operações e ferramentas de airsoft"
+  descricao="Tudo de airsoft no Brasil em um lugar só: onde jogar, onde comprar, onde arrumar sua réplica, a agenda de operações, os guias e o criador de mapa tático. De graça, sem cadastro para consultar."
+  dadosEstruturados={[organizacao, site, navegacao]}
   headerSobreposto
 >
   <!-- ==========================================================
        HERO
        A foto vem de src/assets/hero-fundo.webp (e -mobile.webp).
        A arte ja vem escurecida de fabrica, entao nao ha vinheta por cima.
+
+       Sem botao de CTA aqui: o gateway logo abaixo E o CTA, e repetir
+       "encontrar um campo" dois blocos seguidos so rouba o clique de si mesmo.
        ========================================================== -->
   <section class="relative isolate overflow-hidden bg-fundo">
     <div class="hero-fundo absolute inset-0 -z-20" aria-hidden="true"></div>
@@ -92,30 +195,10 @@ const site = {
         </h1>
 
         <p class="mt-7 max-w-[52ch] text-lg leading-relaxed text-texto drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)]">
-          Campo, operação, loja, equipe e gente para jogar — reunidos em um
-          lugar só, <span class="text-oliva-300">de graça</span>. Sem cadastro
-          para consultar.
+          Campo, loja, armeiro, operação e o mapa da sua partida — reunidos em
+          um lugar só, <span class="text-oliva-300">de graça</span>. Sem
+          cadastro para consultar.
         </p>
-
-        <div class="mt-9 flex flex-wrap gap-4">
-          <Botao href="/campos">
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              class="h-[1.15em] w-[1.15em]"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="12" cy="12" r="7" />
-              <path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke-linecap="square" />
-            </svg>
-            Encontrar um campo
-          </Botao>
-          <Botao href="/guias/guia-do-iniciante" variante="secundario" seta>
-            Estou começando
-          </Botao>
-        </div>
       </div>
     </div>
 
@@ -123,9 +206,79 @@ const site = {
   </section>
 
   <!-- ==========================================================
-       CAMPOS CADASTRADOS
+       GATEWAY — o bloco principal da home
        ========================================================== -->
   <section class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        class="h-6 w-6 shrink-0 text-oliva-500"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+      >
+        <path d="M3 4h7v7H3zM14 4h7v7h-7zM3 13h7v7H3zM14 13h7v7h-7z" stroke-linecap="square" />
+      </svg>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+        O que você veio fazer?
+      </h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <ul class="mt-9 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      {
+        portas.map((porta) => (
+          <li class="moldura-tatica group relative isolate flex flex-col border border-borda bg-papel p-6 transition-colors focus-within:border-oliva-500 hover:border-oliva-500 md:p-7">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              class="h-9 w-9 shrink-0 text-oliva-500 transition-colors group-hover:text-oliva-300"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              set:html={porta.icone}
+            />
+
+            <p class="rotulo mt-5">{porta.dado}</p>
+
+            <h3 class="mt-2 font-display text-2xl font-bold uppercase leading-tight tracking-[0.02em]">
+              <a
+                href={porta.href}
+                class="transition-colors after:absolute after:inset-0 after:content-[''] hover:text-oliva-300"
+              >
+                {porta.titulo}
+              </a>
+            </h3>
+
+            <p class="mt-2 flex-1 leading-relaxed text-texto-2">{porta.descricao}</p>
+
+            {/* Decorativo: o ::after do titulo ja faz o cartao inteiro clicavel. */}
+            <span
+              aria-hidden="true"
+              class="mt-6 inline-flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors group-hover:text-oliva-300"
+            >
+              {porta.acao}
+              <svg
+                viewBox="0 0 24 24"
+                class="h-[1.1em] w-[1.1em]"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <path d="m9 5 7 7-7 7" stroke-linecap="square" />
+              </svg>
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <!-- ==========================================================
+       CAMPOS CADASTRADOS
+       ========================================================== -->
+  <section class="mx-auto max-w-[1240px] border-t border-borda px-5 py-16 md:px-12 md:py-20">
     <div class="flex items-center gap-4">
       <svg
         aria-hidden="true"
@@ -159,7 +312,7 @@ const site = {
        ========================================================== -->
   {
     guias.length > 0 && (
-      <section class="mx-auto max-w-[1240px] px-5 pb-20 md:px-12">
+      <section class="mx-auto max-w-[1240px] border-t border-borda px-5 py-16 md:px-12 md:py-20">
         <div class="flex items-center gap-4">
           <svg
             aria-hidden="true"
