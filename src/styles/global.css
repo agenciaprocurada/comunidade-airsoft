@@ -372,3 +372,47 @@
       );
   }
 }
+
+/* ============================================================
+   Gateway da home
+   ============================================================ */
+
+@layer utilities {
+  /* Chanfro de 10px COM linha visível no corte.
+
+     `clip-path` sozinho não serve aqui: ele recorta a borda junto, e a
+     diagonal fica sem linha nenhuma. O par abaixo resolve — a moldura é
+     um retângulo chanfrado pintado da cor da borda, e o miolo é outro
+     chanfro 1px menor por dentro. A "borda" é a moldura aparecendo.
+
+     Exceção consciente à regra da seção 03 do DS, que reserva o chanfro
+     ao CTA primário: o gateway da home repete a forma nos seis cartões
+     e na barra de selos. Quem alterar o DS decide se isso volta atrás. */
+  .chanfro-moldura,
+  .chanfro-miolo {
+    clip-path: polygon(
+      10px 0,
+      100% 0,
+      100% calc(100% - 10px),
+      calc(100% - 10px) 100%,
+      0 100%,
+      0 10px
+    );
+  }
+
+  .chanfro-moldura {
+    padding: 1px;
+  }
+
+  /* A foto de fundo do cartão vive na direita e some para a esquerda,
+     onde o texto acontece. Sem esta vinheta não há contraste que salve
+     o parágrafo. Os valores são --color-papel (#14180f) em rgb. */
+  .vinheta-cartao {
+    background: linear-gradient(
+      to right,
+      rgba(20, 24, 15, 0.99) 0%,
+      rgba(20, 24, 15, 0.94) 40%,
+      rgba(20, 24, 15, 0.4) 100%
+    );
+  }
+}
