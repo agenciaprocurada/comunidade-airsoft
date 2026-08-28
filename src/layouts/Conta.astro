@@ -42,7 +42,7 @@ const secoes = [
   ...(EQUIPES_VISIVEIS
     ? [{ href: "/conta/equipes", texto: "Equipes", icone: "equipes" as const }]
     : []),
-  { href: "/conta/armamentos", texto: "Minhas réplicas", icone: "replicas" as const },
+  // Réplicas viraram uma seção dentro de Meu perfil (/conta#replicas).
   { href: "/conta/operacoes", texto: "Meus eventos", icone: "operacoes" as const },
   { href: "/conta/mapas", texto: "Meus mapas", icone: "mapas" as const },
   ...(paginas > 0
@@ -203,6 +203,25 @@ const CLASSE_ITEM =
             Sair da conta
           </button>
         </form>
+
+        <!-- Convite para o grupo oficial: só no desktop, onde a coluna
+             tem espaço sobrando embaixo da navegação. -->
+        <div class="mt-8 hidden border border-borda bg-gradient-to-b from-oliva-050 to-papel/40 p-4 lg:block">
+          <p class="text-[0.9375rem] font-semibold leading-snug text-tinta">
+            Faça parte da comunidade
+          </p>
+          <p class="mt-1.5 text-[0.8125rem] leading-snug text-texto-2">
+            Participe de discussões, compartilhe experiências e evolua no jogo.
+          </p>
+          <a
+            href="https://chat.whatsapp.com/GbZdm2rFiTD6vLi0FpLpfW"
+            target="_blank"
+            rel="noopener"
+            class="mt-3.5 inline-flex items-center gap-2 border border-oliva-500 px-3 py-2 font-dado text-[0.75rem] font-semibold uppercase leading-none tracking-[0.1em] text-oliva-300 transition-colors duration-150 hover:bg-oliva-050 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oliva-300"
+          >
+            Ir para a comunidade
+          </a>
+        </div>
       </div>
 
       <!-- Conteúdo -->

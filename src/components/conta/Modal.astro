@@ -1,0 +1,58 @@
+---
+/**
+ * Modal de formulário da área logada — "editar meus dados",
+ * "cadastrar réplica".
+ *
+ * Nasceu das gavetas (<details>) que ficavam no meio da página: com o
+ * botão de abrir já na ficha, o formulário permanentemente visível
+ * embaixo era a mesma coisa duas vezes na tela. Agora o formulário só
+ * existe quando chamado.
+ *
+ * `aberta` é o fallback sem JavaScript: o servidor entrega o <dialog>
+ * com o atributo `open` (erro de validação, ?editar=1) e ele aparece
+ * no fluxo da página, funcional. O script da página promove esse
+ * estado a modal de verdade (showModal) quando o JS carrega.
+ */
+interface Props {
+  id: string;
+  titulo: string;
+  descricao?: string;
+  aberta?: boolean;
+}
+
+const { id, titulo, descricao, aberta = false } = Astro.props;
+---
+
+<dialog
+  id={id}
+  open={aberta}
+  data-modal-conta
+  class="m-auto flex-col border border-borda-forte bg-fundo p-0 text-texto shadow-[0_24px_80px_rgba(0,0,0,0.55)] backdrop:bg-black/75 open:flex w-[min(92vw,42rem)] max-h-[88vh]"
+>
+  <div class="flex items-start justify-between gap-4 border-b border-borda px-5 py-4 sm:px-7">
+    <div class="min-w-0">
+      <p class="text-[1.0625rem] font-semibold leading-tight text-tinta">{titulo}</p>
+      {
+        descricao && (
+          <p class="mt-1 text-[0.9375rem] leading-snug text-texto-2">{descricao}</p>
+        )
+      }
+    </div>
+    <!-- method="dialog" fecha sem depender de script. -->
+    <form method="dialog">
+      <button
+        type="submit"
+        aria-label="Fechar"
+        class="flex h-8 w-8 cursor-pointer items-center justify-center border border-borda text-texto-2 transition-colors duration-150 hover:border-alerta hover:text-alerta-texto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hud"
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-4 w-4">
+          <path d="m6 6 12 12M18 6 6 18" stroke-linecap="square"></path>
+        </svg>
+      </button>
+    </form>
+  </div>
+
+  <div class="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7">
+    <slot />
+  </div>
+</dialog>

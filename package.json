@@ -28,6 +28,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@types/google.maps": "^3.66.0",
+    "pg": "^8.23.0",
     "typescript": "^6.0.3"
   },
   "description": "Diretorio de campos, lojas, operacoes e equipes de airsoft no Brasil",

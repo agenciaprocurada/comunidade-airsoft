@@ -1,7 +1,27 @@
 ---
 import Conta from "../../layouts/Conta.astro";
 import Selo from "../../components/conta/Selo.astro";
-import Gaveta from "../../components/conta/Gaveta.astro";
+import Modal from "../../components/conta/Modal.astro";
+import Painel from "../../components/conta/Painel.astro";
+import ArteReplica from "../../components/conta/ArteReplica.astro";
+import GradeCards from "../../components/conta/GradeCards.astro";
+import CardHud from "../../components/conta/CardHud.astro";
+import ChipHud from "../../components/conta/ChipHud.astro";
+import {
+  ACIONAMENTOS,
+  CATEGORIAS,
+  COLUNAS_ARMAMENTO,
+  LIMITE_REPLICAS,
+  MARCA_OUTRA,
+  ehAcionamento,
+  ehCategoria,
+  nomeDaMarca,
+  normalizarMarcaLivre,
+  rotuloAcionamento,
+  rotuloCategoria,
+  type Armamento,
+  type Marca,
+} from "../../lib/armamento";
 import { NOME_UF, slugificar } from "../../lib/uf";
 import {
   CONSENTIMENTOS_OPCIONAIS,
@@ -16,14 +36,18 @@ import {
 } from "../../lib/conta";
 import {
   AJUDA_CAMPO,
+  BOTAO_HUD,
   BOTAO_PRIMARIO,
   BOTAO_SECUNDARIO,
   CAIXA,
   ENTRADA,
+  ENTRADA_INVALIDA,
   ERRO_CAIXA,
+  ERRO_CAMPO,
   LINHA_CAIXA,
   ROTULO_CAMPO,
   SELECAO,
+  SELECAO_INVALIDA,
 } from "../../lib/estilos-form";
 
 export const prerender = false;
@@ -38,8 +62,146 @@ let enviado: Record<string, string> = {};
 let estilosEnviados: string[] = [];
 let opcionaisEnviados: Set<string> | null = null;
 
-if (Astro.request.method === "POST" && usuario) {
-  const dados = await Astro.request.formData();
+/** Erros do cadastro de réplica, separados dos erros do perfil. */
+let erroReplicaDe: Record<string, string> = {};
+let erroReplicaGeral = "";
+let enviadoReplica: Record<string, string> = {};
+
+/*
+ * Perfil e réplicas moram na mesma página, então o POST chega num
+ * lugar só. O corpo é lido UMA vez (formData consome o stream) e o
+ * campo `acao` diz de qual formulário ele veio; sem `acao` é o
+ * formulário do perfil, que existia antes dessa fusão.
+ */
+const dadosPost =
+  Astro.request.method === "POST" && usuario ? await Astro.request.formData() : null;
+const acaoPost = dadosPost?.get("acao")?.toString() ?? "perfil";
+
+/** Erro do envio de foto, mostrado perto da ficha e não na gaveta. */
+let erroFoto = "";
+
+if (dadosPost && usuario && acaoPost === "foto") {
+  const arquivo = dadosPost.get("foto");
+  const TIPOS: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+  };
+
+  if (!(arquivo instanceof File) || arquivo.size === 0) {
+    erroFoto = "Escolha uma imagem.";
+  } else if (!TIPOS[arquivo.type]) {
+    erroFoto = "Formato não aceito. Use JPG, PNG ou WebP.";
+  } else if (arquivo.size > 4 * 1024 * 1024) {
+    erroFoto = "A foto pode ter no máximo 4 MB.";
+  } else {
+    // Nome com carimbo de hora: troca de foto vira arquivo NOVO, e a
+    // URL nova fura qualquer cache do navegador na hora.
+    const caminho = `${usuario.id}/avatar-${Date.now()}.${TIPOS[arquivo.type]}`;
+    const { error: erroEnvio } = await supabase.storage
+      .from("avatares")
+      .upload(caminho, await arquivo.arrayBuffer(), { contentType: arquivo.type });
+
+    if (erroEnvio) {
+      console.error("Falha ao enviar avatar:", erroEnvio);
+      erroFoto = "Não conseguimos enviar a foto. Tente de novo em instantes.";
+    } else {
+      const { data: publica } = supabase.storage.from("avatares").getPublicUrl(caminho);
+      const { error: erroPerfil } = await supabase
+        .from("perfis")
+        .update({ foto_url: publica.publicUrl })
+        .eq("id", usuario.id);
+
+      if (erroPerfil) {
+        console.error("Falha ao gravar foto_url:", erroPerfil);
+        erroFoto = "A foto subiu mas não conseguimos salvar. Tente de novo.";
+      } else {
+        return Astro.redirect("/conta?foto=1", 303);
+      }
+    }
+  }
+}
+
+if (dadosPost && acaoPost === "apagar") {
+  // A RLS já garante que só dá para apagar a própria réplica; o
+  // filtro por usuario_id é cinto e suspensório.
+  const { error } = await supabase
+    .from("armamentos")
+    .delete()
+    .eq("id", dadosPost.get("id")?.toString() ?? "")
+    .eq("usuario_id", usuario!.id);
+  if (error) console.error("Falha ao apagar réplica:", error);
+  return Astro.redirect("/conta?removida=1#replicas", 303);
+}
+
+if (dadosPost && acaoPost === "principal") {
+  // O gatilho `armamentos_principal` desmarca a anterior sozinho.
+  const { error } = await supabase
+    .from("armamentos")
+    .update({ principal: true })
+    .eq("id", dadosPost.get("id")?.toString() ?? "")
+    .eq("usuario_id", usuario!.id);
+  if (error) console.error("Falha ao marcar principal:", error);
+  return Astro.redirect("/conta#replicas", 303);
+}
+
+if (dadosPost && acaoPost === "adicionar") {
+  const textoReplica = (chave: string) => (dadosPost.get(chave)?.toString() ?? "").trim();
+  enviadoReplica = {
+    marca: textoReplica("marca"),
+    marca_outra: textoReplica("marca_outra"),
+    modelo: textoReplica("modelo"),
+    acionamento: textoReplica("acionamento"),
+    categoria: textoReplica("categoria"),
+    observacoes: textoReplica("observacoes"),
+  };
+
+  const usaOutra = enviadoReplica.marca === MARCA_OUTRA;
+  const marcaLivre = normalizarMarcaLivre(enviadoReplica.marca_outra);
+
+  if (!enviadoReplica.marca) erroReplicaDe.marca = "Escolha a marca.";
+  if (usaOutra && (marcaLivre.length < 2 || marcaLivre.length > 60)) {
+    erroReplicaDe.marca_outra = "Escreva a marca com 2 a 60 caracteres.";
+  }
+  if (!enviadoReplica.modelo) erroReplicaDe.modelo = "Informe o modelo.";
+  else if (enviadoReplica.modelo.length > 80) erroReplicaDe.modelo = "No máximo 80 caracteres.";
+  if (!ehAcionamento(enviadoReplica.acionamento)) {
+    erroReplicaDe.acionamento = "Escolha o tipo de acionamento.";
+  }
+  if (!ehCategoria(enviadoReplica.categoria)) erroReplicaDe.categoria = "Escolha a categoria.";
+  if (enviadoReplica.observacoes.length > 300) {
+    erroReplicaDe.observacoes = "No máximo 300 caracteres.";
+  }
+
+  if (Object.keys(erroReplicaDe).length === 0) {
+    const { error } = await supabase.from("armamentos").insert({
+      usuario_id: usuario!.id,
+      marca_id: usaOutra ? null : enviadoReplica.marca,
+      marca_outra: usaOutra ? marcaLivre : null,
+      modelo: enviadoReplica.modelo,
+      acionamento: enviadoReplica.acionamento,
+      categoria: enviadoReplica.categoria,
+      principal: dadosPost.get("principal") === "on",
+      observacoes: enviadoReplica.observacoes || null,
+    });
+
+    if (error) {
+      if (error.message.includes("limite de 30")) {
+        erroReplicaGeral = `Você chegou ao limite de ${LIMITE_REPLICAS} réplicas.`;
+      } else if (error.code === "23503") {
+        erroReplicaDe.marca = "Essa marca saiu da lista. Escolha outra.";
+      } else {
+        console.error("Falha ao cadastrar réplica:", error);
+        erroReplicaGeral = "Não conseguimos salvar agora. Tente de novo em instantes.";
+      }
+    } else {
+      return Astro.redirect("/conta?adicionada=1#replicas", 303);
+    }
+  }
+}
+
+if (dadosPost && usuario && acaoPost === "perfil") {
+  const dados = dadosPost;
   const texto = (chave: string) => (dados.get(chave)?.toString() ?? "").trim();
   const marcado = (chave: string) => dados.get(chave) === "on";
 
@@ -153,13 +315,41 @@ if (Astro.request.method === "POST" && usuario) {
 }
 
 salvo = Astro.url.searchParams.get("salvo") === "1";
+const adicionada = Astro.url.searchParams.get("adicionada") === "1";
+const removida = Astro.url.searchParams.get("removida") === "1";
+const fotoTrocada = Astro.url.searchParams.get("foto") === "1";
+/** Fallback sem JS do botão "Adicionar réplica" (?replica=1). */
+const pediuCadastroReplica = Astro.url.searchParams.get("replica") === "1";
 
-// Só a contagem: a lista em si vive em /conta/armamentos.
-const { count } = await supabase
-  .from("armamentos")
-  .select("id", { count: "exact", head: true })
-  .eq("usuario_id", usuario!.id);
-const totalReplicas = count ?? 0;
+// Réplicas moram nesta página: lista inteira + marcas para o seletor.
+const [{ data: marcas }, { data: replicas }] = await Promise.all([
+  supabase
+    .from("marcas_replica")
+    .select("id,nome,ordem")
+    .order("ordem")
+    .order("nome")
+    .returns<Marca[]>(),
+  supabase
+    .from("armamentos")
+    .select(COLUNAS_ARMAMENTO)
+    .eq("usuario_id", usuario!.id)
+    .order("principal", { ascending: false })
+    .order("criado_em", { ascending: true })
+    .returns<Armamento[]>(),
+]);
+
+const listaMarcas = marcas ?? [];
+const listaReplicas = replicas ?? [];
+const marcasComuns = listaMarcas.filter((m) => m.ordem <= 1);
+const marcasDemais = listaMarcas.filter((m) => m.ordem > 1);
+const totalReplicas = listaReplicas.length;
+const noLimite = totalReplicas >= LIMITE_REPLICAS;
+
+const houveErroReplica = Object.keys(erroReplicaDe).length > 0 || erroReplicaGeral !== "";
+/** O modal de cadastro abre com erro de validacao ou a pedido. */
+const gavetaReplicaAberta = houveErroReplica || pediuCadastroReplica;
+const valorReplica = (chave: string) => enviadoReplica[chave] ?? "";
+const usouOutra = valorReplica("marca") === MARCA_OUTRA;
 
 // Estado dos opcionais para pintar as caixas no GET.
 let opcionaisAtuais = new Set<string>();
@@ -173,7 +363,9 @@ if (Astro.request.method !== "POST" && usuario) {
   }
 }
 
-const houvePost = Astro.request.method === "POST";
+// So o POST do PERFIL repopula o formulario do perfil: um erro no
+// cadastro de replica nao pode apagar os campos ja preenchidos.
+const houvePost = dadosPost !== null && acaoPost === "perfil";
 const valor = (chave: string, padrao: string | null | undefined) =>
   houvePost ? (enviado[chave] ?? "") : (padrao ?? "");
 
@@ -242,7 +434,7 @@ const avisos = [
         tom: "atencao" as const,
         texto:
           "Último passo: cadastre sua primeira réplica para liberar o Editor de Mapas e o cadastro de operações.",
-        acao: { href: "/conta/armamentos", texto: "Cadastrar minhas réplicas" },
+        acao: { href: "/conta?replica=1#cadastrar-replica", texto: "Cadastrar minhas réplicas" },
       }
     : null,
   admin && filaModeracao > 0
@@ -278,23 +470,43 @@ const membroDesde = usuario?.created_at
  * sozinho quando falta dado, quando houve erro, quando a pessoa veio
  * de um pedido barrado ou quando ela pede (?editar=1).
  */
+/**
+ * Quando o modal de edicao ja abre carregado: erro de validacao,
+ * pedido barrado por perfil incompleto, ou ?editar=1 (fallback sem
+ * JS do botao). Perfil incompleto por si so NAO abre — o selo e os
+ * avisos ja cobram, e modal na cara a cada visita e assedio.
+ */
 const gavetaAberta =
-  Astro.url.searchParams.get("editar") === "1" ||
-  erros.length > 0 ||
-  veioDeReivindicacao ||
-  !perfil?.perfil_completo;
+  Astro.url.searchParams.get("editar") === "1" || erros.length > 0 || veioDeReivindicacao;
+
+/** Miolo do hexágono de cada contador (desenho de 24x24). */
+const MIOLO_CONTADOR = {
+  replicas: "M8.5 9.5 12 7.5l3.5 2v4.5L12 16l-3.5-2zM12 7.5v4M12 11.5l3.5-2M12 11.5l-3.5-2",
+  paginas: "M9 7h6M9 10h6M9 13h4M8.5 5.5h7v13h-7z",
+  pedidos: "M8.5 5.5h7v13h-7zM10.5 9h3M10.5 12h2",
+} as const;
 
 const contadores = [
-  { rotulo: "Réplicas", valor: totalReplicas, href: "/conta/armamentos" },
-  { rotulo: "Páginas", valor: totalPaginas ?? 0, href: (totalPaginas ?? 0) > 0 ? "/conta/reivindicacoes" : null },
-  { rotulo: "Pedidos abertos", valor: pedidosAbertos, href: pedidosAbertos > 0 ? "/conta/reivindicacoes" : null },
+  { rotulo: "Réplicas", valor: totalReplicas, href: "#replicas", icone: "replicas" as const },
+  {
+    rotulo: "Páginas",
+    valor: totalPaginas ?? 0,
+    href: (totalPaginas ?? 0) > 0 ? "/conta/reivindicacoes" : null,
+    icone: "paginas" as const,
+  },
+  {
+    rotulo: "Pedidos abertos",
+    valor: pedidosAbertos,
+    href: pedidosAbertos > 0 ? "/conta/reivindicacoes" : null,
+    icone: "pedidos" as const,
+  },
 ];
 ---
 
 <Conta
   titulo="Meu perfil"
   descricao="Seus dados na Comunidade Airsoft."
-  resumo="Sua ficha na comunidade. Nome, nível e estilo são o que falta para poder cadastrar ou assumir alguma página; WhatsApp e cidade nunca aparecem no site."
+  resumo="Sua ficha na comunidade: seus dados e suas réplicas. WhatsApp e cidade nunca aparecem no site, e a lista de réplicas é só sua."
 >
   {
     recemCadastrado && (
@@ -322,6 +534,23 @@ const contadores = [
       <p class="entrada-suave mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
         <Selo tom="ok">Pronto</Selo>
         Dados salvos.
+      </p>
+    )
+  }
+
+  {
+    (adicionada || removida || fotoTrocada) && (
+      <p class="entrada-suave mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
+        <Selo tom="ok">Pronto</Selo>
+        {adicionada ? "Réplica cadastrada." : removida ? "Réplica removida." : "Foto atualizada."}
+      </p>
+    )
+  }
+
+  {
+    erroFoto && (
+      <p class="entrada-suave mt-8 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
+        {erroFoto}
       </p>
     )
   }
@@ -376,147 +605,241 @@ const contadores = [
       perfil?.perfil_completo ? "border-borda" : "moldura-hud-ativa border-hud/40",
     ]}
   >
-    <div class="flex flex-wrap items-start gap-5 sm:flex-nowrap sm:gap-6">
-      {
-        perfil?.foto_url ? (
-          <img
-            src={perfil.foto_url}
-            alt=""
-            width="88"
-            height="88"
-            referrerpolicy="no-referrer"
-            class="octogono h-[5.5rem] w-[5.5rem] shrink-0 bg-oliva-050 object-cover"
-          />
-        ) : (
-          <span class="octogono flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center bg-oliva-050 font-display text-3xl font-bold text-hud">
-            {inicial}
+    <div class="flex flex-col items-start gap-6 sm:flex-row sm:gap-8">
+      <!-- Foto grande, com troca direto na ficha. O input de arquivo
+           vive dentro do label: sem JS o clique já abre o seletor. -->
+      <div class="flex shrink-0 flex-col items-center gap-3 self-center sm:self-start">
+        <div class="relative">
+          {
+            perfil?.foto_url ? (
+              <img
+                src={perfil.foto_url}
+                alt=""
+                width="176"
+                height="176"
+                referrerpolicy="no-referrer"
+                class="octogono h-40 w-40 bg-oliva-050 object-cover sm:h-44 sm:w-44"
+              />
+            ) : (
+              <span class="octogono flex h-40 w-40 items-center justify-center bg-oliva-050 font-display text-6xl font-bold text-hud sm:h-44 sm:w-44">
+                {inicial}
+              </span>
+            )
+          }
+          <span
+            aria-hidden="true"
+            class="absolute bottom-1.5 right-1.5 flex h-8 w-8 items-center justify-center border border-borda-forte bg-fundo/90 text-texto"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
+              <path d="M3 8h3.5L9 5h6l2.5 3H21v12H3z" stroke-linejoin="miter"></path>
+              <circle cx="12" cy="13.5" r="3.5"></circle>
+            </svg>
           </span>
-        )
-      }
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" data-form-foto>
+          <input type="hidden" name="acao" value="foto" />
+          <label class={`${BOTAO_HUD} cursor-pointer`}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
+              <path d="M3 8h3.5L9 5h6l2.5 3H21v12H3z" stroke-linejoin="miter"></path>
+              <circle cx="12" cy="13.5" r="3.5"></circle>
+            </svg>
+            Alterar foto
+            <input
+              type="file"
+              name="foto"
+              accept="image/jpeg,image/png,image/webp"
+              class="sr-only"
+              data-arquivo-foto
+            />
+          </label>
+        </form>
+      </div>
 
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div class="min-w-0">
-            <p class="font-display text-[1.5rem] font-bold uppercase leading-none tracking-[0.01em] text-tinta">
-              {nomeExibido}
-            </p>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <p class="font-display text-[1.5rem] font-bold uppercase leading-none tracking-[0.01em] text-tinta">
+                {nomeExibido}
+              </p>
+              {
+                perfil?.perfil_completo ? (
+                  <Selo tom="ok" ponto={true}>
+                    Cadastro completo
+                  </Selo>
+                ) : (
+                  <Selo tom="atencao" ponto={true}>
+                    Cadastro incompleto
+                  </Selo>
+                )
+              }
+            </div>
             <p class="mt-1.5 font-dado text-[0.8125rem] tracking-[0.06em] text-texto-2">
               {perfil?.nickname ? "@" + perfil.nickname : usuario?.email}
             </p>
           </div>
-          {
-            perfil?.perfil_completo ? (
-              <Selo tom="ok" ponto={true}>
-                Cadastro completo
-              </Selo>
-            ) : (
-              <Selo tom="atencao" ponto={true}>
-                Cadastro incompleto
-              </Selo>
-            )
-          }
+          <div class="flex flex-wrap items-center gap-3">
+            <!--
+              Atalho para a gaveta de edição, que fica mais abaixo. Sem
+              JS o link só rola até ela; com JS ela também abre.
+            -->
+            <a href="/conta?editar=1#editar" data-abrir-editar class={BOTAO_HUD}>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                class="h-4 w-4"
+              >
+                <path
+                  d="m14.5 5.5 4 4L8 20H4v-4zM12.5 7.5l4 4"
+                  stroke-linecap="square"
+                  stroke-linejoin="miter"></path>
+              </svg>
+              Editar meus dados
+            </a>
+          </div>
         </div>
 
-        <dl class="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+        <dl class="mt-6 grid gap-x-8 gap-y-5 sm:grid-cols-3">
           <div>
             <dt class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
               Região
             </dt>
-            <dd class="mt-1 text-[0.9375rem] text-tinta">{local ?? "—"}</dd>
+            <dd class="mt-1.5 text-[0.9375rem] text-tinta">{local ?? "—"}</dd>
           </div>
           <div>
             <dt class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
               Nível
             </dt>
-            <dd class="mt-1 text-[0.9375rem] text-tinta">{rotuloNivel ?? "não informado"}</dd>
-          </div>
-          <div>
-            <dt class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
-              WhatsApp
-            </dt>
-            <dd class="mt-1 flex flex-wrap items-center gap-2.5">
-              <span class="font-dado text-[0.875rem] text-tinta">
-                {formatarWhatsapp(perfil?.whatsapp ?? null) || "—"}
-              </span>
-              {
-                perfil?.whatsapp_verificado ? (
-                  <Selo tom="ok">Confirmado</Selo>
-                ) : (
-                  <Selo>A confirmar</Selo>
-                )
-              }
+            <dd class="mt-1.5 flex items-center gap-2 text-[0.9375rem] text-tinta">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-4 w-4 shrink-0 text-hud">
+                <path d="M5 20v-4M10 20v-8M15 20v-12M20 20V4" stroke-linecap="square"></path>
+              </svg>
+              {rotuloNivel ?? "não informado"}
             </dd>
           </div>
           <div>
             <dt class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
               Estilo de jogo
             </dt>
-            <dd class="mt-1 flex flex-wrap gap-1.5">
-              {
-                estilosDoPerfil.length > 0 ? (
-                  estilosDoPerfil.map((estilo) => (
-                    <span class="border border-hud/40 px-2 py-[3px] font-dado text-[0.6875rem] uppercase leading-none tracking-[0.1em] text-hud">
-                      {estilo}
-                    </span>
-                  ))
-                ) : (
-                  <span class="text-[0.9375rem] text-texto-2">não informado</span>
-                )
-              }
+            <dd class="mt-1.5 flex items-center gap-2 text-[0.9375rem] text-tinta">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4 shrink-0 text-hud">
+                <circle cx="12" cy="12" r="8.5"></circle>
+                <circle cx="12" cy="12" r="4"></circle>
+                <circle cx="12" cy="12" r="0.5" fill="currentColor"></circle>
+                <path d="M12 3.5V7M12 17v3.5M3.5 12H7M17 12h3.5" stroke-linecap="square"></path>
+              </svg>
+              {estilosDoPerfil.length > 0 ? estilosDoPerfil.join(", ") : "não informado"}
             </dd>
           </div>
         </dl>
+
+        <div class="mt-6">
+          <p class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+            WhatsApp
+          </p>
+          <p class="mt-1.5 flex flex-wrap items-center gap-2.5">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4 shrink-0 text-hud">
+              <path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.7-1.2A9 9 0 1 0 12 3z" stroke-linejoin="miter"></path>
+              <path d="M9 8.5c0 4 2.5 6.5 6.5 6.5l.8-2-2.3-1-1 1c-1-.4-1.6-1-2-2l1-1-1-2.3z" stroke-linejoin="miter"></path>
+            </svg>
+            <span class="font-dado text-[0.875rem] text-tinta">
+              {formatarWhatsapp(perfil?.whatsapp ?? null) || "—"}
+            </span>
+            {
+              perfil?.whatsapp_verificado ? (
+                <Selo tom="ok">Confirmado</Selo>
+              ) : (
+                <Selo>A confirmar</Selo>
+              )
+            }
+            <a
+              href="/conta?editar=1#editar"
+              data-abrir-editar
+              class="border border-borda-forte px-2 py-[3px] font-dado text-[0.6875rem] uppercase leading-none tracking-[0.1em] text-texto transition-colors duration-150 hover:border-hud/60 hover:text-hud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hud"
+            >
+              Alterar
+            </a>
+          </p>
+        </div>
       </div>
     </div>
 
     <!-- Números que resumem a conta. Cada um leva para a sua seção. -->
-    <ul class="mt-7 grid grid-cols-3 gap-4 border-t border-borda pt-5">
+    <ul class="mt-7 grid grid-cols-3 divide-x divide-borda border-t border-borda pt-6">
       {
-        contadores.map((contador) => (
-          <li>
-            {contador.href ? (
-              <a
-                href={contador.href}
-                class="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hud"
+        contadores.map((contador) => {
+          const miolo = (
+            <span class="flex shrink-0 items-center justify-center text-hud">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-10 w-10">
+                <path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z" stroke-linejoin="miter" />
+                <path d={MIOLO_CONTADOR[contador.icone]} stroke-linecap="square" stroke-linejoin="miter" />
+              </svg>
+            </span>
+          );
+          const numeros = (
+            <span class="min-w-0">
+              <span
+                class:list={[
+                  "block font-dado text-[1.5rem] leading-none",
+                  contador.href ? "text-tinta transition-colors duration-150 group-hover:text-hud" : "text-texto-2",
+                ]}
               >
-                <span class="block font-dado text-[1.5rem] leading-none text-hud transition-colors duration-150 group-hover:text-oliva-100">
-                  {String(contador.valor).padStart(2, "0")}
-                </span>
-                <span class="mt-1.5 block font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
-                  {contador.rotulo}
-                </span>
-              </a>
-            ) : (
-              <div>
-                <span class="block font-dado text-[1.5rem] leading-none text-texto-2">
-                  {String(contador.valor).padStart(2, "0")}
-                </span>
-                <span class="mt-1.5 block font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
-                  {contador.rotulo}
-                </span>
-              </div>
-            )}
-          </li>
-        ))
+                {String(contador.valor).padStart(2, "0")}
+              </span>
+              <span class="mt-1.5 block font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+                {contador.rotulo}
+              </span>
+            </span>
+          );
+          return (
+            <li class="px-4 first:pl-0 last:pr-0 sm:px-6">
+              {contador.href ? (
+                <a
+                  href={contador.href}
+                  class="group flex items-center gap-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hud sm:gap-4"
+                >
+                  {miolo}
+                  {numeros}
+                </a>
+              ) : (
+                <div class="flex items-center gap-3 opacity-80 sm:gap-4">
+                  {miolo}
+                  {numeros}
+                </div>
+              )}
+            </li>
+          );
+        })
       }
     </ul>
 
     {
       membroDesde && (
-        <p class="mt-5 font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+        <p class="mt-6 flex items-center gap-2 border-t border-borda pt-5 font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4 shrink-0">
+            <path d="M4 6h16v14H4zM4 10h16M8 3.5V7M16 3.5V7" stroke-linecap="square" stroke-linejoin="miter"></path>
+          </svg>
           Na comunidade desde {membroDesde}
         </p>
       )
     }
   </section>
 
-  <Gaveta
+  <!--
+    O formulário de edição vive num modal: o botão na ficha é a única
+    porta. Abre sozinho quando o formulário voltou com erro, quando a
+    pessoa veio de um pedido barrado ou via ?editar=1 (fallback do
+    botão sem JavaScript).
+  -->
+  <Modal
     id="editar"
     titulo="Editar meus dados"
     descricao="Contato, região, nível, estilo e permissões de comunicação."
     aberta={gavetaAberta}
-    icone="lapis"
-    class="mt-6"
   >
     <div class="max-w-[62ch]">
       {
@@ -693,7 +1016,340 @@ const contadores = [
 
 
     </div>
-  </Gaveta>
+  </Modal>
+
+    <!--
+      Réplicas na mesma página do perfil: são a outra metade da ficha
+      do jogador. A página /conta/armamentos virou redirecionamento.
+    -->
+    <section id="replicas" class="mt-14 scroll-mt-24 border-t border-borda pt-10">
+      <Painel
+        titulo="Minhas réplicas"
+        contagem={totalReplicas > 0 ? `${totalReplicas} / ${LIMITE_REPLICAS}` : undefined}
+        semMoldura={true}
+      >
+        {
+          !noLimite && (
+            <a
+              slot="acao"
+              href="/conta?replica=1#cadastrar-replica"
+              data-abrir-replica
+              class={BOTAO_HUD}
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-4 w-4">
+                <path d="M12 5v14M5 12h14" stroke-linecap="square" />
+              </svg>
+              Adicionar réplica
+            </a>
+          )
+        }
+        {
+          totalReplicas === 0 ? (
+            /* Estado vazio que ensina: diz o que a lista destrava, não
+               apenas que está vazia. */
+            <div class="moldura-tatica border border-borda bg-papel/60 px-5 py-8 sm:px-8">
+              <p class="max-w-[54ch] text-[1.0625rem] leading-relaxed text-texto">
+                Nenhuma réplica cadastrada ainda.
+              </p>
+              <ul class="mt-5 max-w-[58ch] space-y-2.5 text-[0.9375rem] leading-snug text-texto-2">
+                <li class="flex gap-3">
+                  <span class="mt-[0.55em] h-1 w-3 shrink-0 bg-oliva-500" aria-hidden="true" />
+                  O acionamento define seu consumível — bateria, gás ou ar.
+                </li>
+                <li class="flex gap-3">
+                  <span class="mt-[0.55em] h-1 w-3 shrink-0 bg-oliva-500" aria-hidden="true" />
+                  A categoria diz o tipo de jogo em que você entra.
+                </li>
+                <li class="flex gap-3">
+                  <span class="mt-[0.55em] h-1 w-3 shrink-0 bg-oliva-500" aria-hidden="true" />
+                  Marcar a principal ajuda a saber o que é o seu dia a dia.
+                </li>
+              </ul>
+              <p class="mt-6 text-[0.9375rem] text-texto-2">
+                Clique em "Adicionar réplica" aqui em cima. Leva menos de um
+                minuto.
+              </p>
+            </div>
+          ) : (
+            <GradeCards>
+              {listaReplicas.map((replica) => {
+                const marca = nomeDaMarca(replica, listaMarcas);
+                return (
+                  <CardHud destaque={replica.principal}>
+                    <div class="relative flex h-[9.5rem] items-center justify-center px-6">
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill={replica.principal ? "currentColor" : "none"}
+                        stroke="currentColor"
+                        stroke-width="1.4"
+                        class:list={[
+                          "absolute left-0 top-0 h-[1.15rem] w-[1.15rem]",
+                          replica.principal ? "text-hud" : "text-texto-2/70",
+                        ]}
+                      >
+                        <path
+                          d="m12 3 2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 18.3 5.9 21.6l1.4-6.8L2.2 10.1l6.9-.8z"
+                          stroke-linejoin="miter"
+                        />
+                      </svg>
+
+                      {replica.principal && (
+                        <span class="absolute right-0 top-0 z-10 inline-flex items-center gap-1.5 border border-hud/60 bg-hud/10 px-2 py-1 font-dado text-[0.6875rem] uppercase leading-none tracking-[0.1em] text-hud">
+                          <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" class="h-3 w-3">
+                            <path d="m12 2 2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z" />
+                          </svg>
+                          Principal
+                        </span>
+                      )}
+
+                      <ArteReplica categoria={replica.categoria} class="max-h-[8.5rem] max-w-[15rem]" />
+                    </div>
+
+                    <p class="mt-4 font-display text-[1.0625rem] font-bold uppercase leading-snug tracking-[0.01em] text-tinta">
+                      {marca.nome} {replica.modelo}
+                    </p>
+
+                    <p class="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                      <ChipHud>{rotuloAcionamento(replica.acionamento)}</ChipHud>
+                      <span class="font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+                        <span aria-hidden="true" class="pr-1.5 text-borda-forte">/</span>
+                        {rotuloCategoria(replica.categoria)}
+                      </span>
+                      {marca.pendente && <Selo tom="atencao">Marca a conferir</Selo>}
+                    </p>
+
+                    {replica.observacoes && (
+                      <p class="mt-3 text-[0.9375rem] leading-snug text-texto-2">
+                        {replica.observacoes}
+                      </p>
+                    )}
+
+                    <div class="mt-auto flex flex-wrap gap-2 border-t border-borda pt-4">
+                      {!replica.principal && (
+                        <form method="POST" action="/conta#replicas">
+                          <input type="hidden" name="acao" value="principal" />
+                          <input type="hidden" name="id" value={replica.id} />
+                          <button type="submit" class={BOTAO_HUD}>
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
+                              <path d="m12 3 2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 18.3 5.9 21.6l1.4-6.8L2.2 10.1l6.9-.8z" stroke-linejoin="miter" />
+                            </svg>
+                            Tornar principal
+                          </button>
+                        </form>
+                      )}
+                      <form method="POST" action="/conta#replicas">
+                        <input type="hidden" name="acao" value="apagar" />
+                        <input type="hidden" name="id" value={replica.id} />
+                        <button
+                          type="submit"
+                          class={`${BOTAO_HUD} hover:!border-alerta hover:!text-alerta-texto`}
+                          aria-label={`Remover ${marca.nome} ${replica.modelo}`}
+                        >
+                          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
+                            <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke-linecap="square" stroke-linejoin="miter" />
+                          </svg>
+                          Remover
+                        </button>
+                      </form>
+                    </div>
+                  </CardHud>
+                );
+              })}
+            </GradeCards>
+          )
+        }
+      </Painel>
+
+      {
+        noLimite ? (
+          <p class="mt-8 border border-borda-forte bg-papel/60 px-4 py-3.5 text-[0.9375rem] text-texto-2">
+            Você chegou ao limite de {LIMITE_REPLICAS} réplicas. Remova alguma
+            para cadastrar outra.
+          </p>
+        ) : (
+          <Modal
+            id="cadastrar-replica"
+            titulo="Cadastrar réplica"
+            descricao="Adicione uma nova réplica à sua coleção."
+            aberta={gavetaReplicaAberta}
+          >
+            <form method="POST" action="/conta#replicas" class="space-y-0">
+              <input type="hidden" name="acao" value="adicionar" />
+
+              {erroReplicaGeral && (
+                <p class="mb-6 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
+                  {erroReplicaGeral}
+                </p>
+              )}
+
+              <div class="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+                <div>
+                  <label for="marca" class={ROTULO_CAMPO}>Marca</label>
+                  <select
+                    id="marca"
+                    name="marca"
+                    required
+                    aria-invalid={erroReplicaDe.marca ? "true" : undefined}
+                    aria-describedby={erroReplicaDe.marca ? "erro-marca" : undefined}
+                    class={erroReplicaDe.marca ? SELECAO_INVALIDA : SELECAO}
+                  >
+                    <option value="">Escolha</option>
+                    <optgroup label="Mais comuns no Brasil">
+                      {marcasComuns.map((m) => (
+                        <option value={m.id} selected={valorReplica("marca") === m.id}>
+                          {m.nome}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Outras marcas">
+                      {marcasDemais.map((m) => (
+                        <option value={m.id} selected={valorReplica("marca") === m.id}>
+                          {m.nome}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <option value={MARCA_OUTRA} selected={usouOutra}>
+                      Não está na lista
+                    </option>
+                  </select>
+                  {erroReplicaDe.marca && (
+                    <p id="erro-marca" class={ERRO_CAMPO}>
+                      {erroReplicaDe.marca}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label for="modelo" class={ROTULO_CAMPO}>Modelo</label>
+                  <input
+                    id="modelo"
+                    name="modelo"
+                    type="text"
+                    required
+                    maxlength="80"
+                    placeholder="CM16 Raider"
+                    value={valorReplica("modelo")}
+                    aria-invalid={erroReplicaDe.modelo ? "true" : undefined}
+                    aria-describedby={erroReplicaDe.modelo ? "erro-modelo" : undefined}
+                    class={erroReplicaDe.modelo ? ENTRADA_INVALIDA : ENTRADA}
+                  />
+                  {erroReplicaDe.modelo && (
+                    <p id="erro-modelo" class={ERRO_CAMPO}>
+                      {erroReplicaDe.modelo}
+                    </p>
+                  )}
+                </div>
+
+                {/* Só aparece quando a marca não está na lista. */}
+                <div class="campo-marca-livre sm:col-span-2" hidden={!usouOutra}>
+                  <label for="marca_outra" class={ROTULO_CAMPO}>Qual é a marca?</label>
+                  <p class={AJUDA_CAMPO}>
+                    A gente confere e adiciona à lista oficial.
+                  </p>
+                  <input
+                    id="marca_outra"
+                    name="marca_outra"
+                    type="text"
+                    maxlength="60"
+                    value={valorReplica("marca_outra")}
+                    aria-invalid={erroReplicaDe.marca_outra ? "true" : undefined}
+                    aria-describedby={erroReplicaDe.marca_outra ? "erro-marca-outra" : undefined}
+                    class={erroReplicaDe.marca_outra ? ENTRADA_INVALIDA : ENTRADA}
+                  />
+                  {erroReplicaDe.marca_outra && (
+                    <p id="erro-marca-outra" class={ERRO_CAMPO}>
+                      {erroReplicaDe.marca_outra}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label for="acionamento" class={ROTULO_CAMPO}>Acionamento</label>
+                  <select
+                    id="acionamento"
+                    name="acionamento"
+                    required
+                    aria-invalid={erroReplicaDe.acionamento ? "true" : undefined}
+                    aria-describedby={erroReplicaDe.acionamento ? "erro-acionamento" : undefined}
+                    class={erroReplicaDe.acionamento ? SELECAO_INVALIDA : SELECAO}
+                  >
+                    <option value="">Escolha</option>
+                    {ACIONAMENTOS.map((a) => (
+                      <option value={a.valor} selected={valorReplica("acionamento") === a.valor}>
+                        {a.rotulo} — {a.ajuda}
+                      </option>
+                    ))}
+                  </select>
+                  {erroReplicaDe.acionamento && (
+                    <p id="erro-acionamento" class={ERRO_CAMPO}>
+                      {erroReplicaDe.acionamento}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label for="categoria" class={ROTULO_CAMPO}>Categoria</label>
+                  <select
+                    id="categoria"
+                    name="categoria"
+                    required
+                    aria-invalid={erroReplicaDe.categoria ? "true" : undefined}
+                    aria-describedby={erroReplicaDe.categoria ? "erro-categoria" : undefined}
+                    class={erroReplicaDe.categoria ? SELECAO_INVALIDA : SELECAO}
+                  >
+                    <option value="">Escolha</option>
+                    {CATEGORIAS.map((c) => (
+                      <option value={c.valor} selected={valorReplica("categoria") === c.valor}>
+                        {c.rotulo}
+                      </option>
+                    ))}
+                  </select>
+                  {erroReplicaDe.categoria && (
+                    <p id="erro-categoria" class={ERRO_CAMPO}>
+                      {erroReplicaDe.categoria}
+                    </p>
+                  )}
+                </div>
+
+                <div class="sm:col-span-2">
+                  <label for="observacoes" class={ROTULO_CAMPO}>Observações</label>
+                  <p class={AJUDA_CAMPO}>Opcional. Upgrades, estado, o que quiser.</p>
+                  <input
+                    id="observacoes"
+                    name="observacoes"
+                    type="text"
+                    maxlength="300"
+                    value={valorReplica("observacoes")}
+                    aria-invalid={erroReplicaDe.observacoes ? "true" : undefined}
+                    aria-describedby={erroReplicaDe.observacoes ? "erro-observacoes" : undefined}
+                    class={erroReplicaDe.observacoes ? ENTRADA_INVALIDA : ENTRADA}
+                  />
+                  {erroReplicaDe.observacoes && (
+                    <p id="erro-observacoes" class={ERRO_CAMPO}>
+                      {erroReplicaDe.observacoes}
+                    </p>
+                  )}
+                </div>
+
+                <div class="sm:col-span-2">
+                  <label class={LINHA_CAIXA}>
+                    <input type="checkbox" name="principal" class={CAIXA} />
+                    <span class="text-[0.9375rem] leading-snug text-texto">
+                      É a que eu mais uso em campo
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="mt-6">
+                <button type="submit" class={BOTAO_PRIMARIO}>Cadastrar réplica</button>
+              </div>
+            </form>
+          </Modal>
+        )
+      }
+    </section>
 
     <section class="mt-12 border-t border-borda pt-7">
       <h2 class="text-[1.0625rem] font-semibold text-tinta">Seus dados</h2>
@@ -707,3 +1363,71 @@ const contadores = [
       </p>
     </section>
 </Conta>
+
+<script>
+  /**
+   * O campo de marca livre só aparece quando "Não está na lista" é a
+   * escolha. Progressive enhancement: sem JS o campo fica escondido,
+   * mas o servidor devolve a página com ele aberto e o erro no lugar —
+   * o cadastro nunca fica impossível.
+   */
+  const seletor = document.querySelector<HTMLSelectElement>("#marca");
+  const campo = document.querySelector<HTMLElement>(".campo-marca-livre");
+  const entrada = document.querySelector<HTMLInputElement>("#marca_outra");
+
+  if (seletor && campo && entrada) {
+    const sincronizar = () => {
+      const livre = seletor.value === "__outra__";
+      campo.hidden = !livre;
+      entrada.required = livre;
+      if (!livre) entrada.value = "";
+    };
+    seletor.addEventListener("change", sincronizar);
+  }
+
+  /**
+   * Os formulários vivem em modais ("Editar meus dados", "Cadastrar
+   * réplica"). Sem JavaScript o href (?editar=1 / ?replica=1) faz o
+   * servidor entregar o <dialog> já com `open`, no fluxo da página;
+   * aqui esse estado é promovido a modal de verdade, com fundo escuro
+   * e Esc fechando.
+   */
+  const ATALHOS: Array<[string, string]> = [
+    ["[data-abrir-editar]", "#editar"],
+    ["[data-abrir-replica]", "#cadastrar-replica"],
+  ];
+  for (const [gatilho, alvo] of ATALHOS) {
+    const modal = document.querySelector<HTMLDialogElement>(alvo);
+    if (!modal) continue;
+
+    if (modal.open) {
+      modal.close();
+      modal.showModal();
+    }
+
+    for (const atalho of document.querySelectorAll<HTMLAnchorElement>(gatilho)) {
+      atalho.addEventListener("click", (evento) => {
+        evento.preventDefault();
+        modal.showModal();
+      });
+    }
+
+    // Clique no fundo escuro fecha — o alvo só é o próprio dialog
+    // quando o clique cai fora da caixa de conteúdo.
+    modal.addEventListener("click", (evento) => {
+      if (evento.target === modal) modal.close();
+    });
+  }
+
+  /**
+   * "Alterar foto": escolher o arquivo já envia o formulário — sem um
+   * segundo botão de confirmar que ninguém acharia.
+   */
+  const formFoto = document.querySelector<HTMLFormElement>("[data-form-foto]");
+  const arquivoFoto = document.querySelector<HTMLInputElement>("[data-arquivo-foto]");
+  if (formFoto && arquivoFoto) {
+    arquivoFoto.addEventListener("change", () => {
+      if (arquivoFoto.files && arquivoFoto.files.length > 0) formFoto.submit();
+    });
+  }
+</script>
