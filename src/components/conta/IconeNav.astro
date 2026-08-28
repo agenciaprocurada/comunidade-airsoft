@@ -13,6 +13,7 @@ interface Props {
     | "perfil"
     | "moderacao"
     | "mapas"
+    | "usuarios"
     | "sair";
   class?: string;
 }
@@ -37,6 +38,9 @@ const DESENHOS = {
   // Quadro dividido em setores: é a grade, não uma folha dobrada de
   // mapa rodoviário — o que se faz aqui é dividir terreno em A1, B2.
   mapas: "M4 4h16v16H4zM4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16",
+  // Uma silhueta e uma lista: o cadastro, visto de fora.
+  usuarios:
+    "M8.5 4.5a2.75 2.75 0 1 1 0 5.5 2.75 2.75 0 0 1 0-5.5zM3 20v-1.5A4.5 4.5 0 0 1 7.5 14h2a4.5 4.5 0 0 1 4.5 4.5V20M16 7h5M16 12h5M16 17h5",
   sair: "M10 4H5v16h5M15 8l4 4-4 4M9 12h10",
 } as const;
 ---

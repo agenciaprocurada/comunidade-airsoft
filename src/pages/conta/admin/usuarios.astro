@@ -1,0 +1,293 @@
+---
+import Conta from "../../../layouts/Conta.astro";
+import Painel from "../../../components/conta/Painel.astro";
+import Selo from "../../../components/conta/Selo.astro";
+import { BOTAO_SECUNDARIO, ENTRADA, ROTULO_CAMPO, SELECAO } from "../../../lib/estilos-form";
+import { ESTILOS, NIVEIS, formatarWhatsapp } from "../../../lib/conta";
+import { NOME_UF, SIGLAS_UF } from "../../../lib/uf";
+
+export const prerender = false;
+
+// O middleware já devolveu 404 para quem não é administrador, e a
+// função no banco recusa de novo — a tela não é a única trava.
+const { supabase } = Astro.locals;
+const parametros = Astro.url.searchParams;
+
+/**
+ * A busca vai para um `ilike` dentro da função, como parâmetro — não
+ * entra em texto de consulta. O corte é só para não mandar lixo.
+ */
+const busca = (parametros.get("q") ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
+const uf = (parametros.get("uf") ?? "").toUpperCase().slice(0, 2);
+
+const SITUACOES = [
+  { valor: "", rotulo: "Todas" },
+  { valor: "completo", rotulo: "Perfil completo" },
+  { valor: "basico", rotulo: "Só o cadastro mínimo" },
+  { valor: "incompleto", rotulo: "Não terminou o cadastro" },
+] as const;
+type Situacao = (typeof SITUACOES)[number]["valor"];
+
+const situacaoBruta = parametros.get("situacao") ?? "";
+const situacao: Situacao = SITUACOES.some((s) => s.valor === situacaoBruta)
+  ? (situacaoBruta as Situacao)
+  : "";
+
+interface Usuario {
+  id: string;
+  email: string;
+  provedor: string;
+  nome: string | null;
+  nickname: string | null;
+  foto_url: string | null;
+  whatsapp: string | null;
+  uf: string | null;
+  cidade: string | null;
+  nivel: string | null;
+  estilos: string[];
+  onboarding_ok: boolean;
+  perfil_completo: boolean;
+  criado_em: string;
+  ultimo_acesso: string | null;
+  replicas: number;
+  mapas: number;
+  operacoes: number;
+  total: number;
+}
+
+const LIMITE = 200;
+
+const [{ data: linhas, error }, { data: geral }] = await Promise.all([
+  supabase
+    .rpc("admin_lista_usuarios", {
+      p_busca: busca || null,
+      p_uf: uf || null,
+      p_situacao: situacao || null,
+      p_limite: LIMITE,
+    }),
+  // Total sem filtro, para o resumo do topo não mudar a cada busca.
+  supabase.rpc("admin_lista_usuarios", { p_limite: 1 }),
+]);
+
+if (error) console.error("Falha ao listar usuários:", error);
+
+// `rpc` sem tipos gerados devolve `any`; a forma é a da função no banco.
+const lista = ((linhas as Usuario[] | null) ?? []);
+const geralLista = (geral as Pick<Usuario, "total">[] | null) ?? [];
+// bigint pode chegar como texto dependendo do caminho; garante número.
+const totalFiltrado = Number(lista[0]?.total ?? 0);
+const totalGeral = Number(geralLista[0]?.total ?? 0);
+const truncou = lista.length < totalFiltrado;
+const filtrando = Boolean(busca || uf || situacao);
+
+const ROTULO_NIVEL = Object.fromEntries(NIVEIS.map((n) => [n.valor, n.rotulo]));
+const ROTULO_ESTILO = Object.fromEntries(ESTILOS.map((e) => [e.valor, e.rotulo]));
+
+const PROVEDOR: Record<string, string> = { google: "Google", email: "E-mail" };
+
+const situacaoDe = (u: Usuario) =>
+  u.perfil_completo
+    ? { tom: "ok" as const, rotulo: "Perfil completo" }
+    : u.onboarding_ok
+      ? { tom: "atencao" as const, rotulo: "Cadastro mínimo" }
+      : { tom: "alerta" as const, rotulo: "Incompleto" };
+
+const formatarDia = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "—";
+
+/**
+ * Último acesso em linguagem de gente: "hoje", "há 3 dias", "há 2
+ * meses". A data exata fica no `title`.
+ */
+const relativo = (iso: string | null) => {
+  if (!iso) return "nunca entrou";
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (dias <= 0) return "hoje";
+  if (dias === 1) return "ontem";
+  if (dias < 30) return `há ${dias} dias`;
+  const meses = Math.floor(dias / 30);
+  if (meses < 12) return `há ${meses} ${meses === 1 ? "mês" : "meses"}`;
+  const anos = Math.floor(dias / 365);
+  return `há ${anos} ${anos === 1 ? "ano" : "anos"}`;
+};
+
+const inicialDe = (u: Usuario) => (u.nome ?? u.nickname ?? u.email).trim().charAt(0).toUpperCase();
+
+const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+---
+
+<Conta
+  titulo="Usuários"
+  descricao="Quem está cadastrado no site."
+  resumo={
+    totalGeral === 0
+      ? "Ninguém cadastrado ainda."
+      : `${plural(totalGeral, "pessoa cadastrada", "pessoas cadastradas")}, da mais recente para a mais antiga.`
+  }
+>
+  <form method="GET" class="mt-8 flex flex-wrap items-end gap-3">
+    <div class="min-w-[16rem] flex-1">
+      <label for="q" class={ROTULO_CAMPO}>Nome, nickname, e-mail, cidade ou WhatsApp</label>
+      <input type="search" id="q" name="q" value={busca} class={ENTRADA} />
+    </div>
+
+    <div class="w-[8rem]">
+      <label for="uf" class={ROTULO_CAMPO}>UF</label>
+      <select id="uf" name="uf" class={SELECAO}>
+        <option value="">Todas</option>
+        {SIGLAS_UF.map((sigla) => (
+          <option value={sigla} selected={uf === sigla}>{sigla}</option>
+        ))}
+      </select>
+    </div>
+
+    <div class="w-[15rem]">
+      <label for="situacao" class={ROTULO_CAMPO}>Situação do cadastro</label>
+      <select id="situacao" name="situacao" class={SELECAO}>
+        {SITUACOES.map((s) => (
+          <option value={s.valor} selected={situacao === s.valor}>{s.rotulo}</option>
+        ))}
+      </select>
+    </div>
+
+    <button type="submit" class={BOTAO_SECUNDARIO}>Filtrar</button>
+    {
+      filtrando && (
+        <a
+          href="/conta/admin/usuarios"
+          class="px-2 py-2.5 text-[0.9375rem] text-texto-2 underline-offset-2 hover:text-tinta hover:underline"
+        >
+          Limpar
+        </a>
+      )
+    }
+  </form>
+
+  {
+    error && (
+      <p class="mt-6 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
+        Falha ao carregar a lista: {error.message}
+      </p>
+    )
+  }
+
+  <div class="mt-8">
+    <Painel
+      titulo={filtrando ? "Resultado" : "Cadastrados"}
+      contagem={totalFiltrado}
+      descricao={
+        truncou
+          ? `Mostrando os ${lista.length} mais recentes de ${totalFiltrado}. Use a busca para chegar na pessoa certa.`
+          : undefined
+      }
+    >
+      {
+        lista.length === 0 ? (
+          <p class="px-4 py-6 text-[0.9375rem] leading-relaxed text-texto-2">
+            {filtrando ? "Ninguém com esses filtros." : "Ninguém cadastrado ainda."}
+          </p>
+        ) : (
+          <ul class="divide-y divide-borda">
+            {lista.map((u) => {
+              const sit = situacaoDe(u);
+              const nome = u.nome ?? u.nickname ?? u.email;
+              return (
+                <li class="flex flex-wrap gap-x-5 gap-y-3 px-4 py-4">
+                  {u.foto_url ? (
+                    <img
+                      src={u.foto_url}
+                      alt=""
+                      width="40"
+                      height="40"
+                      loading="lazy"
+                      referrerpolicy="no-referrer"
+                      class="octogono h-10 w-10 shrink-0 bg-oliva-050 object-cover"
+                    />
+                  ) : (
+                    <span class="octogono flex h-10 w-10 shrink-0 items-center justify-center bg-oliva-050 text-[1rem] font-semibold text-hud">
+                      {inicialDe(u)}
+                    </span>
+                  )}
+
+                  <div class="min-w-0 flex-1">
+                    <p class="flex flex-wrap items-center gap-2 text-[0.9375rem] font-semibold leading-tight text-tinta">
+                      <span class="truncate">{nome}</span>
+                      {u.nickname && u.nome && (
+                        <span class="font-dado text-[0.75rem] font-normal tracking-[0.06em] text-texto-2">
+                          @{u.nickname}
+                        </span>
+                      )}
+                      <Selo tom={sit.tom}>{sit.rotulo}</Selo>
+                    </p>
+
+                    {/* Contato: o que o admin mais precisa para falar com a pessoa. */}
+                    <p class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.875rem] leading-snug text-texto">
+                      <a
+                        href={`mailto:${u.email}`}
+                        class="truncate underline-offset-2 hover:text-oliva-300 hover:underline"
+                      >
+                        {u.email}
+                      </a>
+                      {u.whatsapp && (
+                        <a
+                          href={`https://wa.me/${u.whatsapp.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noopener"
+                          class="font-dado text-[0.8125rem] tracking-[0.04em] underline-offset-2 hover:text-oliva-300 hover:underline"
+                        >
+                          {formatarWhatsapp(u.whatsapp)}
+                        </a>
+                      )}
+                    </p>
+
+                    <p class="mt-1.5 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+                      {u.cidade ?? "Cidade não informada"}
+                      {u.uf && ` · ${NOME_UF[u.uf] ?? u.uf}`}
+                      {u.nivel && (
+                        <>
+                          <span aria-hidden="true" class="px-1.5 text-borda-forte">/</span>
+                          {ROTULO_NIVEL[u.nivel] ?? u.nivel}
+                        </>
+                      )}
+                      {u.estilos.length > 0 && (
+                        <>
+                          <span aria-hidden="true" class="px-1.5 text-borda-forte">/</span>
+                          {u.estilos.map((e) => ROTULO_ESTILO[e] ?? e).join(", ")}
+                        </>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Atividade: quando entrou, quando voltou, o que já fez. */}
+                  <dl class="grid shrink-0 grid-cols-[auto_auto] gap-x-3 gap-y-0.5 font-dado text-[0.75rem] uppercase tracking-[0.08em] text-texto-2 sm:text-right">
+                    <dt class="sm:order-2">Cadastro</dt>
+                    <dd class="text-tinta sm:order-1" title={u.criado_em}>
+                      {formatarDia(u.criado_em)}
+                      {u.provedor && (
+                        <span class="text-texto-2"> · {PROVEDOR[u.provedor] ?? u.provedor}</span>
+                      )}
+                    </dd>
+                    <dt class="sm:order-4">Último acesso</dt>
+                    <dd class="text-tinta sm:order-3" title={u.ultimo_acesso ?? undefined}>
+                      {relativo(u.ultimo_acesso)}
+                    </dd>
+                    <dt class="sm:order-6">No site</dt>
+                    <dd class="text-tinta sm:order-5">
+                      {plural(u.replicas, "réplica", "réplicas")}
+                      <span aria-hidden="true" class="px-1 text-borda-forte">/</span>
+                      {plural(u.mapas, "mapa", "mapas")}
+                      <span aria-hidden="true" class="px-1 text-borda-forte">/</span>
+                      {plural(u.operacoes, "evento", "eventos")}
+                    </dd>
+                  </dl>
+                </li>
+              );
+            })}
+          </ul>
+        )
+      }
+    </Painel>
+  </div>
+</Conta>
