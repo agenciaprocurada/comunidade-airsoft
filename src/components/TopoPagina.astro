@@ -1,0 +1,320 @@
+---
+/**
+ * Topo das páginas de listagem e dos hubs: campos, lojas, armeiros,
+ * operações, guias e os hubs de estado/cidade.
+ *
+ * Substitui o par "Trilha + <header> com borda embaixo" que cada página
+ * repetia. É uma faixa de largura total com a foto de fundo à direita,
+ * vinheta para o texto respirar e os detalhes de HUD (grade, régua,
+ * cruzes, código de canto) que a home já usa.
+ *
+ * NÃO é para a home (que tem o hero próprio), nem para o criador de
+ * mapas (que tem landing própria), nem para fichas e artigos — nestes o
+ * topo é o conteúdo, não uma capa.
+ *
+ * A foto vem de src/assets/topo-fundo.webp e -mobile.webp, geradas por
+ * src/scripts/fundo-topo.mjs. É `background-image` com media query:
+ * assim só UMA das duas é baixada — dois <img> com `hidden` baixam os
+ * dois arquivos.
+ *
+ * Uso:
+ *   <TopoPagina
+ *     trilha={[{ texto: "Guias" }]}
+ *     dados={[{ icone: "documento", texto: "27 guias" }, ...]}
+ *     codigo="06"
+ *   >
+ *     Guias
+ *     <p slot="descricao">...</p>
+ *   </TopoPagina>
+ */
+import { getImage } from "astro:assets";
+import Trilha from "./Trilha.astro";
+import fundoDesktop from "../assets/topo-fundo.webp";
+import fundoMobile from "../assets/topo-fundo-mobile.webp";
+import logo from "../assets/logo.webp";
+
+type Icone =
+  | "documento"
+  | "alvo"
+  | "livro"
+  | "cadeado"
+  | "pino"
+  | "mapa"
+  | "loja"
+  | "chave"
+  | "calendario"
+  | "selo"
+  | "caixa"
+  | "pessoas";
+
+interface Dado {
+  icone: Icone;
+  texto: string;
+}
+
+interface Props {
+  trilha: { href?: string; texto: string }[];
+  /** Barra de números/garantias abaixo da descrição. Sem ela, a barra some. */
+  dados?: Dado[];
+  /** Código decorativo do canto ("CA // 01"). Um por seção do site. */
+  codigo?: string;
+}
+
+const { trilha, dados = [], codigo = "00" } = Astro.props;
+
+/*
+ * A marca d'água é a mira do logo, recortada da arte horizontal por
+ * `background-position`. Pedimos uma versão de 480px em vez de usar o
+ * original de 1382px: é decoração a 6% de opacidade, não merece 34 kB.
+ */
+const marca = await getImage({ src: logo, width: 480, format: "webp" });
+
+/* Ícones de traço, 24x24, no mesmo vocabulário dos cards. */
+const ICONES: Record<Icone, string> = {
+  documento:
+    '<path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  alvo:
+    '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
+  livro:
+    '<path d="M12 6c-1.5-1.3-3.5-2-6-2H3v14h3c2.5 0 4.5.7 6 2 1.5-1.3 3.5-2 6-2h3V4h-3c-2.5 0-4.5.7-6 2z"/><path d="M12 6v14"/>',
+  cadeado:
+    '<rect x="5" y="11" width="14" height="10"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  pino: '<path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/>',
+  mapa: '<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>',
+  loja: '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9h16v11H4z"/><path d="M9 20v-6h6v6"/>',
+  chave:
+    '<path d="M14.5 4.5a4 4 0 0 0-4.6 5.4L3 16.8V21h4.2l6.9-6.9a4 4 0 0 0 5.4-4.6l-2.6 2.6-2.8-2.8z"/>',
+  calendario:
+    '<rect x="3" y="5" width="18" height="16"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  selo: '<path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+  caixa:
+    '<path d="M3 8l9-4 9 4v9l-9 4-9-4z"/><path d="M3 8l9 4 9-4M12 12v9"/>',
+  pessoas:
+    '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5a5 5 0 0 1 6 5"/>',
+};
+---
+
+<section class="relative isolate overflow-hidden border-b border-borda bg-fundo">
+  <div class="topo-fundo absolute inset-0 -z-30" aria-hidden="true"></div>
+  <div class="topo-vinheta absolute inset-0 -z-20" aria-hidden="true"></div>
+  <div class="grade-tatica absolute inset-0 -z-10 opacity-20" aria-hidden="true"></div>
+
+  <!-- Marca d'água: a mira do logo, sangrando pela esquerda -->
+  <div
+    class="topo-marca pointer-events-none absolute -left-16 top-1/2 -z-10 hidden h-[400px] w-[400px] -translate-y-1/2 lg:block"
+    aria-hidden="true"
+  >
+  </div>
+
+  <!-- Pontilhado — canto superior direito -->
+  <div
+    class="topo-pontos pointer-events-none absolute right-8 top-8 -z-10 hidden h-28 w-44 md:block"
+    aria-hidden="true"
+  >
+  </div>
+
+  <!-- Cruzes de registro -->
+  <svg
+    aria-hidden="true"
+    class="pointer-events-none absolute -z-10 hidden lg:block text-oliva-400/45"
+    style="left: 70%; top: 14%"
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1"
+  >
+    <path d="M8 0v16M0 8h16"></path>
+  </svg>
+  <svg
+    aria-hidden="true"
+    class="pointer-events-none absolute right-24 -z-10 hidden lg:block text-oliva-400/45"
+    style="bottom: 22%"
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1"
+  >
+    <path d="M8 0v16M0 8h16"></path>
+  </svg>
+
+  <div class="relative mx-auto max-w-[1240px] px-5 pb-16 pt-8 md:px-12 md:pb-24 md:pt-12">
+    <Trilha itens={trilha} />
+
+    <!-- Risco com faixa zebrada acima do título -->
+    <div class="mt-9 flex w-56 items-center" aria-hidden="true">
+      <span class="h-px w-5 bg-oliva-400/60"></span>
+      <span class="topo-zebra mx-1.5 h-2 w-20"></span>
+      <span class="h-px flex-1 bg-oliva-400/35"></span>
+    </div>
+
+    <h1
+      class="mt-3 max-w-[14ch] font-display text-[44px] font-extrabold uppercase italic leading-[0.92] tracking-[0.01em] drop-shadow-[0_4px_22px_rgba(0,0,0,0.85)] md:text-6xl lg:text-7xl"
+    >
+      <slot />
+    </h1>
+
+    <div
+      class="topo-descricao mt-5 max-w-[54ch] text-lg leading-relaxed text-texto drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)]"
+    >
+      <slot name="descricao" />
+    </div>
+
+    {
+      dados.length > 0 && (
+        <ul class="mt-8 flex flex-wrap pl-px pt-px">
+          {dados.map((dado) => (
+            <li class="-ml-px -mt-px flex basis-1/2 items-center gap-2 border border-borda-forte/60 bg-fundo/65 px-2.5 py-3 font-dado text-[10px] uppercase tracking-[0.1em] text-tinta backdrop-blur-[2px] sm:basis-auto sm:gap-2.5 sm:px-5 sm:text-[11px] sm:tracking-[0.16em]">
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                class="h-4 w-4 shrink-0 text-oliva-400"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="square"
+                stroke-linejoin="miter"
+                set:html={ICONES[dado.icone]}
+              />
+              <span>{dado.texto}</span>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </div>
+
+  <!-- Régua de ticks — rodapé esquerdo da faixa -->
+  <div
+    class="topo-regua pointer-events-none absolute bottom-5 left-5 hidden h-3 w-[42%] md:left-12 md:block"
+    aria-hidden="true"
+  >
+  </div>
+
+  <!-- Código de canto -->
+  <p
+    class="pointer-events-none absolute bottom-4 right-5 hidden items-center gap-3 font-dado text-[10px] uppercase tracking-[0.2em] text-oliva-400/70 md:right-12 md:flex"
+    aria-hidden="true"
+  >
+    <span class="topo-zebra h-2 w-16"></span>
+    CA // {codigo}
+  </p>
+</section>
+
+<style
+  define:vars={{
+    fundoDesktop: `url('${fundoDesktop.src}')`,
+    fundoMobile: `url('${fundoMobile.src}')`,
+    marca: `url('${marca.src}')`,
+  }}
+>
+  /* Duas artes distintas, não a mesma reescalada: a de celular é um
+     recorte vertical próprio. Só a que casa com a media query é baixada.
+     No recorte de celular o soldado está na metade direita; `right`
+     mantém ele à direita do título quando sobra imagem. */
+  .topo-fundo {
+    background-image: var(--fundoMobile);
+    background-size: cover;
+    background-position: right 20%;
+    background-repeat: no-repeat;
+  }
+
+  /* No celular o texto cobre a faixa inteira: a foto fica mais escura
+     por igual e some para o fundo da página na base. */
+  .topo-vinheta {
+    background:
+      linear-gradient(
+        to bottom,
+        rgba(11, 13, 9, 0.6) 0%,
+        rgba(11, 13, 9, 0.55) 45%,
+        rgba(11, 13, 9, 0.92) 100%
+      );
+  }
+
+  @media (min-width: 900px) {
+    /* A faixa é larga e baixa; `cover` na largura toda deixaria o soldado
+       (a 37% da foto) atrás do texto. A foto começa em 36% da tela e vai
+       até a borda, e a máscara derrete a emenda da esquerda — assim o
+       soldado cai em ~60% da largura, à direita da coluna de texto. O
+       corte vertical sobra embaixo (capim), não em cima (a cabeça). */
+    .topo-fundo {
+      left: 36%;
+      background-image: var(--fundoDesktop);
+      background-position: left 22%;
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 28%);
+      mask-image: linear-gradient(to right, transparent, #000 28%);
+    }
+
+    /* Escuro na esquerda (texto), aberto no meio-direita (foto),
+       fechando de novo na borda e na base. */
+    .topo-vinheta {
+      background:
+        linear-gradient(
+          to right,
+          rgba(11, 13, 9, 0.9) 0%,
+          rgba(11, 13, 9, 0.7) 36%,
+          rgba(11, 13, 9, 0.28) 55%,
+          rgba(11, 13, 9, 0.22) 78%,
+          rgba(11, 13, 9, 0.62) 100%
+        ),
+        linear-gradient(
+          to bottom,
+          rgba(11, 13, 9, 0.55) 0%,
+          rgba(11, 13, 9, 0) 30%,
+          rgba(11, 13, 9, 0.25) 70%,
+          rgba(11, 13, 9, 0.95) 100%
+        );
+    }
+  }
+
+  /* Mira do logo: o arquivo é o logo horizontal inteiro; o quadrado com
+     `auto 100%` alinhado à esquerda mostra só a mira. O filtro é o mesmo
+     de .logo — branco sobre fundo escuro — e a opacidade faz o resto. */
+  .topo-marca {
+    background-image: var(--marca);
+    background-size: auto 100%;
+    background-position: left center;
+    background-repeat: no-repeat;
+    filter: brightness(0) invert(1);
+    opacity: 0.055;
+  }
+
+  .topo-pontos {
+    background-image: radial-gradient(rgba(147, 168, 74, 0.4) 1px, transparent 1.6px);
+    background-size: 14px 14px;
+    -webkit-mask-image: linear-gradient(to left, #000 30%, transparent);
+    mask-image: linear-gradient(to left, #000 30%, transparent);
+  }
+
+  .topo-zebra {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      rgba(147, 168, 74, 0.85) 0 4px,
+      transparent 4px 9px
+    );
+  }
+
+  /* Tick fino a cada 12px, tick alto a cada 60px, ancorados na base. */
+  .topo-regua {
+    background-image:
+      repeating-linear-gradient(90deg, rgba(147, 168, 74, 0.55) 0 1px, transparent 1px 60px),
+      repeating-linear-gradient(90deg, rgba(147, 168, 74, 0.35) 0 1px, transparent 1px 12px);
+    background-size:
+      100% 100%,
+      100% 50%;
+    background-position:
+      left bottom,
+      left bottom;
+    background-repeat: no-repeat;
+    -webkit-mask-image: linear-gradient(to right, #000 60%, transparent);
+    mask-image: linear-gradient(to right, #000 60%, transparent);
+  }
+
+  /* Parágrafos passados pelo slot herdam o tamanho da caixa. */
+  .topo-descricao :global(p + p) {
+    margin-top: 0.75rem;
+  }
+</style>

@@ -2,7 +2,7 @@
 import { getCollection } from "astro:content";
 import { Image } from "astro:assets";
 import Base from "../../layouts/Base.astro";
-import Trilha from "../../components/Trilha.astro";
+import TopoPagina from "../../components/TopoPagina.astro";
 import Etiqueta from "../../components/Etiqueta.astro";
 
 const guias = await getCollection("guias", ({ data }) => !data.rascunho);
@@ -68,24 +68,25 @@ const listaEstruturada = {
   descricao="Guias gratuitos de airsoft organizados por nível: legislação, custo, primeiro dia no campo, equipamento, manutenção e upgrade. Conteúdo da Comunidade Airsoft."
   dadosEstruturados={[listaEstruturada]}
 >
-  <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
-    <Trilha itens={[{ texto: "Guias" }]} />
+  <TopoPagina
+    trilha={[{ texto: "Guias" }]}
+    dados={[
+      { icone: "documento", texto: `${total} ${total === 1 ? "guia" : "guias"}` },
+      { icone: "alvo", texto: "Três níveis" },
+      { icone: "livro", texto: "Leitura livre" },
+      { icone: "cadeado", texto: "Sem cadastro" },
+    ]}
+    codigo="06"
+  >
+    Guias
+    <p slot="descricao">
+      O que ninguém explica direito para quem está começando: quanto custa, o
+      que é obrigatório, como funciona o primeiro dia no campo. Depois, o que
+      ninguém explica para quem já joga.
+    </p>
+  </TopoPagina>
 
-    <header class="mt-8 border-b border-borda pb-8">
-      <h1
-        class="font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-6xl"
-      >
-        Guias
-      </h1>
-      <p class="mt-4 max-w-[60ch] text-lg leading-relaxed text-texto-2">
-        O que ninguém explica direito para quem está começando: quanto custa, o
-        que é obrigatório, como funciona o primeiro dia no campo. Depois, o que
-        ninguém explica para quem já joga.
-      </p>
-      <p class="mt-5 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
-        {total} guias · três níveis · leitura livre, sem cadastro
-      </p>
-    </header>
+  <div class="mx-auto max-w-[1240px] px-5 pb-8 pt-2 md:px-12 md:pb-12 md:pt-4">
 
     {
       total === 0 ? (
