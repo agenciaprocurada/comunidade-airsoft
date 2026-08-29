@@ -6,6 +6,7 @@ import exemploIlustrado from "../assets/mapas/exemplo-mapa-tatico-airsoft-ilustr
 import exemploSatelite from "../assets/mapas/exemplo-mapa-tatico-airsoft-satelite.webp";
 import fundoCta from "../assets/hero-fundo.webp";
 import fundoTopo from "../assets/mapas/fundo-topo-criador-de-mapas.webp";
+import capaVideo from "../assets/mapas/video-criador-de-mapas-airsoft.webp";
 import { AREAS, CORES, FORMATOS, GRADE_MAX, LIMITE_MAPAS } from "../lib/mapa";
 import { GRUPOS_SIMBOLOS, SIMBOLOS } from "../lib/simbolos";
 
@@ -157,6 +158,67 @@ const aplicativo = {
   offers: { "@type": "Offer", price: "0", priceCurrency: "BRL" },
 };
 
+/**
+ * Vídeo de demonstração — 15 segundos, do mapa vazio ao mapa pronto.
+ *
+ * Servido pelo PRÓPRIO site, não embutido do YouTube. O embed do
+ * YouTube desenha por cima do vídeo o título, o canal e os botões de
+ * compartilhar e assistir mais tarde; `showinfo` foi removido da API
+ * e `modestbranding` foi descontinuado, então não existe parâmetro
+ * que tire aquilo dali. Com o arquivo local a tela é só o mapa.
+ *
+ * O MP4 sai do projeto Remotion em video-gerador-mapa/ (1920x1080,
+ * 14 MB) reencodado para 1280x720 sem faixa de áudio — a composição
+ * não tem trilha, e o AAC mudo que o Remotion escreve por padrão só
+ * pesaria. Para regerar depois de um render novo:
+ *
+ *   ffmpeg -i video-gerador-mapa/out/gerador-de-mapas-1920x1080.mp4 \
+ *     -vf scale=1280:-2 -c:v libx264 -crf 26 -preset slow \
+ *     -pix_fmt yuv420p -an -movflags +faststart \
+ *     public/video/criador-de-mapas-airsoft.mp4
+ *
+ * O binário do ffmpeg já vem junto com o Remotion, dentro de
+ * video-gerador-mapa/node_modules/@remotion/compositor-*.
+ *
+ * NÃO toca sozinho: `preload="none"` mais o pôster deixam a página
+ * abrir sem baixar 1,7 MB de quem talvez nem role até aqui. O vídeo
+ * só é buscado quando alguém aperta o play.
+ *
+ * O pôster é o quadro dos 12 s — o mapa JÁ PRONTO, com quadrícula,
+ * safe, respawn e CQB. O primeiro quadro é a tela vazia, que não
+ * convida ninguém a apertar o play.
+ */
+const VIDEO = {
+  arquivo: "/video/criador-de-mapas-airsoft.mp4",
+  titulo: "Gerador de Mapas Estratégicos para Airsoft Gratuito",
+  duracaoIso: "PT15S",
+  duracaoTexto: "15 segundos",
+  publicadoEm: "2026-08-29",
+};
+
+/**
+ * VideoObject entra no @graph da página. Sem `uploadDate`, `duration`
+ * e `thumbnailUrl` o Google descarta o rich result — e é justamente a
+ * miniatura no resultado de busca que faz esse vídeo valer a pena.
+ *
+ * `contentUrl` aponta para o MP4 deste domínio, que é o que a página
+ * realmente serve. Não há `embedUrl`: não existe player embutido aqui.
+ */
+const video = {
+  "@type": "VideoObject",
+  name: VIDEO.titulo,
+  description:
+    "Demonstração do Criador de Mapas da Comunidade Airsoft: enquadrar a imagem " +
+    "de satélite do campo, alinhar o norte, desenhar as áreas de safe e respawn " +
+    "sobre a quadrícula e exportar o mapa em PNG.",
+  uploadDate: VIDEO.publicadoEm,
+  duration: VIDEO.duracaoIso,
+  thumbnailUrl: new URL(capaVideo.src, Astro.site).href,
+  contentUrl: new URL(VIDEO.arquivo, Astro.site).href,
+  inLanguage: "pt-BR",
+  isFamilyFriendly: true,
+};
+
 /** Colunas que a quadrícula decorativa do hero rotula. */
 const COLUNAS_HERO = ["A", "B", "C", "D"];
 
@@ -202,7 +264,7 @@ const TRAJETO = [
 ];
 ---
 
-<Base titulo={TITULO} descricao={DESCRICAO} dadosEstruturados={[aplicativo, faq]}>
+<Base titulo={TITULO} descricao={DESCRICAO} dadosEstruturados={[aplicativo, video, faq]}>
   <!-- ==========================================================
        HERO — o mapa se desenha sozinho
        ========================================================== -->
@@ -249,7 +311,7 @@ const TRAJETO = [
 
         <div class="mt-9 flex flex-wrap gap-4">
           <Botao href="/mapa">Quero criar meu mapa</Botao>
-          <Botao href="#como-funciona" variante="secundario" seta>
+          <Botao href="#video" variante="secundario" seta>
             Ver como funciona
           </Botao>
         </div>
@@ -406,6 +468,92 @@ const TRAJETO = [
             N ▲
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       VÍDEO — a ferramenta funcionando, logo abaixo do hero
+
+       Não leva coordenada de setor de propósito. A página numera as
+       seções na diagonal da quadrícula (A1, B2, C3, D4, E5), que é a
+       convenção que o próprio produto ensina; enfiar um setor novo
+       no meio obrigaria a renumerar tudo o que vem depois. Este
+       bloco é a continuação do hero — a mesma promessa, agora em
+       movimento — e não um capítulo à parte.
+       ========================================================== -->
+  <section
+    id="video"
+    aria-labelledby="video-titulo"
+    class="scroll-mt-24 border-b border-borda bg-papel/40"
+  >
+    {/* Mesma largura de coluna das outras seções (1240px), para o
+        player nascer alinhado com a ficha técnica e os mapas de
+        exemplo logo abaixo. No desktop o vídeo é o elemento principal
+        do bloco: texto curto em cima, player grande, CTA embaixo —
+        tudo no mesmo eixo central. */}
+    <div class="mx-auto max-w-[1240px] px-5 py-14 text-center md:px-12 md:py-16">
+      <p class="font-dado text-xs tracking-[0.2em] text-oliva-500">
+        DEMONSTRAÇÃO · {VIDEO.duracaoTexto.toUpperCase()}
+      </p>
+      <h2
+        id="video-titulo"
+        class="mx-auto mt-3 max-w-[20ch] font-display text-3xl font-bold uppercase leading-tight tracking-[0.03em] md:text-4xl lg:text-[2.75rem]"
+      >
+        Veja o mapa do seu campo gratuitamente
+      </h2>
+      <p class="mt-4 text-lg leading-relaxed text-texto-2">
+        Dê play para ver como funciona.
+      </p>
+
+      {/* Sem `overflow-hidden`: os ticks de canto da moldura tática
+          ficam em -1px e seriam cortados. */}
+      <div class="moldura-tatica relative mt-9 aspect-video border border-borda bg-[#141810] md:mt-10">
+        <video
+          data-video
+          class="absolute inset-0 h-full w-full"
+          poster={capaVideo.src}
+          preload="none"
+          controls
+          playsinline
+          width={capaVideo.width}
+          height={capaVideo.height}
+        >
+          <source src={VIDEO.arquivo} type="video/mp4" />
+          Seu navegador não reproduz vídeo. <a href={VIDEO.arquivo}>Baixe o
+          arquivo</a> para assistir à demonstração.
+        </video>
+
+        {/*
+          Botão de play próprio, cobrindo o vídeo inteiro: o alvo de
+          clique é a tela toda, não um ícone de 60px.
+
+          Nasce com `hidden` e só aparece se houver JS — sem script ele
+          não teria como dar play, e um botão morto por cima do vídeo
+          bloquearia os `controls` nativos, que são o caminho de quem
+          está sem JS. O script tira o `hidden` daqui e o `controls`
+          do vídeo, para não existirem dois comandos ao mesmo tempo.
+        */}
+        <button
+          type="button"
+          data-tocar
+          hidden
+          class="group absolute inset-0 flex cursor-pointer items-center justify-center"
+        >
+          <span class="sr-only">Assistir à demonstração ({VIDEO.duracaoTexto})</span>
+          <span
+            aria-hidden="true"
+            class="flex h-20 w-20 items-center justify-center border-2 border-oliva-300 bg-[#0b0d09]/70 text-oliva-300 shadow-[0_8px_40px_rgba(11,13,9,0.6)] backdrop-blur-sm transition group-hover:scale-105 group-hover:border-oliva-300 group-hover:bg-oliva-500 group-hover:text-fundo group-focus-visible:scale-105 md:h-24 md:w-24"
+          >
+            <svg viewBox="0 0 24 24" class="ml-1 h-9 w-9 md:h-11 md:w-11" fill="currentColor">
+              <path d="M8 5v14l11-7z"></path>
+            </svg>
+          </span>
+        </button>
+      </div>
+
+      <div class="mt-9 flex justify-center md:mt-10">
+        <Botao href="/mapa">Criar meu mapa agora</Botao>
       </div>
     </div>
   </section>
@@ -1030,6 +1178,56 @@ const TRAJETO = [
 </Base>
 
 <script>
+  /* ============================================================
+     Vídeo da demonstração.
+
+     Sem JS o <video> fica com os `controls` nativos e o botão
+     próprio nem aparece — a página continua inteira. Com JS, os
+     dois trocam de lugar: o botão grande cobre o vídeo, e os
+     controles só entram depois que o play acontece.
+     ============================================================ */
+  const video = document.querySelector<HTMLVideoElement>("video[data-video]");
+  const tocar = document.querySelector<HTMLButtonElement>("button[data-tocar]");
+
+  if (video && tocar) {
+    video.controls = false;
+    tocar.hidden = false;
+
+    const comecar = () => {
+      tocar.hidden = true;
+      video.controls = true;
+      // `preload="none"`: o arquivo só começa a baixar agora.
+      void video.play();
+    };
+
+    tocar.addEventListener("click", comecar);
+
+    // Voltando ao estado inicial no fim, o pôster reaparece e o
+    // convite continua de pé para quem quiser rever.
+    video.addEventListener("ended", () => {
+      video.controls = false;
+      video.currentTime = 0;
+      tocar.hidden = false;
+    });
+
+    /* O "Ver como funciona" do hero aponta para #video. O salto de
+       âncora é do navegador; aqui só se dá o play ao chegar. Também
+       responde a quem cola a URL com #video direto na barra. */
+    const irEtocar = () => {
+      if (tocar.hidden) return; // já está tocando
+      comecar();
+    };
+
+    document
+      .querySelector<HTMLAnchorElement>('a[href="#video"]')
+      ?.addEventListener("click", () => {
+        // Depois do salto, para não competir com o scroll suave.
+        setTimeout(irEtocar, 450);
+      });
+
+    if (location.hash === "#video") setTimeout(irEtocar, 450);
+  }
+
   // Lightbox dos mapas de exemplo. O <dialog> nativo cuida do foco,
   // do Esc e do fundo; aqui só se liga abrir e fechar.
   document.querySelectorAll<HTMLButtonElement>("[data-abrir-mapa]").forEach((botao) => {
