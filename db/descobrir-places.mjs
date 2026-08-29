@@ -37,6 +37,10 @@
  *   --cidade="..."   obrigatoria; nome do municipio como o Google escreve
  *   --uf=SP          obrigatoria
  *   --termos=a,b,c   substitui a lista padrao de buscas
+ *   --retangulo=sul,oeste,norte,leste
+ *                    substitui o retangulo da Geocoding. Serve para o
+ *                    DF: "Brasília" geocodifica so o Plano Piloto, e
+ *                    Taguatinga, Ceilandia e Gama ficam de fora
  *   --paginas=3      paginas por termo (20 resultados cada; maximo 3)
  *   --max=60         teto de chamadas. Trava de custo: para ao atingir
  *   --completo       pede telefone, horario e nº de avaliacoes (SKU
@@ -64,6 +68,13 @@ const PAGINAS = Math.min(3, Math.max(1, Number(args.paginas ?? 3)));
 const MAX = Number(args.max ?? 60);
 const COMPLETO = Boolean(args.completo);
 const SECO = Boolean(args.seco);
+const RETANGULO = args.retangulo
+  ? String(args.retangulo).split(",").map(Number)
+  : null;
+if (RETANGULO && (RETANGULO.length !== 4 || RETANGULO.some(Number.isNaN))) {
+  console.error("erro: --retangulo=sul,oeste,norte,leste (quatro numeros)");
+  process.exit(1);
+}
 
 /**
  * Os termos que um jogador digita no Maps. "airsoft" sozinho pega a
@@ -130,6 +141,14 @@ if (!CHAVE) {
  * sem isso resolve para o estado.
  */
 async function retanguloDaCidade() {
+  if (RETANGULO) {
+    const [sul, oeste, norte, leste] = RETANGULO;
+    return {
+      low: { latitude: sul, longitude: oeste },
+      high: { latitude: norte, longitude: leste },
+      rotulo: `--retangulo informado (${CIDADE}/${UF})`,
+    };
+  }
   const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
   url.searchParams.set("address", `${CIDADE}, ${UF}, Brasil`);
   url.searchParams.set("components", `locality:${CIDADE}|administrative_area:${UF}|country:BR`);
