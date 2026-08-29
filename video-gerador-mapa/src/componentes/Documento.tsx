@@ -22,10 +22,26 @@ export const Documento: React.FC<{
   deslocamento?: { dx: number; dy: number };
   /** 0 a 1: o quanto da grade já foi desenhada. */
   grade?: number;
+  /** Colunas/linhas/opacidade da grade, quando a cena mexe nos controles. */
+  colunas?: number;
+  linhas?: number;
+  opacidadeGrade?: number;
+  /** Força do véu. Sobrescreve o valor salvo quando a cena o demonstra. */
+  veu?: number;
   /** 0 a 1: escala, rosa dos ventos, marca e crédito. */
   enfeites?: number;
   children?: React.ReactNode;
-}> = ({ escalaExtra = 1, deslocamento = { dx: 0, dy: 0 }, grade = 1, enfeites = 1, children }) => {
+}> = ({
+  escalaExtra = 1,
+  deslocamento = { dx: 0, dy: 0 },
+  grade = 1,
+  colunas,
+  linhas,
+  opacidadeGrade,
+  veu = VEU,
+  enfeites = 1,
+  children,
+}) => {
   return (
     <div
       style={{
@@ -50,11 +66,16 @@ export const Documento: React.FC<{
         style={{
           position: "absolute",
           inset: 0,
-          backgroundColor: `rgba(6,8,5,${VEU})`,
+          backgroundColor: `rgba(6,8,5,${veu})`,
         }}
       />
 
-      <Grade progresso={grade} />
+      <Grade
+        progresso={grade}
+        colunas={colunas}
+        linhas={linhas}
+        opacidade={opacidadeGrade}
+      />
 
       {children}
 

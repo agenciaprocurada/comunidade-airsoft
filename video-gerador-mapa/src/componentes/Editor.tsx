@@ -46,7 +46,8 @@ export const docParaTela = (x: number, y: number) => ({
   y: ORIGEM_DOC.y + y * ESCALA_DOC,
 });
 
-const FERRAMENTAS = [
+/** Também usada pela barra horizontal do vídeo vertical. */
+export const FERRAMENTAS = [
   { acao: "selecionar", rotulo: "Selecionar", icone: "M5 3l14 8-6 1.5L10 19z" },
   {
     acao: "mover",

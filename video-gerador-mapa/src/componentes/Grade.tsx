@@ -9,17 +9,45 @@ import { FONTE_DADO } from "../tema";
  * (não é moldura de interface), e a área útil começa depois dela. Se
  * isso sair do lugar, o rótulo "B4" deixa de cair dentro do B4 — que é
  * a única razão de a grade existir.
+ *
+ * `colunas`, `linhas` e `opacidade` são props (e não constantes) porque
+ * o vídeo vertical mexe nos controles ao vivo: a pessoa precisa VER a
+ * grade mudar quando o slider anda, senão o painel de ajustes é só
+ * enfeite na tela.
  */
 
 const REGUA = 30;
 
-const LETRAS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+/** A, B, ... Z, AA, AB… — mesma contagem de coluna de planilha. */
+const letraDaColuna = (indice: number) => {
+  let restante = indice;
+  let saida = "";
+  do {
+    saida = String.fromCharCode(65 + (restante % 26)) + saida;
+    restante = Math.floor(restante / 26) - 1;
+  } while (restante >= 0);
+  return saida;
+};
 
-export const Grade: React.FC<{ progresso: number }> = ({ progresso }) => {
+export const Grade: React.FC<{
+  progresso: number;
+  colunas?: number;
+  linhas?: number;
+  opacidade?: number;
+}> = ({
+  progresso,
+  colunas = GRADE.colunas,
+  linhas = GRADE.linhas,
+  opacidade = GRADE.opacidade,
+}) => {
   const esquerda = REGUA;
   const topo = REGUA;
-  const passoX = (DOC.largura - esquerda) / GRADE.colunas;
-  const passoY = (DOC.altura - topo) / GRADE.linhas;
+  const passoX = (DOC.largura - esquerda) / colunas;
+  const passoY = (DOC.altura - topo) / linhas;
+
+  // Mesma conta de `desenharGrade`: o rótulo de célula encolhe junto com
+  // a célula, com piso de 10 e teto de 18.
+  const corpo = Math.max(10, Math.min(18, Math.round(Math.min(passoX, passoY) / 5)));
 
   return (
     <svg
@@ -35,7 +63,10 @@ export const Grade: React.FC<{ progresso: number }> = ({ progresso }) => {
         width={DOC.largura}
         height={REGUA}
         fill="rgba(9,11,7,0.88)"
-        opacity={interpolate(progresso, [0, 0.25], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}
+        opacity={interpolate(progresso, [0, 0.25], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })}
       />
       <rect
         x={0}
@@ -43,13 +74,16 @@ export const Grade: React.FC<{ progresso: number }> = ({ progresso }) => {
         width={REGUA}
         height={DOC.altura}
         fill="rgba(9,11,7,0.88)"
-        opacity={interpolate(progresso, [0, 0.25], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}
+        opacity={interpolate(progresso, [0, 0.25], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })}
       />
 
       {/* Verticais — varrem da esquerda para a direita. */}
-      {Array.from({ length: GRADE.colunas - 1 }, (_, i) => {
+      {Array.from({ length: colunas - 1 }, (_, i) => {
         const x = Math.round(esquerda + (i + 1) * passoX);
-        const inicio = 0.1 + (i / (GRADE.colunas - 1)) * 0.35;
+        const inicio = 0.1 + (i / Math.max(1, colunas - 1)) * 0.35;
         return (
           <line
             key={`v${i}`}
@@ -59,7 +93,7 @@ export const Grade: React.FC<{ progresso: number }> = ({ progresso }) => {
             y2={DOC.altura}
             stroke={GRADE.cor}
             strokeWidth={GRADE.espessura}
-            opacity={interpolate(progresso, [inicio, inicio + 0.12], [0, GRADE.opacidade], {
+            opacity={interpolate(progresso, [inicio, inicio + 0.12], [0, opacidade], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
             })}
@@ -68,9 +102,9 @@ export const Grade: React.FC<{ progresso: number }> = ({ progresso }) => {
       })}
 
       {/* Horizontais — varrem de cima para baixo, meio passo atrás. */}
-      {Array.from({ length: GRADE.linhas - 1 }, (_, i) => {
+      {Array.from({ length: linhas - 1 }, (_, i) => {
         const y = Math.round(topo + (i + 1) * passoY);
-        const inicio = 0.16 + (i / (GRADE.linhas - 1)) * 0.35;
+        const inicio = 0.16 + (i / Math.max(1, linhas - 1)) * 0.35;
         return (
           <line
             key={`h${i}`}
@@ -80,7 +114,7 @@ export const Grade: React.FC<{ progresso: number }> = ({ progresso }) => {
             y2={y}
             stroke={GRADE.cor}
             strokeWidth={GRADE.espessura}
-            opacity={interpolate(progresso, [inicio, inicio + 0.12], [0, GRADE.opacidade], {
+            opacity={interpolate(progresso, [inicio, inicio + 0.12], [0, opacidade], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
             })}
@@ -89,9 +123,9 @@ export const Grade: React.FC<{ progresso: number }> = ({ progresso }) => {
       })}
 
       {/* Letras da régua de cima */}
-      {LETRAS.map((letra, i) => (
+      {Array.from({ length: colunas }, (_, i) => (
         <text
-          key={`l${letra}`}
+          key={`l${i}`}
           x={esquerda + i * passoX + passoX / 2}
           y={REGUA / 2}
           textAnchor="middle"
@@ -99,14 +133,17 @@ export const Grade: React.FC<{ progresso: number }> = ({ progresso }) => {
           fontFamily={FONTE_DADO}
           fontSize={15}
           fill={GRADE.cor}
-          opacity={interpolate(progresso, [0.3, 0.5], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}
+          opacity={interpolate(progresso, [0.3, 0.5], [0, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })}
         >
-          {letra}
+          {letraDaColuna(i)}
         </text>
       ))}
 
       {/* Números da régua da esquerda */}
-      {Array.from({ length: GRADE.linhas }, (_, i) => (
+      {Array.from({ length: linhas }, (_, i) => (
         <text
           key={`n${i}`}
           x={REGUA / 2}
@@ -116,7 +153,10 @@ export const Grade: React.FC<{ progresso: number }> = ({ progresso }) => {
           fontFamily={FONTE_DADO}
           fontSize={15}
           fill={GRADE.cor}
-          opacity={interpolate(progresso, [0.3, 0.5], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}
+          opacity={interpolate(progresso, [0.3, 0.5], [0, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })}
         >
           {i + 1}
         </text>
@@ -124,22 +164,22 @@ export const Grade: React.FC<{ progresso: number }> = ({ progresso }) => {
 
       {/* "B4" dentro do B4: quem lê o mapa no campo olha um pedaço da
           tela e precisa saber onde está sem seguir a linha até a borda. */}
-      {Array.from({ length: GRADE.linhas }, (_, linha) =>
-        LETRAS.map((letra, coluna) => (
+      {Array.from({ length: linhas }, (_, linha) =>
+        Array.from({ length: colunas }, (_, coluna) => (
           <text
-            key={`c${letra}${linha}`}
+            key={`c${coluna}-${linha}`}
             x={esquerda + coluna * passoX + 5}
             y={topo + linha * passoY + 4}
             dominantBaseline="hanging"
             fontFamily={FONTE_DADO}
-            fontSize={14}
+            fontSize={corpo}
             fill={GRADE.cor}
-            opacity={interpolate(progresso, [0.5, 0.75], [0, 0.75], {
+            opacity={interpolate(progresso, [0.5, 0.75], [0, Math.min(1, opacidade + 0.2)], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
             })}
           >
-            {letra}
+            {letraDaColuna(coluna)}
             {linha + 1}
           </text>
         )),
