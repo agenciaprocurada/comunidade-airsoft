@@ -20,10 +20,10 @@
  * busca aberta achou 0 de 4 — ela encontra PAGINAS SOBRE o campo, nao
  * o ESTADO ATUAL dele.
  *
- * Existia aqui um modo `varrer`, que fazia grade sobre a UF para
- * descobrir campos novos. Saiu: custava ~108 chamadas por estado,
- * trazia loja, restaurante e academia junto, e a busca aberta faz a
- * mesma descoberta de graca. Esta no historico do git se precisar.
+ * Existia aqui um modo `varrer`, que fazia grade sobre a UF inteira
+ * (~108 chamadas por estado, cheio de loja e restaurante). Saiu. A
+ * descoberta por Places voltou em outro formato — por CIDADE, com
+ * poucas dezenas de chamadas — em db/descobrir-places.mjs.
  *
  * CUSTO: 1 chamada por campo sem place_id. O Brasil inteiro com ~800
  * campos cabe na franquia gratuita de 5.000/mes do SKU Pro.
@@ -58,15 +58,13 @@
 
 import pg from "pg";
 import { configPg } from "./lib-campos.mjs";
+import {
+  buscarTexto, ufDe, normalizar, gravarBruto, lerArgs, precoMil, franquia,
+} from "./lib-places.mjs";
 
 /* ---------------------------------------------------------- args */
 
-const args = Object.fromEntries(
-  process.argv.slice(2).map((a) => {
-    const [chave, valor] = a.replace(/^--/, "").split("=");
-    return [chave, valor ?? true];
-  }),
-);
+const args = lerArgs();
 
 const LOTE = String(args.lote ?? "");
 const UF = args.uf ? String(args.uf).toUpperCase() : null;
@@ -88,118 +86,21 @@ if (UF && !/^[A-Z]{2}$/.test(UF)) {
 /* -------------------------------------------------------- places */
 
 const CHAVE = process.env.GOOGLE_MAPS_API_KEY;
-const ENDPOINT = "https://places.googleapis.com/v1/places:searchText";
-
-/** Campos do SKU Pro. Mexer aqui muda a conta — ver o bloco SKU. */
-const CAMPOS_PRO = [
-  "places.id",
-  "places.displayName",
-  "places.formattedAddress",
-  "places.location",
-  "places.addressComponents",
-  "places.businessStatus",
-  "places.types",
-  "places.websiteUri",
-  "places.rating",
-];
-
-/** SKU Enterprise. So entram com --completo. */
-const CAMPOS_ENTERPRISE = [
-  "places.userRatingCount",
-  "places.nationalPhoneNumber",
-  "places.regularOpeningHours",
-];
-
-const FIELD_MASK = [
-  ...CAMPOS_PRO,
-  ...(COMPLETO ? CAMPOS_ENTERPRISE : []),
-].join(",");
-
 let chamadas = 0;
 
 async function buscar(consulta) {
   chamadas++;
-  const resposta = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": CHAVE,
-      "X-Goog-FieldMask": FIELD_MASK,
-    },
-    body: JSON.stringify({
+  return buscarTexto({
+    chave: CHAVE,
+    completo: COMPLETO,
+    corpo: {
       textQuery: consulta,
-      languageCode: "pt-BR",
-      regionCode: "BR",
       // Verificacao e pergunta fechada: "este lugar existe?". Cinco
       // resultados bastam para achar o certo ou concluir que nao ha.
       pageSize: 5,
-    }),
+    },
   });
-
-  if (!resposta.ok) {
-    const texto = await resposta.text();
-    // 403 e 429 costumam ser faturamento desligado ou cota estourada:
-    // parar cedo e melhor do que queimar o resto contra um erro fixo.
-    throw new Error(`Places respondeu ${resposta.status}: ${texto.slice(0, 300)}`);
-  }
-  return resposta.json();
 }
-
-/* --------------------------------------------------- normalizacao */
-
-/** A UF sai de addressComponents; o texto do endereco nao e confiavel. */
-function ufDe(place) {
-  const c = place.addressComponents ?? [];
-  const estado = c.find((x) => (x.types ?? []).includes("administrative_area_level_1"));
-  return (estado?.shortText ?? "").toUpperCase().slice(0, 2) || null;
-}
-
-function cidadeDe(place) {
-  const c = place.addressComponents ?? [];
-  const municipio =
-    c.find((x) => (x.types ?? []).includes("administrative_area_level_2")) ??
-    c.find((x) => (x.types ?? []).includes("locality"));
-  return municipio?.longText ?? null;
-}
-
-function normalizar(place, consulta) {
-  return {
-    place_id: place.id,
-    lote: LOTE,
-    consulta,
-    nome: place.displayName?.text ?? "(sem nome)",
-    endereco: place.formattedAddress ?? null,
-    uf: ufDe(place),
-    cidade: cidadeDe(place),
-    lat: place.location?.latitude ?? null,
-    lng: place.location?.longitude ?? null,
-    telefone: place.nationalPhoneNumber ?? null,
-    site: place.websiteUri ?? null,
-    google_nota: place.rating ?? null,
-    google_avaliacoes: place.userRatingCount ?? null,
-    place_status: place.businessStatus ?? null,
-    tipos: place.types ?? [],
-    bruto: place,
-  };
-}
-
-/* ----------------------------------------------------------- banco */
-
-const COLUNAS = [
-  "place_id", "lote", "consulta", "nome", "endereco", "uf", "cidade",
-  "lat", "lng", "telefone", "site", "google_nota", "google_avaliacoes",
-  "place_status", "tipos", "bruto",
-];
-
-/** `lote` fica de fora do update: quem viu primeiro leva o credito. */
-const SQL_UPSERT = `insert into public.campos_bruto (${COLUNAS.join(",")}, destino)
-  values (${COLUNAS.map((_, i) => `$${i + 1}`).join(",")}, 'pendente')
-  on conflict (place_id) do update set
-    ${COLUNAS.filter((c) => c !== "place_id" && c !== "lote")
-      .map((c) => `${c}=excluded.${c}`)
-      .join(", ")},
-    coletado_em = now()
-  returning (xmax = 0) as novo`;
 
 /* ------------------------------------------------------------ main */
 
@@ -221,7 +122,7 @@ const { rows: alvos } = await cliente.query(
 );
 
 const previstas = Math.min(alvos.length, MAX);
-const precoMil = COMPLETO ? 35 : 32;
+const preco = precoMil(COMPLETO);
 
 console.log(
   `lote ${LOTE} · ${UF ?? "todos os estados"} · ${alvos.length} campos a verificar · ` +
@@ -229,8 +130,8 @@ console.log(
 );
 console.log(
   `SKU ${COMPLETO ? "Enterprise" : "Pro"} · custo maximo se nada for gratuito: ` +
-    `US$ ${((previstas * precoMil) / 1000).toFixed(2)} ` +
-    `(franquia: ${COMPLETO ? "1.000" : "5.000"} chamadas/mes)`,
+    `US$ ${((previstas * preco) / 1000).toFixed(2)} ` +
+    `(franquia: ${franquia(COMPLETO)} chamadas/mes)`,
 );
 
 if (SECO) {
@@ -266,12 +167,8 @@ try {
     foraDaUf += places.length - daUf.length;
 
     for (const place of daUf) {
-      const valores = COLUNAS.map((c) => {
-        const r = normalizar(place, consulta);
-        return c === "bruto" ? JSON.stringify(r[c]) : r[c];
-      });
-      const res = await cliente.query(SQL_UPSERT, valores);
-      res.rows[0].novo ? novos++ : revistos++;
+      const novo = await gravarBruto(cliente, normalizar(place, { lote: LOTE, consulta }));
+      novo ? novos++ : revistos++;
     }
 
     // Folga entre chamadas: a Places nao publica limite por segundo,
@@ -289,7 +186,7 @@ console.log(
     `sem resultado: ${semResultado} · descartados por UF: ${foraDaUf}`,
 );
 console.log(
-  `custo bruto: US$ ${((chamadas * precoMil) / 1000).toFixed(2)} — zero se dentro da franquia`,
+  `custo bruto: US$ ${((chamadas * preco) / 1000).toFixed(2)} — zero se dentro da franquia`,
 );
 console.log(`\nproximo passo: node db/conciliar-places.mjs --lote=${LOTE}`);
 

@@ -117,6 +117,31 @@ de Facebook e listas de eventos da região. O resultado vai para
 `fonte` é obrigatória. Sem ela não dá para auditar de onde veio o dado —
 é o que separa diretório de boato.
 
+### 1b. Descobrir — varredura por cidade na Places
+
+Para capital e cidade grande, onde a busca aberta engasga no volume, a
+Places faz a descoberta barata: o município tem um retângulo (vem da
+Geocoding, 1 chamada), a Text Search aceita `locationRestriction` para
+só devolver o que está dentro dele, e cada termo pagina até 60
+resultados. São Paulo capital: 8 termos × até 3 páginas = **no máximo
+24 chamadas**.
+
+```
+node --env-file=.env db/descobrir-places.mjs --lote=sp-capital-2026-08 --cidade="São Paulo" --uf=SP --seco
+node --env-file=.env db/descobrir-places.mjs --lote=sp-capital-2026-08 --cidade="São Paulo" --uf=SP --completo
+```
+
+- O resultado vai para o staging (`campos_bruto`), igual ao passo 3.
+  Nada entra em `campos` sem passar pela conciliação (passo 4).
+- O que cai dentro do retângulo mas é de outro município (Guarulhos,
+  Osasco…) vai para o lote `<lote>-vizinhos`, pendente. É dado já
+  pago; fica esperando a onda daquela região.
+- `--completo` vale a pena aqui: são poucas chamadas e o telefone é o
+  que vira WhatsApp na ficha. Franquia do Enterprise: 1.000/mês.
+- Varredura traz loja, clube de tiro e academia junto. A conciliação
+  marca com `motivo = 'tipo suspeito'`; a revisão humana (passo 5)
+  decide.
+
 ### 2. Carregar o descoberto
 
 ```

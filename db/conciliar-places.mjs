@@ -212,7 +212,10 @@ try {
        values ($1,$2,$3,'rascunho',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'media',false,$14,$15,$16,current_date)
        on conflict (id) do nothing`,
       [
-        id, b.nome, modalidadeDe(b.nome, b.consulta), b.uf, b.cidade,
+        // So o nome decide a modalidade. A `consulta` da descoberta e o
+        // termo de busca ("paintball em São Paulo"), e carimbar todo
+        // resultado dela como paintball seria inventar dado.
+        id, b.nome, modalidadeDe(b.nome), b.uf, b.cidade,
         slug(b.cidade ?? ""), b.endereco, b.lat, b.lng, JSON.stringify(contato),
         b.google_nota, b.google_avaliacoes,
         "", // descricao entra na revisao humana
