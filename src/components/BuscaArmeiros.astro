@@ -30,6 +30,45 @@ const estados = [...new Set(armeiros.map((a) => a.data.uf).filter(Boolean))]
   .map((uf) => ({ sigla: uf, nome: NOME_UF[uf] ?? uf }))
   .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
+/**
+ * Parte das fichas veio de importacao com a cidade em CAIXA ALTA. Numa
+ * lista alfabetica de centenas de opcoes isso salta aos olhos, entao a
+ * EXIBICAO normaliza. O dado no banco nao e tocado: a ficha continua
+ * mostrando o que esta la.
+ */
+function nomeCidade(nome: string): string {
+  if (nome !== nome.toUpperCase()) return nome;
+  const minusculas = new Set(["de", "da", "do", "das", "dos", "e"]);
+  return nome
+    .toLowerCase()
+    .split(/([\s/]+)/)
+    .map((parte, i) =>
+      /^[\s/]+$/.test(parte) || (i > 0 && minusculas.has(parte))
+        ? parte
+        : parte.charAt(0).toUpperCase() + parte.slice(1),
+    )
+    .join("");
+}
+
+/**
+ * Cidade e chave cidade_slug+UF: "Santa Maria" existe em RS, DF e RN, e
+ * misturar as tres numa opcao so devolveria armeiro do estado errado.
+ */
+const cidades = [
+  ...new Map(
+    armeiros
+      .filter((a) => a.data.cidade && a.data.uf)
+      .map((a) => [
+        `${a.data.cidade_slug}-${a.data.uf}`,
+        {
+          chave: `${a.data.cidade_slug}-${a.data.uf}`,
+          nome: nomeCidade(a.data.cidade),
+          uf: a.data.uf,
+        },
+      ]),
+  ).values(),
+].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") || a.uf.localeCompare(b.uf));
+
 const plataformas = [
   ...new Set(armeiros.flatMap((a) => a.data.plataformas ?? [])),
 ].sort();
@@ -102,6 +141,20 @@ const classeRotulo =
       </select>
     </div>
 
+    <div>
+      <label class={classeRotulo} for="armeiro-cidade">Cidade</label>
+      <select id="armeiro-cidade" name="cidade" class={classeCampo}>
+        <option value="">Todas</option>
+        {
+          cidades.map((c) => (
+            <option value={c.chave} data-uf={c.uf}>
+              {c.nome} ({c.uf})
+            </option>
+          ))
+        }
+      </select>
+    </div>
+
     {
       temEnvio && (
         <div class="flex items-end">
@@ -151,6 +204,7 @@ const classeRotulo =
       <div
         data-armeiro
         data-uf={armeiro.data.uf}
+        data-cidade={`${armeiro.data.cidade_slug}-${armeiro.data.uf}`}
         data-plataformas={(armeiro.data.plataformas ?? []).join(" ")}
         data-servicos={(armeiro.data.servicos ?? []).join(" ")}
         data-envio={armeiro.data.atende_envio ? "1" : "0"}
@@ -201,6 +255,8 @@ const classeRotulo =
     const campoPlataforma = form.elements.namedItem("plataforma") as HTMLSelectElement;
     const campoServico = form.elements.namedItem("servico") as HTMLSelectElement;
     const campoUf = form.elements.namedItem("uf") as HTMLSelectElement;
+    const campoCidade = form.elements.namedItem("cidade") as HTMLSelectElement;
+    const opcoesCidade = Array.from(campoCidade.options).slice(1);
     const campoEnvio = form.elements.namedItem("envio") as HTMLInputElement | null;
 
     /** Mesma normalização de slugificar(), sem os hífens. */
@@ -218,11 +274,19 @@ const classeRotulo =
       const servico = campoServico.value;
       const soEnvio = campoEnvio?.checked ?? false;
       // "Por envio" é uma busca nacional por definição: quem manda pelo
-      // correio não se importa com o estado de quem recebe.
+      // correio não se importa com o estado nem com a cidade de quem recebe.
       const uf = soEnvio ? "" : campoUf.value;
-      const filtrando = Boolean(texto || plataforma || servico || uf || soEnvio);
+      const cidade = soEnvio ? "" : campoCidade.value;
+      const filtrando = Boolean(texto || plataforma || servico || uf || cidade || soEnvio);
 
       campoUf.disabled = soEnvio;
+      campoCidade.disabled = soEnvio;
+
+      // A lista de cidades acompanha o estado: com "Todos" ela mostra o
+      // pais inteiro (com a sigla), com um estado so as cidades dele.
+      for (const opcao of opcoesCidade) {
+        opcao.hidden = Boolean(uf) && opcao.dataset.uf !== uf;
+      }
 
       let exibidos = 0;
 
@@ -233,6 +297,7 @@ const classeRotulo =
           (!plataforma || (d.plataformas ?? "").split(" ").includes(plataforma)) &&
           (!servico || (d.servicos ?? "").split(" ").includes(servico)) &&
           (!uf || d.uf === uf) &&
+          (!cidade || d.cidade === cidade) &&
           (!soEnvio || d.envio === "1");
 
         if (casa) exibidos++;
@@ -299,6 +364,18 @@ const classeRotulo =
         } de ${cartoes.length}`;
       }
     }
+
+    // Escolher uma cidade puxa o estado dela; trocar o estado solta a
+    // cidade que era de outro. Sem isso os dois filtros se contradizem
+    // e a lista fica vazia sem explicacao.
+    campoCidade.addEventListener("change", () => {
+      const ufDaCidade = campoCidade.selectedOptions[0]?.dataset.uf ?? "";
+      if (ufDaCidade && campoUf.value !== ufDaCidade) campoUf.value = ufDaCidade;
+    });
+    campoUf.addEventListener("change", () => {
+      const ufDaCidade = campoCidade.selectedOptions[0]?.dataset.uf ?? "";
+      if (campoUf.value && ufDaCidade && ufDaCidade !== campoUf.value) campoCidade.value = "";
+    });
 
     form.addEventListener("input", aplicar);
     form.addEventListener("change", aplicar);
