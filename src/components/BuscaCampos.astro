@@ -35,6 +35,12 @@ interface Props {
    * listagem completa so atrapalharia quem procura um campo especifico.
    */
   vitrine?: boolean;
+  /**
+   * Listagem so aparece depois que o visitante busca ou filtra. Os cartoes
+   * continuam no HTML (links indexaveis, e quem esta sem JS ve tudo via
+   * <noscript>); o script apenas segura a exibicao ate haver filtro ativo.
+   */
+  aguardarBusca?: boolean;
 }
 
 const {
@@ -42,6 +48,7 @@ const {
   quantidade = 6,
   vitrine = true,
   incremento = 0,
+  aguardarBusca = false,
 } = Astro.props;
 
 /** Fisher-Yates. Roda no build; o script repete no cliente. */
@@ -205,6 +212,7 @@ const classeRotulo =
   data-quantidade={quantidade}
   data-vitrine={vitrine ? "1" : "0"}
   data-incremento={incremento}
+  data-aguardar={aguardarBusca ? "1" : "0"}
   class="mt-9 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
 >
   {
@@ -217,7 +225,13 @@ const classeRotulo =
         data-modalidade={campo.data.modalidade}
         data-verificado={campo.data.verificado ? "1" : "0"}
         data-texto={textoBusca(campo.data)}
-        class={!vitrine || i < quantidade ? "contents" : "hidden"}
+        class={
+          aguardarBusca
+            ? "hidden"
+            : !vitrine || i < quantidade
+              ? "contents"
+              : "hidden"
+        }
         data-indice={i}
       >
         <CardCampo campo={campo} />
@@ -225,6 +239,25 @@ const classeRotulo =
     ))
   }
 </div>
+
+{
+  aguardarBusca && (
+    <>
+      {/* set:html para o Astro nao hastear o <style> para fora do noscript. */}
+      <noscript
+        set:html={"<style>[data-resultados] [data-campo]{display:contents}</style>"}
+      />
+      <p
+        data-aguardando
+        hidden
+        class="border border-borda bg-papel p-8 text-center leading-relaxed text-texto-2"
+      >
+        Use a busca acima para encontrar campos: digite o nome, a cidade ou
+        escolha o estado.
+      </p>
+    </>
+  )
+}
 
 <div class="mt-9 flex justify-center">
   <button
@@ -242,8 +275,15 @@ const classeRotulo =
   hidden
   class="mt-9 border border-borda bg-papel p-8 text-center leading-relaxed text-texto-2"
 >
-  Nenhum campo bate com esses filtros. Tente ampliar a busca ou
-  <a href="/campos" class="text-oliva-500 underline">veja todos os campos</a>.
+  Nenhum campo bate com esses filtros. Tente ampliar a busca{
+    aguardarBusca ? (
+      "."
+    ) : (
+      <>
+        {" "}ou <a href="/campos" class="text-oliva-500 underline">veja todos os campos</a>.
+      </>
+    )
+  }
 </p>
 
 <script>
@@ -253,6 +293,7 @@ const classeRotulo =
   const grade = document.querySelector<HTMLElement>("[data-resultados]");
   const vazio = document.querySelector<HTMLElement>("[data-vazio]");
   const botaoMais = document.querySelector<HTMLButtonElement>("[data-mais]");
+  const aguardando = document.querySelector<HTMLElement>("[data-aguardando]");
   const contagem = form?.querySelector<HTMLElement>("[data-contagem]");
 
   if (form && grade && vazio && contagem) {
@@ -268,6 +309,7 @@ const classeRotulo =
     const VITRINE = grade.dataset.vitrine === "1";
     const LOTE = Number(grade.dataset.quantidade ?? 6);
     const INCREMENTO = Number(grade.dataset.incremento ?? 0);
+    const AGUARDAR = grade.dataset.aguardar === "1";
 
     /**
      * Quantos cartoes cabem na tela agora. A vitrine e fixa; a listagem
@@ -343,6 +385,18 @@ const classeRotulo =
         opcao.hidden = !visivel;
         if (!visivel && campoCidade.value === opcao.value) campoCidade.value = "";
       }
+
+      // Listagem que espera a busca: sem filtro ativo, nada aparece alem
+      // do aviso. O restante da funcao nem roda.
+      if (AGUARDAR && !filtrando) {
+        for (const cartao of ordem) mostrar(cartao, false);
+        elVazio.hidden = true;
+        if (botao) botao.hidden = true;
+        if (aguardando) aguardando.hidden = false;
+        elContagem.textContent = `${cartoes.length} campos cadastrados · busque ou filtre para ver`;
+        return;
+      }
+      if (aguardando) aguardando.hidden = true;
 
       let exibidos = 0;
 
