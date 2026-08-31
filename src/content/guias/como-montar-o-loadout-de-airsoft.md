@@ -13,6 +13,7 @@ relacionados:
   - camuflagem-e-vestuario-no-airsoft
   - tipos-de-jogo-no-airsoft
   - quanto-custa-comecar-no-airsoft
+  - guia-de-camuflagem-do-brasil
 faq:
   - pergunta: "Chest rig ou plate carrier para airsoft?"
     resposta: "Chest rig para quem quer leveza, mobilidade e calor menor — resolve a maioria dos jogos recreativos. Plate carrier para milsim e para quem precisa de mais capacidade de carga e distribuição de peso no ombro."

@@ -13,6 +13,7 @@ relacionados:
   - como-montar-o-loadout-de-airsoft
   - equipamento-de-protecao-no-airsoft
   - tipos-de-jogo-no-airsoft
+  - guia-de-camuflagem-do-brasil
 faq:
   - pergunta: "Qual a melhor camuflagem para airsoft no Brasil?"
     resposta: "Depende do terreno. Em mata fechada brasileira, padrões verdes e escuros como woodland funcionam muito bem. Em mata seca e cerrado, multicam e padrões terrosos levam vantagem. Em CQB, cor lisa escura resolve."

@@ -1,6 +1,6 @@
 # Prompts de imagem — guias
 
-Um prompt por guia (21). Salve cada imagem com o **slug do guia** como nome
+Um prompt por guia (27). Salve cada imagem com o **slug do guia** como nome
 do arquivo, para o pareamento ser óbvio depois.
 
 Os prompts estão em inglês de propósito: os geradores de imagem foram
@@ -19,7 +19,7 @@ derruba aquele aspecto de CGI plastificado.
 `--ar 16:9 --style raw --stylize 150`. No Flux/SDXL, largura 1920 e
 `guidance` baixo (3–4) ajuda o realismo.
 
-**Coerência entre as 21:** o bloco de cor é o mesmo em todos — verde-oliva
+**Coerência entre as 27:** o bloco de cor é o mesmo em todos — verde-oliva
 dessaturado, terrosos quentes, sombras quase pretas. É o que faz as imagens
 parecerem uma série e não 21 imagens avulsas, e é o que casa com o tema
 escuro do site.
@@ -448,17 +448,124 @@ cinematic contrast. No logos, no watermark, no real firearms, no people.
 
 ---
 
-## Antes de gerar as 21
+## 24. onde-comprar-airsoft
 
-O schema dos guias **não tem campo de imagem** (`src/content.config.ts`, a
-collection `guias`) e a página do guia não renderiza nenhuma. Gerar as imagens
-sem isso deixa 21 arquivos sem lugar no site. É preciso, nesta ordem:
+> Onde comprar airsoft: loja física, online e o que evitar
 
-1. Acrescentar `imagem` e `imagem_alt` ao schema da collection `guias`.
-2. Renderizar a imagem no topo do guia e usá-la como `og:image` da página
-   (hoje todas caem no `/og-padrao.png` genérico).
-3. Passar os arquivos pelo pipeline do Astro, como foi feito com o hero —
-   a foto do hero saiu de 1,7 MB para 57 KB em WebP.
+```
+Photorealistic documentary photograph inside a small Brazilian airsoft shop: a
+shop owner in a plain olive polo shirt hands an AEG replica with an orange
+muzzle tip across a glass counter to a customer in his twenties, who receives
+it with both hands and feels its weight. Behind the counter, shelves of
+unbranded gear, mesh masks and bottles of BBs in soft focus. A printed invoice
+and a pen rest on the glass in the foreground. Warm interior light mixed with
+daylight from a shopfront window. Candid, unposed, faces partly turned away.
+Shot on a full-frame DSLR, 35mm f/2, natural available light, shallow depth of
+field, fine film grain, crisp micro-detail in fabric and skin, high resolution.
+Color grade: desaturated olive green, warm earth tones, near-black shadows,
+cinematic contrast. No text, no logos, no brand names, no watermark.
+```
+
+## 25. onde-consertar-airsoft
+
+> Onde consertar airsoft: armeiro, loja ou você mesmo
+
+```
+Photorealistic documentary photograph of an airsoft technician at a cluttered
+home workbench, seen slightly from above and behind his shoulder: bare hands
+holding an open gearbox shell under a bright articulated task lamp, spring,
+piston and gears laid out in order on a rubber mat beside it, precision
+screwdrivers, a shim set, a soldering iron and a coil of wire within reach. A
+disassembled AEG body waits to the side. Shallow warm pool of light against a
+dark workshop, dust visible in the beam. Candid, unposed, face not visible.
+Shot on a full-frame DSLR, 50mm f/2, natural mixed light, shallow depth of
+field, fine film grain, sharp micro-detail in metal and skin, high resolution.
+Color grade: desaturated olive green, warm earth tones, near-black shadows,
+cinematic contrast. No text, no logos, no brand names, no watermark.
+```
+
+## 26. como-escolher-campo-de-airsoft
+
+> Como escolher um campo de airsoft que combina com você
+
+```
+Photorealistic wide documentary photograph of a Brazilian airsoft field seen
+from a slight elevation at mid-morning: in the foreground a covered safe zone
+with folding tables, gear bags and a few players resting out of focus; in the
+middle distance a cluster of weathered plywood CQB structures; behind it dense
+green woodland rising into mist. The frame reads as one place offering two very
+different kinds of terrain. Wide natural light, high overcast sky, no direct
+sun. People small in frame, unposed, faces not identifiable. Shot on a
+full-frame DSLR, 24mm f/8, deep depth of field, sharp corner to corner, fine
+film grain, high resolution. Color grade: desaturated olive green, warm earth
+tones, near-black shadows, cinematic contrast. No text, no logos, no brand
+names, no watermark.
+```
+
+## 27. o-que-levar-para-jogar-airsoft
+
+> O que levar para jogar airsoft: a lista completa do dia
+
+```
+Photorealistic overhead flat-lay photograph on weathered dark canvas: an open
+duffel bag with a full day-of-play airsoft kit arranged around it in a loose
+grid with generous even spacing — mesh face mask, safety goggles, gloves, long
+trousers folded, a long-sleeve shirt, high-top boots with thick socks, two
+large water bottles, an isotonic drink, energy bars, sunscreen, insect
+repellent, a small towel, a roll of tape, a cleaning rod, a bottle of BBs and
+two batteries. Deliberate negative space between every item so labels could be
+added later. Large soft even overhead light, minimal shadows. Shot on a
+full-frame DSLR, 35mm f/10, perfectly top-down, sharp corner to corner, fine
+grain, visible fabric and plastic texture, high resolution. Color grade:
+desaturated olive green, warm earth tones, controlled soft shadows, cinematic
+contrast. No text, no logos, no brand names, no watermark.
+```
+
+## Guias com imagem gerada por codigo, nao por IA
+
+O **guia-de-camuflagem-do-brasil** nao usa prompt. As catorze amostras de
+padrao e a capa dele sao DESENHADAS por
+`src/scripts/camuflagem-swatches.mjs`, que gera SVG e rasteriza em WebP.
+
+Nao gere essas imagens por IA e nao baixe de acervo de camuflagem: o Camopedia,
+principal referencia do assunto, e "all rights reserved", e gerador de imagem
+nao reproduz um padrao especifico com fidelidade — inventa um parecido, o que
+numa pagina de identificacao visual e informacao falsa.
+
+Para mexer nelas, edite a lista `PADROES` no script e rode:
+
+```
+node src/scripts/camuflagem-swatches.mjs
+```
+
+A geracao e deterministica: rodar de novo nao muda os arquivos.
+
+## Depois de gerar
+
+O schema da collection `guias` ja tem `imagem` e `imagem_alt`, e a pagina do
+guia ja renderiza a capa pelo pipeline do Astro. Falta so o caminho de sempre,
+nesta ordem:
+
+1. **Converter**, com o script do padrao do site — WebP qualidade 80, largura
+   maxima 1360px, sem upscale:
+
+   ```
+   node src/scripts/capa-guia.mjs <arquivo-gerado> <slug-do-guia>
+   ```
+
+2. **Preencher o frontmatter** do guia:
+
+   ```yaml
+   imagem: "../../assets/guias/<slug-do-guia>.webp"
+   imagem_alt: "descricao da cena em uma frase, sem repetir o titulo"
+   ```
+
+**Atencao:** apontar `imagem` para arquivo que ainda nao existe **quebra o
+build**. So preencha o campo depois que o `.webp` estiver em
+`src/assets/guias/`. Guia sem capa continua publicavel — os quatro guias mais
+recentes estao assim de proposito.
+
+O `imagem_alt` descreve **o que aparece na foto**, nao o assunto do artigo.
 
 ## Sobre foto de campo
 
