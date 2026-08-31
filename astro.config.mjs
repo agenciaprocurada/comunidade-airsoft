@@ -26,6 +26,9 @@ const FORA_DO_SITEMAP = [
   '/enviar-campo',
   '/armeiros/cadastrar',
   '/entrar',
+  // Indice em texto puro para modelos de linguagem. E um mapa, nao um
+  // destino de leitura: nao deve ser anunciado como pagina indexavel.
+  '/llms.txt',
   // placeholders — remover conforme cada um vira página de verdade
   '/operacoes',
   '/grupos',

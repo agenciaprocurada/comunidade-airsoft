@@ -5,4 +5,20 @@ Disallow: /reivindicar
 Disallow: /reportar
 Disallow: /enviar-campo
 
+# Crawlers de IA que geram CITACAO com link (busca e resposta em tempo real).
+# O "*" acima ja os libera; o bloco existe para deixar a intencao registrada,
+# porque ser citado por eles e um objetivo declarado do projeto. Nao confundir
+# com os crawlers de treinamento (GPTBot, ClaudeBot, Google-Extended), que nao
+# geram link de volta — esses seguem pela regra geral, por opcao.
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+Allow: /
+
+# Mapa do site em texto puro, para modelos de linguagem (convencao llmstxt.org):
+# https://www.comunidadeairsoft.com.br/llms.txt
+
 Sitemap: https://www.comunidadeairsoft.com.br/sitemap.xml

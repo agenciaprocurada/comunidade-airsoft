@@ -32,14 +32,52 @@ const d = guia.data;
 
 const formatador = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" });
 
+const urlGuia = new URL(`/guias/${guia.id}`, Astro.site!).href;
+
+/** O nível em uma palavra, para `educationalLevel` nos dados estruturados. */
+const ROTULO_NIVEL_SIMPLES = {
+  iniciante: "Iniciante",
+  intermediario: "Intermediário",
+  avancado: "Avançado",
+};
+
+/**
+ * Tempo de leitura e tamanho do texto.
+ *
+ * Servem a dois leitores. Para a pessoa, "8 min de leitura" no cabeçalho é a
+ * informação que decide se ela lê agora ou depois. Para buscador e modelo de
+ * linguagem, `wordCount` e `timeRequired` são sinal de profundidade: separam
+ * um guia de 1.500 palavras de uma página fina sobre o mesmo termo.
+ *
+ * 200 palavras por minuto é a média de leitura em português para texto não
+ * técnico. Arredonda para cima e nunca mostra menos de 1 minuto.
+ */
+const palavras = guia.body?.trim().split(/\s+/).length ?? 0;
+const minutosLeitura = Math.max(1, Math.round(palavras / 200));
+
+/**
+ * `dateModified` sempre presente, com fallback para a data de publicação.
+ *
+ * Frescor é critério de citação: buscador e modelo preferem a fonte que diz
+ * quando foi revista. Omitir o campo não significa "nunca mudou" — significa
+ * "não sei", e "não sei" perde para quem informa.
+ */
+const dataModificacao = d.atualizado_em ?? d.publicado_em;
+
 const artigo = {
   "@context": "https://schema.org",
   "@type": "Article",
+  // `@id` e `mainEntityOfPage` ancoram o artigo NA URL dele. Sem isso o
+  // objeto flutua: o buscador sabe que existe um artigo, mas não que ele é
+  // esta página — e nada pode referenciá-lo depois.
+  "@id": `${urlGuia}#artigo`,
+  mainEntityOfPage: { "@type": "WebPage", "@id": urlGuia },
+  url: urlGuia,
   headline: d.titulo,
   description: d.resumo,
   ...(d.imagem ? { image: new URL(d.imagem.src, Astro.site).href } : {}),
   datePublished: d.publicado_em.toISOString(),
-  ...(d.atualizado_em ? { dateModified: d.atualizado_em.toISOString() } : {}),
+  dateModified: dataModificacao.toISOString(),
   // Autor e editor apontam para a entidade do layout (mesmo @id), em vez
   // de redescrever a organizacao em cada artigo.
   author:
@@ -49,6 +87,15 @@ const artigo = {
   publisher: refOrganizacao(Astro.site!),
   isPartOf: refSite(Astro.site!),
   inLanguage: "pt-BR",
+  // Sobre o que o artigo é (tema) e para quem (nível). Junto com a
+  // `palavra_chave` do frontmatter, é o que permite a um modelo entender o
+  // recorte do guia sem reler o texto inteiro.
+  articleSection: d.categoria,
+  about: { "@type": "Thing", name: "Airsoft" },
+  ...(d.palavra_chave ? { keywords: d.palavra_chave } : {}),
+  educationalLevel: ROTULO_NIVEL_SIMPLES[d.nivel],
+  wordCount: palavras,
+  timeRequired: `PT${minutosLeitura}M`,
 };
 
 // FAQPage é o que rende trecho expandido no Google para dúvida de iniciante.
@@ -92,7 +139,9 @@ const rotuloNivel = ROTULO_NIVEL[d.nivel];
       </h1>
       <p class="mt-4 text-lg leading-relaxed text-texto-2">{d.resumo}</p>
       <p class="mt-5 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
-        {rotuloNivel} · {d.categoria} · Publicado em {formatador.format(d.publicado_em)}
+        {rotuloNivel} · {d.categoria} · {minutosLeitura} min de leitura · Publicado em {
+          formatador.format(d.publicado_em)
+        }
         {d.atualizado_em && ` · Atualizado em ${formatador.format(d.atualizado_em)}`}
       </p>
     </header>
