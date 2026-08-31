@@ -18,10 +18,25 @@ const links = [
   // mudou — "Onde comprar" é como o jogador formula a pergunta.
   { href: "/lojas", texto: "Onde comprar" },
   { href: "/armeiros", texto: "Armeiros" },
-  // /operacoes saiu do menu para dar lugar à calculadora; a agenda continua
-  // acessível pelo rodapé e pela ficha dos campos.
-  { href: "/criador-de-mapas", texto: "Criador de Mapas" },
-  { href: "/calculadora-de-fps", texto: "Calculadora de FPS" },
+  /*
+   * As três ferramentas entram com rótulo curto.
+   *
+   * A barra não cabe com os nomes por extenso: medida em 1024 px, ela
+   * ia a 1249 px e transbordava. Os nomes completos
+   * ("Criador de Mapas", "Organizador de Operações", "Calculadora de
+   * FPS") continuam no <title>, no H1 e no rodapé, que é onde eles
+   * valem para busca. No menu, o que a pessoa precisa é reconhecer o
+   * destino em uma palavra.
+   *
+   * ATENÇÃO ao "Operações": ele aponta para a VITRINE da ferramenta
+   * (/organizador-de-operacoes), não para a agenda (/operacoes), que
+   * nunca voltou ao menu e segue acessível pelo rodapé e pela ficha
+   * dos campos. Os dois nomes se parecem: se a agenda um dia voltar
+   * para cá, um dos dois rótulos tem que mudar no mesmo commit.
+   */
+  { href: "/criador-de-mapas", texto: "Mapas" },
+  { href: "/organizador-de-operacoes", texto: "Operações" },
+  { href: "/calculadora-de-fps", texto: "Calculadora" },
   { href: "/guias", texto: "Guias" },
 ];
 
@@ -55,11 +70,15 @@ const linkConta = { href: "/conta", texto: "Minha conta" };
     </a>
 
     {/*
-      Barra horizontal só a partir de lg. Com seis links mais o logo e o
+      Barra horizontal só a partir de lg. Com todos esses links mais o logo e o
       botão da conta, 768px não comporta a linha — quebrava em duas.
+
+      O respiro entre os itens ENCOLHE no xl em vez de crescer: a partir
+      de 1280px a fonte sobe para text-lg, e com gap-8 a linha passava
+      23px do container. Medido, não estimado.
     */}
     <nav aria-label="Principal" class="hidden lg:block">
-      <ul class="flex items-center gap-5 xl:gap-8">
+      <ul class="flex items-center gap-5 xl:gap-6">
         {
           links.map((link) => {
             const ativo = atual === link.href || atual.startsWith(link.href + "/");
