@@ -1,6 +1,6 @@
 ---
 titulo: "Guia de camuflagem do Brasil: os padrões usados hoje"
-resumo: "Catálogo visual dos padrões de camuflagem em uso no Brasil: Rajada, lagarto da Marinha e da FAB, Caatinga, montanha e os digitais das polícias, com amostra de cada um."
+resumo: "Catálogo visual dos padrões de camuflagem em uso no Brasil, para reconhecer — não para copiar: por que usar farda oficial no airsoft dá problema, e o que a lei diz."
 publicado_em: 2026-08-31
 autor: "Comunidade Airsoft"
 nivel: intermediario
@@ -21,9 +21,13 @@ faq:
   - pergunta: "Qual a diferença entre o lagarto da Marinha e o da Força Aérea?"
     resposta: "A paleta. O da Marinha combina verde-escuro e verde-oliva sobre verde-claro. O da Força Aérea usa verde-escuro, castanho-avermelhado e azul sobre fundo cáqui — o azul é o traço que identifica a FAB à distância."
   - pergunta: "Posso usar farda das Forças Armadas para jogar airsoft?"
-    resposta: "Farda militar em jogo é prática comum, mas o cuidado está na identificação: brasão, distintivo de unidade, nome e posto de uma corporação real em um civil é o que gera problema, não o padrão do tecido. O costume da comunidade é usar o padrão sem insígnia oficial, ou farda de padrão comercial."
+    resposta: "O recomendável é não usar. O art. 172 do Código Penal Militar pune o uso indevido de uniforme militar por qualquer pessoa, civil incluído, com detenção de até seis meses. Há jurisprudência entendendo que calça e camisa no padrão, sem as demais peças e sem capacidade de enganar terceiros, não configuram o crime — mas as decisões são conflitantes, e muitos campos já barram padrão oficial na entrada. Padrão comercial resolve o problema inteiro."
+  - pergunta: "É proibido usar camuflagem do Exército no airsoft?"
+    resposta: "O que a lei pune é o uso indevido de uniforme militar, e a controvérsia está na palavra indevidamente. Peça isolada em padrão camuflado, sem insígnia e sem potencial de confundir terceiros, já foi julgada como não criminosa, mas isso não é garantia. Insígnia, brasão, nome e posto de unidade real não têm defesa. E a regra do campo vale mesmo onde a lei seria permissiva."
+  - pergunta: "Por que os campos estão barrando farda militar?"
+    resposta: "Por gestão de risco. Um jogador fardado no posto de gasolina ou no estacionamento vira ocorrência policial que respinga no evento inteiro. O risco maior não está dentro do campo, está no deslocamento — por isso a orientação padrão é chegar e sair de roupa civil, trocando no local."
   - pergunta: "Qual camuflagem brasileira funciona melhor no airsoft?"
-    resposta: "Depende do terreno do campo, não da força que a adotou. Rajada e lagarto da Marinha se saem bem em mata fechada; Caatinga e paletas terrosas levam vantagem em mata seca e cerrado; os digitais urbanos funcionam em CQB e estrutura construída."
+    resposta: "Escolha pela paleta e pelo terreno, em farda de padrão comercial — não pelo padrão oficial de uma corporação, que traz risco legal e é barrado por muitos campos. Verdes escuros rendem em mata fechada, tons terrosos em mata seca e cerrado, cinzas em CQB e estrutura construída."
 ---
 
 Este é um catálogo visual dos padrões de camuflagem **em uso hoje no Brasil** —
@@ -39,6 +43,18 @@ ficam de fora. Se o que você quer é escolher farda para jogar, o guia é outro
 > para reconhecimento visual, **não fotografias do tecido oficial** nem
 > reprodução exata da matriz de impressão. Servem para você bater o olho e
 > dizer "é este". Para conferência técnica, vá à fonte oficial da corporação.
+
+> ⚠️ **Este catálogo serve para RECONHECER, não para copiar.**
+>
+> Padrão oficial das Forças Armadas e das polícias **não é sugestão de farda
+> para o seu jogo**. Usar indevidamente uniforme militar é crime tipificado no
+> art. 172 do Código Penal Militar, que vale para **qualquer pessoa** — civil
+> incluído —, e muitos campos hoje **barram na entrada** quem chega com padrão
+> oficial. A seção [uso de farda oficial no airsoft](#uso-de-farda-oficial-no-airsoft),
+> mais abaixo, explica o tamanho real do risco.
+>
+> Você está aqui para saber **o que é o que**. Para escolher farda, vá ao guia de
+> [camuflagem e vestuário](/guias/camuflagem-e-vestuario-no-airsoft).
 
 ## A família lagarto, e por que quase tudo aqui é vertical
 
@@ -227,26 +243,77 @@ baixadas.
 
 ---
 
-## O que isso muda para o airsoft
+## Uso de farda oficial no airsoft
+
+Esta é a parte que mais gera discussão na comunidade, e a que mais gente erra
+por achar que "todo mundo usa, então pode".
+
+### O que a lei diz
+
+O **art. 172 do Código Penal Militar** tipifica: *"Usar, indevidamente,
+uniforme, distintivo ou insígnia militar a que não tenha direito"* — pena de
+**detenção, até seis meses**. A rubrica do artigo é explícita ao dizer que vale
+**por qualquer pessoa**: não é crime só de militar, alcança o civil.
+
+Há também o **art. 46 da Lei de Contravenções Penais**, que pune usar
+publicamente uniforme ou distintivo de função pública que não se exerce.
+
+### Onde mora a controvérsia
+
+A palavra que decide é **"indevidamente"**. A jurisprudência já entendeu que
+civil de calça e camisa em padrão camuflado do Exército, **sem as demais peças
+do uniforme** e sem características capazes de enganar terceiros, não comete o
+crime — faltaria o potencial de confusão que o tipo penal exige.
+
+Mas a jurisprudência é **conflitante**, e a orientação prudente de quem escreve
+sobre o tema é direta: atleta de airsoft deveria **abandonar o uniforme das
+Forças Armadas** e adotar vestuário alternativo, para não virar alvo de denúncia
+do Ministério Público Militar.
+
+Ou seja: dá para argumentar que padrão sem insígnia não é crime. Você só não
+quer ser a pessoa fazendo esse argumento diante de um promotor.
+
+### O que acontece na prática, hoje
+
+Independentemente de como um juiz decidiria, **muitos organizadores já barram na
+entrada** quem chega com padrão oficial das Forças Armadas ou de corporação
+policial. Para o campo, é gestão de risco: um jogador fardado no estacionamento
+ou no posto de gasolina da estrada vira problema para o evento inteiro.
+
+E o risco não é maior dentro do campo — é **fora dele**. No deslocamento, no
+posto, na parada para comer, é onde a abordagem acontece.
+
+### O que fazer
+
+1. **Prefira padrão comercial.** Existe farda de sobra em padrões que não são
+   de nenhuma corporação brasileira. Resolve o problema inteiro.
+2. **Nunca use insígnia, brasão, nome, posto ou distintivo de unidade real.**
+   Isso é o núcleo do que a lei pune, e não tem defesa boa.
+3. **Pergunte ao campo antes de ir.** A regra é do organizador, e ela vale
+   mesmo onde a lei seria permissiva.
+4. **Não circule fardado fora do campo.** Chegue e saia com roupa civil. É o
+   conselho mais repetido por quem já se deu mal, e o mais fácil de seguir.
+5. **Padrão policial merece o mesmo cuidado** — em alguns contextos, mais: ser
+   confundido com policial em serviço é situação pior que ser confundido com
+   militar.
+
+> Este guia não é consultoria jurídica. A leitura acima é do texto legal e do
+> debate público sobre ele; caso concreto se resolve com advogado.
+
+## O que isso muda para o seu jogo
 
 **Escolha pelo terreno, não pela força.** O prestígio da corporação não esconde
-ninguém. Rajada e lagarto da Marinha se saem bem em mata fechada brasileira;
-Caatinga e paletas terrosas levam vantagem em mata seca e cerrado; digitais
-urbanos e cinzas funcionam em CQB e estrutura construída.
+ninguém. Paletas verdes e escuras se saem bem em mata fechada brasileira;
+terrosas levam vantagem em mata seca e cerrado; cinzas funcionam em CQB e
+estrutura construída. Você consegue tudo isso em padrão comercial.
 
 **O padrão importa menos do que você imagina.** Ficar parado, usar sombra e
 quebrar a silhueta pesam mais que qualquer tecido — o
 [guia de camuflagem e vestuário](/guias/camuflagem-e-vestuario-no-airsoft)
 detalha isso.
 
-**Cuidado com a identificação, não com o padrão.** Farda camuflada em jogo é
-prática corrente. O que gera problema é o civil ostentando **brasão,
-distintivo de unidade, nome e posto** de uma corporação real — militar ou
-policial. O costume da comunidade é usar o padrão sem a insígnia oficial, ou
-farda de padrão comercial. Em dúvida, tire o brasão.
-
 **Combine com a sua equipe.** Em jogo grande, distinguir amigo de inimigo à
-distância vale mais que fidelidade histórica. Ver
+distância vale mais que fidelidade a qualquer padrão. Ver
 [como montar o loadout](/guias/como-montar-o-loadout-de-airsoft).
 
 ---
