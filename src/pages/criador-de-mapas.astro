@@ -167,18 +167,18 @@ const aplicativo = {
  * e `modestbranding` foi descontinuado, então não existe parâmetro
  * que tire aquilo dali. Com o arquivo local a tela é só o mapa.
  *
- * O MP4 sai do projeto Remotion em video-gerador-mapa/ (1920x1080,
+ * O MP4 sai do projeto Remotion em videos/ (1920x1080,
  * 14 MB) reencodado para 1280x720 sem faixa de áudio — a composição
  * não tem trilha, e o AAC mudo que o Remotion escreve por padrão só
  * pesaria. Para regerar depois de um render novo:
  *
- *   ffmpeg -i video-gerador-mapa/out/gerador-de-mapas-1920x1080.mp4 \
+ *   ffmpeg -i videos/out/gerador-de-mapas-1920x1080.mp4 \
  *     -vf scale=1280:-2 -c:v libx264 -crf 26 -preset slow \
  *     -pix_fmt yuv420p -an -movflags +faststart \
  *     public/video/criador-de-mapas-airsoft.mp4
  *
  * O binário do ffmpeg já vem junto com o Remotion, dentro de
- * video-gerador-mapa/node_modules/@remotion/compositor-*.
+ * videos/node_modules/@remotion/compositor-*.
  *
  * NÃO toca sozinho: `preload="none"` mais o pôster deixam a página
  * abrir sem baixar 1,7 MB de quem talvez nem role até aqui. O vídeo
@@ -1117,7 +1117,7 @@ const TRAJETO = [
           <Botao href="/mapa">Quero criar meu mapa</Botao>
         </span>
         <Botao
-          href="/guias/como-organizar-operacao-de-airsoft-briefing"
+          href="/guias/como-organizar-uma-operacao-de-airsoft"
           variante="secundario"
           seta
         >

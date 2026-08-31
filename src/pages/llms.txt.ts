@@ -68,6 +68,12 @@ const FERRAMENTAS = [
       "Ferramenta gratuita para desenhar o mapa tático de um campo sobre imagem de satélite e usar no briefing.",
   },
   {
+    href: "/organizador-de-operacoes",
+    titulo: "Organizador de operações de airsoft",
+    descricao:
+      "Ferramenta gratuita para abrir uma operação, publicar a lista de presença num link, controlar vagas por lado, lista de espera, quem pagou e quem apareceu.",
+  },
+  {
     href: "/sobre",
     titulo: "Sobre a Comunidade Airsoft",
     descricao: "A definição completa da entidade, o que o projeto é e como se sustenta.",

@@ -233,7 +233,13 @@ export const FitaSimbolos: React.FC<{ frameLocal: number; entrada: number; y: nu
         flexDirection: "column",
         gap: 16,
         overflow: "hidden",
-        maskImage: "linear-gradient(90deg, transparent 0, #000 90px, #000 990px, transparent 1080px)",
+        // As duas grafias: o Chrome do render aceita a sem prefixo, mas
+        // sem a `-webkit-` a fita corta a ficha no meio na borda direita
+        // em vez de dissolver.
+        maskImage:
+          "linear-gradient(90deg, transparent 0, #000 160px, #000 920px, transparent 1080px)",
+        WebkitMaskImage:
+          "linear-gradient(90deg, transparent 0, #000 160px, #000 920px, transparent 1080px)",
         ...entradaDe(entrada, 40),
       }}
     >

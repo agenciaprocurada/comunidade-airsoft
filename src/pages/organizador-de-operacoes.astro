@@ -1,0 +1,1618 @@
+---
+import { Image } from "astro:assets";
+import Base from "../layouts/Base.astro";
+import Botao from "../components/Botao.astro";
+import fundoCta from "../assets/hero-fundo.webp";
+import fundoTopo from "../assets/topo-fundo.webp";
+import capaVideo from "../assets/operacoes/video-organizador-de-operacoes-airsoft.webp";
+import {
+  DIAS_DO_CONVITE,
+  ESTILOS_OPERACAO,
+  LADOS_MAXIMO,
+  LADOS_MINIMO,
+  VISIBILIDADES,
+} from "../lib/operacao";
+
+/**
+ * Landing page do Organizador de Operações — a ferramenta que na área
+ * logada aparece no menu como "Meus eventos".
+ *
+ * Estática e pública pelo mesmo motivo da /criador-de-mapas: o painel
+ * (/conta/operacoes) exige sessão, então quem chega pelo Google
+ * bateria num redirect para /entrar sem nunca ver o que a ferramenta
+ * faz. Esta página é a vitrine indexável; os botões apontam para o
+ * painel e o middleware cuida do login.
+ *
+ * As regras citadas no texto são IMPORTADAS de `lib/operacao` — o
+ * número de lados, as duas visibilidades, o prazo do convite. Vitrine
+ * que descreve ferramenta tem que ler a ferramenta, não uma cópia do
+ * texto: mudou a regra, a página muda junto.
+ *
+ * A assinatura visual é o painel do hero, que SE PREENCHE no
+ * carregamento: as barras de vaga enchem, os nomes entram um a um e o
+ * último bate o teto e cai na espera. É a lista se administrando
+ * sozinha — exatamente o que a ferramenta faz enquanto o organizador
+ * dorme. Com `prefers-reduced-motion` nada anima: o estado base de
+ * cada elemento já é a lista cheia, a animação só revela.
+ *
+ * As seções são numeradas pela contagem regressiva do jogo (H-7, H-3,
+ * H-1, H-0, H+1), que é como quem organiza pensa a semana. A landing
+ * do criador de mapas numera por coordenada de quadrícula pelo mesmo
+ * motivo: a convenção do produto aplicada à própria página.
+ */
+
+const TITULO = "Organizador de Operações de airsoft";
+const DESCRICAO =
+  "Abra a operação, mande um link no grupo e pare de manter lista no bloco de " +
+  "notas. Vagas por lado, lista de espera automática, quem pagou e quem apareceu. Grátis.";
+
+const totalEstilos = ESTILOS_OPERACAO.length;
+
+/** Os três passos entre "vou fazer um jogo" e "lista cheia". */
+const PASSOS = [
+  {
+    numero: "01",
+    titulo: "Abra a operação",
+    texto:
+      "Escolha o campo no diretório (ou escreva o local), marque a data e o " +
+      "horário. Depois divida os lados do jogo — PMC contra Militar, por " +
+      "exemplo — e diga quantas vagas cada lado tem.",
+  },
+  {
+    numero: "02",
+    titulo: "Mande o link. Uma vez.",
+    texto:
+      "A operação vira uma página com endereço próprio. Você cola no grupo e " +
+      "acabou: quem abrir amanhã vê a lista de amanhã. Nada de repostar print " +
+      "do bloco de notas a cada confirmação.",
+  },
+  {
+    numero: "03",
+    titulo: "A lista se enche sozinha",
+    texto:
+      "O jogador entra com a conta Google dele, escolhe o lado e confirma. " +
+      "Lado cheio manda para a espera; se alguém desiste, o primeiro da fila " +
+      "sobe na hora, sem você mexer em nada.",
+  },
+];
+
+/** Ficha técnica — cada linha é um fato da ferramenta, não um slogan. */
+const FICHA = [
+  {
+    termo: "Lados",
+    valor:
+      `De ${LADOS_MINIMO} a ${LADOS_MAXIMO} lados por operação, cada um com as ` +
+      "vagas dele. Lado sem teto também vale: fica aberto e nunca gera espera.",
+  },
+  {
+    termo: "Espera",
+    valor:
+      "Automática, e é o banco que faz. Lotou, o próximo entra em espera; " +
+      "abriu vaga, o primeiro da fila sobe na mesma hora.",
+  },
+  {
+    termo: "Preço",
+    valor:
+      "Dois lotes: o antecipado com prazo e o valor no dia. A página mostra " +
+      "sozinha qual está valendo — ninguém erra o valor na hora de pagar.",
+  },
+  {
+    termo: "Pagamento",
+    valor:
+      "Não passa por nós e não cobramos taxa. Você escreve o seu combinado de " +
+      "pagamento na operação e marca “pago” na lista quando o dinheiro cai.",
+  },
+  {
+    termo: "Privacidade",
+    valor:
+      "A página pública mostra só a contagem por lado. O nome de quem vai " +
+      "jogar fica no seu painel — lista de gente não é conteúdo para o Google.",
+  },
+  {
+    termo: "Convite",
+    valor:
+      "Operação fechada tem link próprio. Quem recebe entra na lista, e o " +
+      `convite continua valendo ${DIAS_DO_CONVITE} dias no navegador dele.`,
+  },
+  {
+    termo: "Estilo",
+    valor:
+      `${totalEstilos} estilos para marcar o tipo do jogo (recreativo, milsim, ` +
+      "misto...). É por ele que a agenda acha operação parecida com a sua.",
+  },
+  {
+    termo: "Repetição",
+    valor:
+      "Qualquer operação vira molde da próxima: campo, horários, lados, vagas " +
+      "e preço voltam preenchidos. Você digita só a data nova.",
+  },
+];
+
+const PERGUNTAS = [
+  {
+    p: "O Organizador de Operações é pago?",
+    r: "Não. É gratuito e faz parte da conta da Comunidade Airsoft, que também é gratuita. Não cobramos mensalidade nem taxa por inscrição.",
+  },
+  {
+    p: "Vocês recebem o dinheiro das inscrições?",
+    r: "Não. A plataforma não intermedia pagamento nenhum. Você publica o seu combinado de pagamento na operação, o jogador te paga direto e você marca “pago” na lista. O dinheiro nunca passa por aqui.",
+  },
+  {
+    p: "Meu jogo é só para a minha equipe. Dá para fechar a lista?",
+    r: "Dá. A operação fechada aparece na agenda com data, campo e horário, mas a lista e a inscrição só abrem para quem receber o seu link de convite. Quem quiser entrar clica em “Pedir convite” e cai no seu WhatsApp.",
+  },
+  {
+    p: "Os nomes de quem vai jogar ficam públicos?",
+    r: "Não. A página da operação mostra só quantos confirmaram em cada lado e quantos estão na espera. A lista com os nomes fica no seu painel de organizador.",
+  },
+  {
+    p: "E o pessoal que manda o nome no grupo e não usa o site?",
+    r: "Você anota pelo nome. O painel tem um campo para adicionar jogador sem conta — a lista precisa ser a lista inteira, senão ela não substitui o bloco de notas.",
+  },
+  {
+    p: "Preciso de conta para abrir uma operação?",
+    r: "Sim. Entre com o Google, complete o cadastro (WhatsApp e cidade) e cadastre uma réplica na sua ficha — é o mesmo cadastro que libera todas as ferramentas. Para o jogador entrar na lista basta o login e o cadastro básico.",
+  },
+  {
+    p: "Funciona no celular?",
+    r: "Funciona inteiro. O painel é uma lista, não um editor: dá para marcar quem chegou com o celular na mão, no portão do campo.",
+  },
+  {
+    p: "Serve para milsim, treino de equipe ou paintball?",
+    r: "Serve para qualquer jogo com data, local e lista. Os lados você nomeia como quiser, e a operação pode ser aberta para a comunidade ou fechada só para os seus.",
+  },
+];
+
+const faq = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: PERGUNTAS.map(({ p, r }) => ({
+    "@type": "Question",
+    name: p,
+    acceptedAnswer: { "@type": "Answer", text: r },
+  })),
+};
+
+/**
+ * Vídeo de demonstração — 22 segundos, da operação vazia à lista
+ * fechada.
+ *
+ * O MP4 sai do projeto Remotion em videos/ (composição
+ * `VideoOperacoes`, 1920x1080) reencodado para 1280x720 sem faixa de
+ * áudio — a composição não tem trilha, e o AAC mudo que o Remotion
+ * escreve por padrão só pesaria. Para regerar depois de um render
+ * novo:
+ *
+ *   ffmpeg -i videos/out/organizador-de-operacoes-1920x1080.mp4 \
+ *     -vf scale=1280:-2 -c:v libx264 -crf 26 -preset slow \
+ *     -pix_fmt yuv420p -an -movflags +faststart \
+ *     public/video/organizador-de-operacoes-airsoft.mp4
+ *
+ * O binário do ffmpeg já vem junto com o Remotion, dentro de
+ * videos/node_modules/@remotion/compositor-*.
+ *
+ * O pôster é o quadro dos 16,6 s — a lista JÁ CHEIA, com os dois
+ * lados e o selo da espera. O primeiro quadro é a marca sobre fundo
+ * preto, que não convida ninguém a apertar o play.
+ */
+const VIDEO = {
+  arquivo: "/video/organizador-de-operacoes-airsoft.mp4",
+  titulo: "Organizador de operações de airsoft — lista de presença num link",
+  duracaoIso: "PT22S",
+  duracaoTexto: "22 segundos",
+  publicadoEm: "2026-08-31",
+};
+
+/**
+ * VideoObject entra no @graph da página. Sem `uploadDate`, `duration`
+ * e `thumbnailUrl` o Google descarta o rich result — e é justamente a
+ * miniatura no resultado de busca que faz o vídeo valer a pena.
+ *
+ * `contentUrl` aponta para o MP4 deste domínio, que é o que a página
+ * serve. Não há `embedUrl`: não existe player embutido aqui.
+ */
+const video = {
+  "@type": "VideoObject",
+  name: VIDEO.titulo,
+  description:
+    "Demonstração do Organizador de Operações da Comunidade Airsoft: abrir a " +
+    "operação com campo, data, lados e vagas, publicar o link no grupo, a lista " +
+    "se enchendo com lista de espera automática e a marcação de pago e presente " +
+    "no dia do jogo.",
+  uploadDate: VIDEO.publicadoEm,
+  duration: VIDEO.duracaoIso,
+  thumbnailUrl: new URL(capaVideo.src, Astro.site).href,
+  contentUrl: new URL(VIDEO.arquivo, Astro.site).href,
+  inLanguage: "pt-BR",
+  isFamilyFriendly: true,
+};
+
+const aplicativo = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Organizador de Operações — Comunidade Airsoft",
+  url: new URL("/conta/operacoes", Astro.site).href,
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Navegador web",
+  inLanguage: "pt-BR",
+  description: DESCRICAO,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "BRL" },
+};
+
+/**
+ * Ícones de traço reto e ponta quadrada, caixa 24 — o mesmo dialeto
+ * dos símbolos do criador de mapas.
+ */
+const ICONE = {
+  calendario: "M4 6h16v14H4zM4 10h16M8 3.5v4M16 3.5v4",
+  link: "M10.5 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 1 0-5-5l-1.2 1.2M13.5 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 1 0 5 5l1.2-1.2",
+  gente: "M12 4a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zM4 21v-2a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v2",
+  cadeado: "M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3",
+  dinheiro: "M3 7h18v10H3zM12 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5",
+  presenca: "m4 12.5 5 5L20 5.5",
+  repetir: "M4.5 9.5h11a4 4 0 0 1 0 8H8M4.5 9.5 8 6M4.5 9.5 8 13",
+  megafone: "M4 9v6h4l7 4V5L8 9H4zM18 9a4 4 0 0 1 0 6",
+  replica: "M3 9h13v4H9l-1 7H5l1-7H3zM16 10h5v2h-5",
+  google: "M16.6 8.4A5.6 5.6 0 1 0 17.6 12H12.2",
+} as const;
+
+/** Os quatro passos entre "cheguei aqui" e "operação no ar". */
+const TRAJETO = [
+  { n: "01", t: "Entrar com o Google — sem senha e sem cartão.", icone: ICONE.google },
+  { n: "02", t: "Completar o cadastro: WhatsApp, cidade e os termos.", icone: ICONE.gente },
+  {
+    n: "03",
+    t: "Cadastrar uma réplica na sua ficha — é o que libera as ferramentas.",
+    icone: ICONE.replica,
+  },
+  { n: "04", t: "Abrir a operação e mandar o link no grupo.", icone: ICONE.calendario },
+];
+
+/**
+ * A lista do painel do hero. Nomes fictícios e curtos, como aparecem
+ * na tela de verdade. O último entra em espera de propósito: é o
+ * único jeito de mostrar, sem explicar, o que acontece quando lota.
+ */
+const LISTA_HERO = [
+  { nome: "Rafael M.", lado: "PMC", pago: true, espera: false },
+  { nome: "Bruno T. +1", lado: "Militar", pago: true, espera: false },
+  { nome: "Diego A.", lado: "PMC", pago: false, espera: false },
+  { nome: "Caio R.", lado: "Militar", pago: true, espera: false },
+  { nome: "Wesley P.", lado: "PMC", pago: false, espera: true },
+];
+
+/** Os dois lados do jogo do painel, com a ocupação de cada um. */
+const LADOS_HERO = [
+  { nome: "PMC", confirmados: 12, vagas: 12, cor: "var(--color-oliva-500)" },
+  { nome: "Militar", confirmados: 9, vagas: 12, cor: "var(--color-latao)" },
+];
+
+/**
+ * O antes e o depois, lado a lado. É o argumento inteiro da
+ * ferramenta em duas colunas — quem organiza jogo reconhece a coluna
+ * da esquerda antes de ler a segunda linha.
+ */
+const COMPARACAO = [
+  {
+    antes: "Lista no bloco de notas, reenviada no grupo a cada nome novo",
+    depois: "Um link. Quem abre vê a lista de agora.",
+  },
+  {
+    antes: "“Ainda tem vaga?” respondido dez vezes por semana",
+    depois: "A página mostra as vagas de cada lado, em tempo real.",
+  },
+  {
+    antes: "Quem desistiu continua na lista até você lembrar de apagar",
+    depois: "Quem sai libera a vaga e o próximo da espera sobe sozinho.",
+  },
+  {
+    antes: "Print da lista + planilha de quem pagou + conferência no portão",
+    depois: "Uma lista só, com “pago” e “presente” do lado do nome.",
+  },
+];
+
+/** Os dois cartões da seção de visibilidade, montados a partir da lib. */
+const VISIVEL = [
+  {
+    chave: "aberta" as const,
+    icone: ICONE.megafone,
+    detalhe:
+      "Entra na agenda pública do site e aparece para quem procura jogo na sua " +
+      "cidade. É como a operação chega em quem não está no seu grupo.",
+  },
+  {
+    chave: "fechada" as const,
+    icone: ICONE.cadeado,
+    detalhe:
+      "A agenda mostra só a capa: campo, data e horário. Sem o seu link, " +
+      "ninguém vê a lista nem consegue confirmar presença.",
+  },
+];
+---
+
+<Base titulo={TITULO} descricao={DESCRICAO} dadosEstruturados={[aplicativo, video, faq]}>
+  <!-- ==========================================================
+       HERO — o painel se preenche sozinho
+       ========================================================== -->
+  <section class="relative isolate overflow-hidden border-b border-borda bg-fundo">
+    {/* Textura do topo ao fundo. É a primeira dobra, então carrega
+        ansiosa. A camada `hero-escurecer` por cima segura o contraste
+        do texto e funde a foto com o fundo da página. */}
+    <div class="absolute inset-0 -z-30" aria-hidden="true">
+      <Image
+        src={fundoTopo}
+        alt=""
+        widths={[960, 1672]}
+        sizes="100vw"
+        loading="eager"
+        class="h-full w-full object-cover object-center"
+      />
+    </div>
+    <div class="hero-escurecer absolute inset-0 -z-20" aria-hidden="true"></div>
+    <div class="grade-tatica absolute inset-0 -z-10 opacity-30" aria-hidden="true"></div>
+
+    <div
+      class="mx-auto grid max-w-[1240px] items-center gap-10 px-5 py-14 md:px-12 md:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:gap-14"
+    >
+      <div>
+        <p class="rotulo">Ferramenta gratuita · Para quem organiza jogo</p>
+
+        <h1
+          class="mt-4 font-display text-[44px] font-extrabold uppercase italic leading-[0.9] md:text-[72px]"
+        >
+          Organizador de<br />
+          <span class="text-oliva-500">operações</span>
+        </h1>
+
+        <p class="mt-6 max-w-[52ch] text-lg leading-relaxed text-texto">
+          Abra a operação, mande um link no grupo e pare de manter lista no bloco
+          de notas. Vagas por lado, lista de espera automática, quem pagou e quem
+          apareceu — tudo numa tela só.
+        </p>
+
+        <p class="mt-4 max-w-[52ch] leading-relaxed text-texto-2">
+          Feito para quem hoje conta nome no print, apaga desistência na mão e
+          responde “ainda tem vaga?” dez vezes por semana.
+        </p>
+
+        <div class="mt-9 flex flex-wrap gap-4">
+          <Botao href="/conta/operacoes">Abrir minha operação</Botao>
+          <Botao href="#video" variante="secundario" seta>
+            Ver como funciona
+          </Botao>
+        </div>
+
+        <p class="mt-5 font-dado text-[13px] uppercase tracking-[0.14em] text-texto-2">
+          <span class="text-oliva-300">100% grátis</span> · Sem taxa por inscrição ·
+          O dinheiro é seu
+        </p>
+      </div>
+
+      <!--
+        A vitrine: o painel da operação com a lista se preenchendo na
+        ordem em que ela se preenche de verdade. É HTML e SVG, não
+        captura de tela — não envelhece junto com a interface.
+      -->
+      <div
+        aria-hidden="true"
+        class="moldura-tatica order-first border border-borda-forte bg-fundo lg:order-none"
+      >
+        <!-- Barra do painel: a operação e o status -->
+        <div
+          class="flex items-center justify-between gap-3 border-b border-borda px-3 py-2 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2"
+        >
+          <span class="flex items-center gap-2">
+            <span class="op-pulso inline-block h-1.5 w-1.5 bg-oliva-400"></span>
+            Domingo 13/09 — Sítio Alvorada
+          </span>
+          <span class="hidden sm:inline text-oliva-300">Aberta</span>
+        </div>
+
+        <div class="bg-[#101409] p-4 md:p-5">
+          <!-- O link: é ele que vai para o grupo -->
+          <div class="op-linha op-linha-1 border border-oliva-700 bg-oliva-050 px-3 py-2.5">
+            <p class="font-dado text-[9px] uppercase tracking-[0.16em] text-oliva-300">
+              Link do evento
+            </p>
+            <p class="mt-1 truncate font-dado text-[12px] text-tinta">
+              comunidadeairsoft.com.br/operacoes/alvorada-13-09
+            </p>
+          </div>
+
+          <!-- Ocupação por lado: as barras enchem -->
+          <div class="mt-4 grid gap-3 sm:grid-cols-2">
+            {
+              LADOS_HERO.map((lado, i) => (
+                <div class={`op-linha op-linha-${i + 2} border border-borda bg-fundo px-3 py-2.5`}>
+                  <p class="flex items-baseline justify-between font-dado text-[11px] uppercase tracking-[0.12em] text-texto-2">
+                    <span class="text-tinta">{lado.nome}</span>
+                    <span>
+                      {lado.confirmados}/{lado.vagas}
+                    </span>
+                  </p>
+                  <span class="mt-2 block h-1.5 w-full bg-borda">
+                    <span
+                      class="op-barra block h-full origin-left"
+                      style={`width:${(lado.confirmados / lado.vagas) * 100}%;background:${lado.cor}`}
+                    />
+                  </span>
+                  <p class="mt-1.5 font-dado text-[10px] uppercase tracking-[0.1em] text-texto-2">
+                    {lado.confirmados === lado.vagas ? "Lado cheio" : `${lado.vagas - lado.confirmados} vagas`}
+                  </p>
+                </div>
+              ))
+            }
+          </div>
+
+          <!-- A lista: os nomes entram um a um -->
+          <p
+            class="mt-5 flex items-center justify-between border-b border-borda pb-2 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2"
+          >
+            <span>Lista</span>
+            <span>21 confirmados · 1 na espera</span>
+          </p>
+
+          <ul class="divide-y divide-borda">
+            {
+              LISTA_HERO.map((pessoa, i) => (
+                <li
+                  class={`op-linha op-linha-${i + 4} flex items-center justify-between gap-3 py-2.5`}
+                >
+                  <span class="flex min-w-0 items-center gap-2">
+                    <span
+                      class="h-1.5 w-1.5 shrink-0"
+                      style={`background:${pessoa.lado === "PMC" ? "var(--color-oliva-500)" : "var(--color-latao)"}`}
+                    />
+                    <span class="truncate text-[13px] font-semibold text-tinta">
+                      {pessoa.nome}
+                    </span>
+                    <span class="hidden font-dado text-[10px] uppercase tracking-[0.1em] text-texto-2 sm:inline">
+                      {pessoa.lado}
+                    </span>
+                  </span>
+
+                  <span class="flex shrink-0 items-center gap-1.5">
+                    {pessoa.espera ? (
+                      <span class="border border-latao/60 px-1.5 py-0.5 font-dado text-[9px] uppercase tracking-[0.1em] text-latao">
+                        Espera
+                      </span>
+                    ) : (
+                      <>
+                        <span
+                          class:list={[
+                            "border px-1.5 py-0.5 font-dado text-[9px] uppercase tracking-[0.1em]",
+                            pessoa.pago
+                              ? "border-ok/60 text-ok-texto"
+                              : "border-borda-forte text-texto-2",
+                          ]}
+                        >
+                          {pessoa.pago ? "Pago" : "A pagar"}
+                        </span>
+                        <svg
+                          viewBox="0 0 24 24"
+                          class="h-3.5 w-3.5 text-oliva-400"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.5"
+                        >
+                          <path d={ICONE.presenca} stroke-linecap="square" />
+                        </svg>
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       VÍDEO — a ferramenta funcionando, logo abaixo do hero.
+
+       Mesma decisão da /criador-de-mapas: arquivo servido pelo
+       PRÓPRIO site, não embed do YouTube. O embed desenha por cima do
+       vídeo o título, o canal e os botões de compartilhar, e não
+       existe parâmetro que tire aquilo — `showinfo` saiu da API e
+       `modestbranding` foi descontinuado. Com o arquivo local a tela
+       é só o produto.
+
+       Não toca sozinho: `preload="none"` mais o pôster deixam a
+       página abrir sem baixar meio mega de quem talvez nem role até
+       aqui.
+       ========================================================== -->
+  <section
+    id="video"
+    aria-labelledby="video-titulo"
+    class="scroll-mt-24 border-b border-borda bg-papel/40"
+  >
+    <div class="mx-auto max-w-[1240px] px-5 py-14 text-center md:px-12 md:py-16">
+      <p class="font-dado text-xs tracking-[0.2em] text-oliva-500">
+        DEMONSTRAÇÃO · {VIDEO.duracaoTexto.toUpperCase()}
+      </p>
+      <h2
+        id="video-titulo"
+        class="mx-auto mt-3 max-w-[22ch] font-display text-3xl font-bold uppercase leading-tight tracking-[0.03em] md:text-4xl lg:text-[2.75rem]"
+      >
+        Da operação aberta à lista fechada
+      </h2>
+      <p class="mt-4 text-lg leading-relaxed text-texto-2">
+        Dê play para ver a ferramenta funcionando.
+      </p>
+
+      {/* Sem `overflow-hidden`: os ticks de canto da moldura tática
+          ficam em -1px e seriam cortados. */}
+      <div class="moldura-tatica relative mt-9 aspect-video border border-borda bg-[#141810] md:mt-10">
+        <video
+          data-video
+          class="absolute inset-0 h-full w-full"
+          poster={capaVideo.src}
+          preload="none"
+          controls
+          playsinline
+          width={capaVideo.width}
+          height={capaVideo.height}
+        >
+          <source src={VIDEO.arquivo} type="video/mp4" />
+          Seu navegador não reproduz vídeo. <a href={VIDEO.arquivo}>Baixe o
+          arquivo</a> para assistir à demonstração.
+        </video>
+
+        {/*
+          Botão de play próprio, cobrindo o vídeo inteiro: o alvo de
+          clique é a tela toda, não um ícone de 60px. Nasce com
+          `hidden` e só aparece se houver JS — sem script ele não teria
+          como dar play, e um botão morto por cima bloquearia os
+          `controls` nativos, que são o caminho de quem está sem JS.
+        */}
+        <button
+          type="button"
+          data-tocar
+          hidden
+          class="group absolute inset-0 flex cursor-pointer items-center justify-center"
+        >
+          <span class="sr-only">Assistir à demonstração ({VIDEO.duracaoTexto})</span>
+          <span
+            aria-hidden="true"
+            class="flex h-20 w-20 items-center justify-center border-2 border-oliva-300 bg-[#0b0d09]/70 text-oliva-300 shadow-[0_8px_40px_rgba(11,13,9,0.6)] backdrop-blur-sm transition group-hover:scale-105 group-hover:border-oliva-300 group-hover:bg-oliva-500 group-hover:text-fundo group-focus-visible:scale-105 md:h-24 md:w-24"
+          >
+            <svg viewBox="0 0 24 24" class="ml-1 h-9 w-9 md:h-11 md:w-11" fill="currentColor">
+              <path d="M8 5v14l11-7z"></path>
+            </svg>
+          </span>
+        </button>
+      </div>
+
+      <div class="mt-9 flex justify-center md:mt-10">
+        <Botao href="/conta/operacoes">Abrir minha operação</Botao>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       ANTES E DEPOIS — o argumento inteiro, em duas colunas.
+
+       Fica logo abaixo do hero e não leva coordenada de hora: a
+       página numera as seções pela contagem regressiva do jogo
+       (H-7, H-3, H-1, H-0, H+1) e enfiar um capítulo no meio
+       obrigaria a renumerar tudo. Este bloco é a continuação do
+       hero — a mesma promessa, agora comparada com o que existe
+       hoje.
+       ========================================================== -->
+  <section class="border-b border-borda bg-papel/40">
+    <div class="mx-auto max-w-[1240px] px-5 py-14 md:px-12 md:py-16">
+      <h2 class="max-w-[24ch] font-display text-3xl font-bold uppercase leading-tight tracking-[0.03em] md:text-4xl">
+        O grupo continua sendo o grupo.
+        <span class="block text-oliva-500">A lista é que sai de lá.</span>
+      </h2>
+
+      <p class="mt-4 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+        Ninguém precisa mudar de aplicativo, e a zoeira, a carona e a foto do
+        domingo continuam no WhatsApp. O que muda é só a lista de presença.
+      </p>
+
+      {/*
+        Cada PAR é um <li>, e não uma coluna de "antes" seguida de uma
+        coluna de "depois". No celular a tabela de duas colunas vira
+        pilha, e a pilha perdia o cabeçalho: sobravam oito frases
+        alternadas sem dizer qual era qual. Com o par junto, o rótulo
+        miúdo acompanha cada metade onde não há cabeçalho.
+      */}
+      <ul class="mt-10 border border-borda bg-papel">
+        <li class="hidden border-b border-borda md:grid md:grid-cols-2">
+          <p class="border-r border-borda px-5 py-3 font-dado text-[11px] uppercase tracking-[0.16em] text-texto-2">
+            Hoje
+          </p>
+          <p class="px-5 py-3 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-300">
+            Com o organizador
+          </p>
+        </li>
+
+        {
+          COMPARACAO.map((linha, i) => (
+            <li
+              class:list={[
+                "grid md:grid-cols-2",
+                i < COMPARACAO.length - 1 && "border-b border-borda",
+              ]}
+            >
+              <div class="flex items-start gap-3 px-5 py-4 md:border-r md:border-borda">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  class="mt-1 h-4 w-4 shrink-0 text-alerta"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M6 6l12 12M18 6L6 18" stroke-linecap="square" />
+                </svg>
+                <span>
+                  <span class="mb-1 block font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2 md:hidden">
+                    Hoje
+                  </span>
+                  <span class="text-[0.9375rem] leading-relaxed text-texto-2">{linha.antes}</span>
+                </span>
+              </div>
+
+              <div class="flex items-start gap-3 border-t border-borda px-5 py-4 md:border-t-0">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  class="mt-1 h-4 w-4 shrink-0 text-oliva-400"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                >
+                  <path d={ICONE.presenca} stroke-linecap="square" />
+                </svg>
+                <span>
+                  <span class="mb-1 block font-dado text-[10px] uppercase tracking-[0.16em] text-oliva-300 md:hidden">
+                    Com o organizador
+                  </span>
+                  <span class="text-[0.9375rem] leading-relaxed text-texto">{linha.depois}</span>
+                </span>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       H-7 — COMO FUNCIONA
+       ========================================================== -->
+  <section id="como-funciona" class="mx-auto max-w-[1240px] scroll-mt-24 px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-hora" aria-hidden="true">H-7</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+        Como funciona
+      </h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+      Uma semana antes do jogo, três passos. Nenhum deles pede planilha, nem
+      pede que alguém do seu grupo instale coisa nenhuma.
+    </p>
+
+    <ol class="mt-10 grid gap-6 md:grid-cols-3">
+      <li class="moldura-tatica flex flex-col border border-borda bg-papel">
+        <!-- Vinheta 01: a data marcada no calendário -->
+        <div
+          aria-hidden="true"
+          class="relative flex aspect-[16/9] items-center justify-center overflow-hidden border-b border-borda bg-[#171c11]"
+        >
+          <svg viewBox="0 0 320 180" class="h-full w-full">
+            <path d="M60 46h200v104H60z" fill="#101409" stroke="#46512f" stroke-width="1.5"></path>
+            <path d="M60 74h200" stroke="#46512f" stroke-width="1.5"></path>
+            <path d="M96 34v20M224 34v20" stroke="#a9bd66" stroke-width="3"></path>
+            {
+              [0, 1, 2, 3].map((linha) =>
+                [0, 1, 2, 3, 4].map((coluna) => (
+                  <rect
+                    x={76 + coluna * 36}
+                    y={86 + linha * 16}
+                    width="22"
+                    height="8"
+                    fill={linha === 2 && coluna === 3 ? "#7d9139" : "#2b3222"}
+                  />
+                )),
+              )
+            }
+          </svg>
+          <span class="absolute bottom-2 left-3 font-dado text-[10px] tracking-[0.16em] text-oliva-300/70">
+            Dom · 14/09 · 08h
+          </span>
+        </div>
+        <div class="p-6">
+          <span class="font-dado text-sm tracking-[0.2em] text-oliva-500">{PASSOS[0].numero}</span>
+          <h3 class="mt-2 font-display text-xl font-bold uppercase tracking-[0.03em]">
+            {PASSOS[0].titulo}
+          </h3>
+          <p class="mt-3 leading-relaxed text-texto-2">{PASSOS[0].texto}</p>
+        </div>
+      </li>
+
+      <li class="moldura-tatica flex flex-col border border-borda bg-papel">
+        <!-- Vinheta 02: o link solto no grupo -->
+        <div
+          aria-hidden="true"
+          class="relative flex aspect-[16/9] items-center justify-center overflow-hidden border-b border-borda bg-[#171c11]"
+        >
+          <svg viewBox="0 0 320 180" class="h-full w-full">
+            <path d="M40 42h150v34H40z" fill="#1c2115" stroke="#2b3222" stroke-width="1.5"></path>
+            <path d="M52 54h96M52 64h64" stroke="#46512f" stroke-width="3"></path>
+            <path d="M130 100h150v34H130z" fill="#191e11" stroke="#4d5a24" stroke-width="1.5"></path>
+            <path d="M144 112h110M144 122h70" stroke="#7d9139" stroke-width="3"></path>
+            <g transform="translate(268 46) scale(1.5)" fill="none" stroke="#a9bd66" stroke-width="1.6">
+              <path d="M10.5 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 1 0-5-5l-1.2 1.2M13.5 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 1 0 5 5l1.2-1.2"></path>
+            </g>
+          </svg>
+        </div>
+        <div class="p-6">
+          <span class="font-dado text-sm tracking-[0.2em] text-oliva-500">{PASSOS[1].numero}</span>
+          <h3 class="mt-2 font-display text-xl font-bold uppercase tracking-[0.03em]">
+            {PASSOS[1].titulo}
+          </h3>
+          <p class="mt-3 leading-relaxed text-texto-2">{PASSOS[1].texto}</p>
+        </div>
+      </li>
+
+      <li class="moldura-tatica flex flex-col border border-borda bg-papel">
+        <!-- Vinheta 03: a lista subindo sozinha -->
+        <div
+          aria-hidden="true"
+          class="relative flex aspect-[16/9] items-center justify-center overflow-hidden border-b border-borda bg-[#171c11]"
+        >
+          <svg viewBox="0 0 320 180" class="h-full w-full">
+            {
+              [0, 1, 2, 3, 4].map((i) => (
+                <>
+                  <rect x="60" y={34 + i * 24} width="200" height="16" fill="#101409" stroke="#2b3222" stroke-width="1" />
+                  <rect x="68" y={39 + i * 24} width={i === 4 ? 60 : 96} height="6" fill={i === 4 ? "#d1a13c" : "#7d9139"} />
+                  <path
+                    d={i === 4 ? "M244 42h8" : "m240 42 4 4 8-9"}
+                    transform={`translate(0 ${i * 24})`}
+                    fill="none"
+                    stroke={i === 4 ? "#d1a13c" : "#a9bd66"}
+                    stroke-width="2.4"
+                  />
+                </>
+              ))
+            }
+          </svg>
+          <span class="absolute bottom-2 right-3 font-dado text-[10px] tracking-[0.16em] text-latao/80">
+            1 na espera
+          </span>
+        </div>
+        <div class="p-6">
+          <span class="font-dado text-sm tracking-[0.2em] text-oliva-500">{PASSOS[2].numero}</span>
+          <h3 class="mt-2 font-display text-xl font-bold uppercase tracking-[0.03em]">
+            {PASSOS[2].titulo}
+          </h3>
+          <p class="mt-3 leading-relaxed text-texto-2">{PASSOS[2].texto}</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ==========================================================
+       H-3 — VAGAS E ESPERA
+       ========================================================== -->
+  <section class="border-y border-borda bg-papel/40">
+    <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+      <div class="flex items-center gap-4">
+        <span class="tag-hora" aria-hidden="true">H-3</span>
+        <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+          A lista se administra sozinha
+        </h2>
+        <div class="h-px flex-1 bg-borda"></div>
+      </div>
+
+      <div class="mt-3 flex items-center gap-2.5" aria-hidden="true">
+        <span class="listra-mini"></span>
+        <span class="h-0.5 w-7 bg-oliva-500/80"></span>
+      </div>
+
+      <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+        Cada lado tem as vagas dele, de {LADOS_MINIMO} a {LADOS_MAXIMO} lados por
+        operação. Lotou, quem chega entra na espera. Alguém desistiu, o primeiro
+        da fila sobe — e isso acontece dentro do banco, na mesma transação,
+        mesmo que você esteja dormindo.
+      </p>
+
+      <div class="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] lg:gap-10">
+        <ul class="grid gap-px self-start border border-borda bg-borda sm:grid-cols-2">
+          {
+            [
+              {
+                icone: ICONE.gente,
+                t: "Vagas por lado",
+                d: "PMC com 12, Militar com 12 — ou um lado sem teto, se o seu jogo não limita. A conta é feita por lado, não no total.",
+              },
+              {
+                icone: ICONE.repetir,
+                t: "Espera automática",
+                d: "Quem chega depois de lotar entra na fila e é avisado disso na hora. Nada de lista paralela no privado.",
+              },
+              {
+                icone: ICONE.dinheiro,
+                t: "Dois lotes de preço",
+                d: "R$ 35 até sexta, R$ 50 no dia. A página mostra sozinha o valor que está valendo hoje.",
+              },
+              {
+                icone: ICONE.calendario,
+                t: "Acompanhante conta vaga",
+                d: "Quem leva um amigo marca isso na inscrição, e o amigo ocupa uma das vagas. O número no painel é o número real.",
+              },
+            ].map((item) => (
+              <li class="bg-papel p-5">
+                <span class="hexagono" aria-hidden="true">
+                  <span class="hexagono-miolo">
+                    <svg
+                      viewBox="0 0 24 24"
+                      class="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="square"
+                    >
+                      <path d={item.icone} />
+                    </svg>
+                  </span>
+                </span>
+                <h3 class="mt-4 font-display text-lg font-bold uppercase tracking-[0.03em]">
+                  {item.t}
+                </h3>
+                <p class="mt-2 text-[0.9375rem] leading-relaxed text-texto-2">{item.d}</p>
+              </li>
+            ))
+          }
+        </ul>
+
+        <!-- A página pública, como o jogador a vê: contagem, nunca nomes -->
+        <figure class="moldura-tatica m-0 self-start border border-borda-forte bg-fundo">
+          <figcaption
+            class="flex items-center justify-between gap-3 border-b border-borda px-3 py-2 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2"
+          >
+            <span>O que o jogador vê</span>
+            <span class="text-oliva-300">Página pública</span>
+          </figcaption>
+          <div class="space-y-3 bg-[#101409] p-4 md:p-5">
+            <div class="border border-borda bg-fundo px-4 py-3">
+              <p class="flex items-baseline justify-between font-dado text-[12px] uppercase tracking-[0.12em]">
+                <span class="text-tinta">PMC</span>
+                <span class="text-texto-2">12/12</span>
+              </p>
+              <span class="mt-2 block h-2 w-full bg-borda">
+                <span class="block h-full w-full bg-oliva-500"></span>
+              </span>
+              <p class="mt-2 font-dado text-[11px] uppercase tracking-[0.1em] text-latao">
+                Lado cheio · 1 na espera
+              </p>
+            </div>
+
+            <div class="border border-borda bg-fundo px-4 py-3">
+              <p class="flex items-baseline justify-between font-dado text-[12px] uppercase tracking-[0.12em]">
+                <span class="text-tinta">Militar</span>
+                <span class="text-texto-2">9/12</span>
+              </p>
+              <span class="mt-2 block h-2 w-full bg-borda">
+                <span class="block h-full w-3/4 bg-latao"></span>
+              </span>
+              <p class="mt-2 font-dado text-[11px] uppercase tracking-[0.1em] text-oliva-300">
+                3 vagas
+              </p>
+            </div>
+
+            <p class="border border-borda-forte bg-oliva-050 px-4 py-3 text-[0.875rem] leading-relaxed text-texto-2">
+              <span class="font-dado text-[10px] uppercase tracking-[0.14em] text-oliva-300">
+                Sem nomes
+              </span><br />
+              A página mostra a contagem. Quem está na lista é assunto do seu
+              painel, não da busca do Google.
+            </p>
+          </div>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       H-1 — ABERTA OU FECHADA
+       Os dois textos vêm de VISIBILIDADES (lib/operacao): é a mesma
+       explicação que o organizador lê dentro do formulário.
+       ========================================================== -->
+  <section class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-hora" aria-hidden="true">H-1</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+        Aberta ou fechada
+      </h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+      Nem todo jogo é para todo mundo. A operação pode ser vitrine — para trazer
+      gente nova de fora do seu grupo — ou porta fechada, aberta só por link.
+    </p>
+
+    <div class="mt-10 grid gap-6 md:grid-cols-2 md:gap-8">
+      {
+        VISIVEL.map((item) => (
+          <div class="card-passo h-full">
+            <div class="card-passo-miolo flex h-full flex-col p-6">
+              <div class="flex items-start justify-between gap-3">
+                <h3 class="font-display text-2xl font-bold uppercase tracking-[0.03em]">
+                  {VISIBILIDADES[item.chave].rotulo}
+                </h3>
+                <span class="hexagono" aria-hidden="true">
+                  <span class="hexagono-miolo">
+                    <svg
+                      viewBox="0 0 24 24"
+                      class="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="square"
+                    >
+                      <path d={item.icone} />
+                    </svg>
+                  </span>
+                </span>
+              </div>
+
+              <span class="mt-4 flex items-center gap-1.5" aria-hidden="true">
+                <span class="h-1.5 w-1.5 rounded-full border border-oliva-500" />
+                <span class="h-0.5 w-8 bg-oliva-700" />
+                <span class="h-px flex-1 bg-borda" />
+              </span>
+
+              <p class="mt-4 leading-relaxed text-texto">
+                {VISIBILIDADES[item.chave].ajuda}
+              </p>
+              <p class="mt-3 text-[0.9375rem] leading-relaxed text-texto-2">
+                {item.detalhe}
+              </p>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       H-0 — O DIA DO JOGO
+       ========================================================== -->
+  <section class="border-y border-borda bg-papel/40">
+    <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+      <div class="flex items-center gap-4">
+        <span class="tag-hora" aria-hidden="true">H-0</span>
+        <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+          No portão do campo
+        </h2>
+        <div class="h-px flex-1 bg-borda"></div>
+      </div>
+
+      <p class="mt-5 max-w-[62ch] text-lg leading-relaxed text-texto-2">
+        Chegou o domingo, a lista vira prancheta. Abra o painel no celular e vá
+        marcando: quem pagou, quem chegou, quem apareceu sem estar na lista.
+      </p>
+
+      <div class="mt-10 grid gap-8 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)] lg:gap-12">
+        <!-- O painel do organizador, com os dois botões da linha -->
+        <div class="moldura-tatica border border-borda-forte bg-fundo">
+          <div
+            class="flex items-center justify-between gap-3 border-b border-borda px-3 py-2 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2"
+          >
+            <span>Seu painel</span>
+            <span class="text-oliva-300">21 na lista</span>
+          </div>
+
+          <ul class="divide-y divide-borda bg-[#101409]">
+            {
+              [
+                { nome: "Rafael M.", lado: "PMC", pago: true, presente: true },
+                { nome: "Bruno T. +1", lado: "Militar", pago: true, presente: true },
+                { nome: "Diego A.", lado: "PMC", pago: false, presente: false },
+              ].map((linha) => (
+                <li class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
+                  <span class="min-w-0">
+                    <span class="block truncate text-[0.9375rem] font-semibold text-tinta">
+                      {linha.nome}
+                    </span>
+                    <span class="font-dado text-[10px] uppercase tracking-[0.12em] text-texto-2">
+                      {linha.lado}
+                    </span>
+                  </span>
+                  <span class="flex items-center gap-2" aria-hidden="true">
+                    <span
+                      class:list={[
+                        "border px-2 py-1 font-dado text-[10px] uppercase tracking-[0.1em]",
+                        linha.pago
+                          ? "border-ok/60 bg-ok-bg text-ok-texto"
+                          : "border-borda-forte text-texto-2",
+                      ]}
+                    >
+                      Pago
+                    </span>
+                    <span
+                      class:list={[
+                        "border px-2 py-1 font-dado text-[10px] uppercase tracking-[0.1em]",
+                        linha.presente
+                          ? "border-oliva-500 bg-oliva-050 text-oliva-300"
+                          : "border-borda-forte text-texto-2",
+                      ]}
+                    >
+                      Presente
+                    </span>
+                  </span>
+                </li>
+              ))
+            }
+          </ul>
+
+          <div class="border-t border-borda bg-papel px-4 py-3">
+            <p class="font-dado text-[10px] uppercase tracking-[0.14em] text-texto-2">
+              Anotar quem mandou no grupo
+            </p>
+            <div class="mt-2 flex items-center gap-2" aria-hidden="true">
+              <span class="flex-1 border border-borda-forte bg-fundo px-3 py-2 text-[0.875rem] text-texto-2">
+                Nome do jogador
+              </span>
+              <span class="border border-oliva-500 bg-oliva-500 px-3 py-2 font-display text-[0.8125rem] font-bold uppercase tracking-[0.06em] text-fundo">
+                Add
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <dl class="grid content-start gap-px border border-borda bg-borda">
+          {
+            [
+              {
+                t: "Um toque para “pago”",
+                d: "O dinheiro é combinado direto com você — Pix, na hora ou o que for. O painel só guarda quem já acertou, para você não conferir no print da conversa.",
+              },
+              {
+                t: "Um toque para “presente”",
+                d: "A chamada no portão sai da mesma tela da lista. No fim do dia você sabe quem confirmou e não apareceu — e isso é informação para a próxima operação.",
+              },
+              {
+                t: "Jogador sem conta entra do mesmo jeito",
+                d: "Sempre vai ter quem mande o nome no grupo. Você anota pelo nome e ele entra na contagem como qualquer outro. Lista pela metade é lista que ninguém usa.",
+              },
+            ].map((item) => (
+              <div class="bg-papel p-5">
+                <dt class="font-display text-lg font-bold uppercase tracking-[0.03em] text-tinta">
+                  {item.t}
+                </dt>
+                <dd class="m-0 mt-2 text-[0.9375rem] leading-relaxed text-texto-2">{item.d}</dd>
+              </div>
+            ))
+          }
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       H+1 — DEPOIS DO JOGO
+       ========================================================== -->
+  <section class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-hora" aria-hidden="true">H+1</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+        E na semana que vem
+      </h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <div class="mt-10 grid gap-6 md:grid-cols-2 md:gap-8">
+      <div class="moldura-tatica border border-borda bg-papel p-6">
+        <span class="hexagono" aria-hidden="true">
+          <span class="hexagono-miolo">
+            <svg
+              viewBox="0 0 24 24"
+              class="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="square"
+            >
+              <path d={ICONE.repetir} />
+            </svg>
+          </span>
+        </span>
+        <h3 class="mt-4 font-display text-xl font-bold uppercase tracking-[0.03em]">
+          Repetir a operação
+        </h3>
+        <p class="mt-3 leading-relaxed text-texto-2">
+          Quem joga todo domingo não vai preencher o mesmo formulário quatro
+          vezes por mês. Qualquer operação passada vira o molde da próxima:
+          campo, horários, lados, vagas e preço voltam preenchidos. Você digita
+          só a data nova.
+        </p>
+      </div>
+
+      <div class="moldura-tatica border border-borda bg-papel p-6">
+        <span class="hexagono" aria-hidden="true">
+          <span class="hexagono-miolo">
+            <svg
+              viewBox="0 0 24 24"
+              class="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="square"
+            >
+              <path d={ICONE.megafone} />
+            </svg>
+          </span>
+        </span>
+        <h3 class="mt-4 font-display text-xl font-bold uppercase tracking-[0.03em]">
+          Gente de fora do seu grupo
+        </h3>
+        <p class="mt-3 leading-relaxed text-texto-2">
+          A operação aberta entra na
+          <a href="/operacoes" class="text-oliva-500 underline hover:text-oliva-300">
+            agenda pública do site</a
+          >, filtrada por estado, cidade e estilo. É o que o seu grupo de
+          WhatsApp não faz: levar o seu jogo para quem ainda não te conhece.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       FICHA TÉCNICA
+       ========================================================== -->
+  <section class="border-t border-borda">
+    <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+      <div class="flex items-center gap-4">
+        <span class="tag-hora" aria-hidden="true">·</span>
+        <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+          Ficha técnica
+        </h2>
+        <div class="h-px flex-1 bg-borda"></div>
+      </div>
+
+      <dl class="mt-10 grid md:grid-cols-2 md:gap-x-14">
+        {
+          FICHA.map((item) => (
+            <div class="grid grid-cols-[7.5rem_1fr] gap-4 border-t border-borda py-5 md:grid-cols-[8.5rem_1fr]">
+              <dt class="pt-0.5 font-dado text-[12px] uppercase tracking-[0.16em] text-oliva-400">
+                {item.termo}
+              </dt>
+              <dd class="m-0 text-[1rem] leading-relaxed text-texto">{item.valor}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       CTA — CADASTRO
+       ========================================================== -->
+  <section class="relative isolate overflow-hidden border-y border-borda bg-fundo">
+    {/* A mesma arte do hero da home, bem apagada: o operador fica à
+        direita, atrás dos cards, e a vinheta garante o contraste do
+        texto à esquerda. */}
+    <div class="absolute inset-0 -z-20" aria-hidden="true">
+      <Image
+        src={fundoCta}
+        alt=""
+        widths={[960, 1440]}
+        sizes="100vw"
+        class="h-full w-full object-cover object-right opacity-40"
+      />
+    </div>
+    <div class="cta-vinheta absolute inset-0 -z-10" aria-hidden="true"></div>
+    <div class="grade-tatica absolute inset-0 -z-10 opacity-30" aria-hidden="true"></div>
+
+    {/* Cromo de HUD: esquadros nos quatro cantos (a moldura tática só
+        desenha dois, então a segunda vai espelhada), listra e ícone.
+        Tudo decorativo e só em tela larga. */}
+    <div class="moldura-tatica pointer-events-none absolute inset-5 hidden lg:block" aria-hidden="true"></div>
+    <div class="moldura-tatica pointer-events-none absolute inset-5 hidden -scale-x-100 lg:block" aria-hidden="true"></div>
+    <span class="listra-mini absolute left-10 top-9 hidden lg:block" aria-hidden="true"></span>
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      class="absolute right-10 top-8 hidden h-9 w-9 text-oliva-500/45 lg:block"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.2"
+    >
+      <path d={ICONE.calendario} stroke-linecap="square"></path>
+    </svg>
+
+    <div class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-24">
+      <h2
+        class="max-w-[34ch] font-display text-4xl font-extrabold uppercase italic leading-[0.95] md:text-[56px]"
+      >
+        Crie sua conta grátis e abra a<br class="hidden lg:inline" />
+        <span class="text-oliva-500">primeira operação</span>
+      </h2>
+
+      <span class="mt-5 flex items-center gap-2" aria-hidden="true">
+        <span class="h-[7px] w-[7px] rounded-full border border-oliva-500"></span>
+        <span class="h-px w-40 bg-oliva-700"></span>
+        <span class="w-16 border-t border-dashed border-oliva-700"></span>
+      </span>
+
+      <p class="mt-5 max-w-[56ch] text-lg leading-relaxed text-texto-2">
+        O organizador é gratuito — sem plano pago, sem cartão e sem taxa por
+        inscrição. A entrada é pela sua conta Google e não criamos senha
+        nenhuma.
+      </p>
+
+      <ol class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-7">
+        {
+          TRAJETO.map((passo, i) => (
+            <li class="relative">
+              <div class="card-passo h-full">
+                <div class="card-passo-miolo flex h-full flex-col p-5">
+                  <div class="flex items-start justify-between gap-3">
+                    <span class="font-display text-[2.75rem] font-extrabold italic leading-none text-oliva-500">
+                      {passo.n}
+                    </span>
+                    <span class="hexagono" aria-hidden="true">
+                      <span class="hexagono-miolo">
+                        <svg
+                          viewBox="0 0 24 24"
+                          class="h-5 w-5"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.6"
+                          stroke-linecap="square"
+                        >
+                          <path d={passo.icone} />
+                        </svg>
+                      </span>
+                    </span>
+                  </div>
+
+                  <span class="mt-4 flex items-center gap-1.5" aria-hidden="true">
+                    <span class="h-1.5 w-1.5 rounded-full border border-oliva-500" />
+                    <span class="h-0.5 w-8 bg-oliva-700" />
+                    <span class="h-px flex-1 bg-borda" />
+                  </span>
+
+                  <p class="mt-4 text-[0.9375rem] leading-relaxed text-texto">{passo.t}</p>
+                </div>
+              </div>
+
+              {i < TRAJETO.length - 1 && (
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  class="absolute -right-[22px] top-1/2 hidden h-4 w-4 -translate-y-1/2 text-oliva-500 lg:block"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                >
+                  <path d="m8 4 8 8-8 8" stroke-linecap="square" />
+                </svg>
+              )}
+            </li>
+          ))
+        }
+      </ol>
+
+      <div class="mt-10 flex flex-wrap items-center gap-5">
+        <span class="cta-brilho inline-flex">
+          <Botao href="/conta/operacoes">Abrir minha operação</Botao>
+        </span>
+        <Botao
+          href="/guias/como-organizar-uma-operacao-de-airsoft"
+          variante="secundario"
+          seta
+        >
+          Guia de briefing
+        </Botao>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       PERGUNTAS
+       ========================================================== -->
+  <section class="mx-auto max-w-[1240px] px-5 py-16 md:px-12 md:py-20">
+    <div class="flex items-center gap-4">
+      <span class="tag-hora" aria-hidden="true">?</span>
+      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
+        Perguntas
+      </h2>
+      <div class="h-px flex-1 bg-borda"></div>
+    </div>
+
+    <div class="mt-8 max-w-[72ch]">
+      {
+        PERGUNTAS.map((item) => (
+          <details class="gaveta border-b border-borda">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-display text-lg font-bold uppercase tracking-[0.03em] text-tinta">
+              {item.p}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                class="chevron h-5 w-5 shrink-0 text-oliva-500 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="m6 9 6 6 6-6" stroke-linecap="square" />
+              </svg>
+            </summary>
+            <p class="pb-6 leading-relaxed text-texto-2">{item.r}</p>
+          </details>
+        ))
+      }
+    </div>
+
+    <div class="mt-12 flex flex-wrap items-center gap-x-6 gap-y-4">
+      <Botao href="/conta/operacoes">Abrir minha operação</Botao>
+      <p class="m-0 font-dado text-[13px] uppercase tracking-[0.14em] text-texto-2">
+        <span class="text-oliva-300">100% grátis</span> · Sem taxa por inscrição
+      </p>
+      <a
+        href="/operacoes"
+        class="font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
+      >
+        Ver a agenda de operações
+      </a>
+    </div>
+  </section>
+</Base>
+
+<script>
+  /* ============================================================
+     Vídeo da demonstração.
+
+     Sem JS o <video> fica com os `controls` nativos e o botão
+     próprio nem aparece — a página continua inteira. Com JS, os dois
+     trocam de lugar: o botão grande cobre o vídeo, e os controles só
+     entram depois que o play acontece.
+     ============================================================ */
+  const video = document.querySelector<HTMLVideoElement>("video[data-video]");
+  const tocar = document.querySelector<HTMLButtonElement>("button[data-tocar]");
+
+  if (video && tocar) {
+    video.controls = false;
+    tocar.hidden = false;
+
+    const comecar = () => {
+      tocar.hidden = true;
+      video.controls = true;
+      // `preload="none"`: o arquivo só começa a baixar agora.
+      void video.play();
+    };
+
+    tocar.addEventListener("click", comecar);
+
+    // Voltando ao estado inicial no fim, o pôster reaparece e o
+    // convite continua de pé para quem quiser rever.
+    video.addEventListener("ended", () => {
+      video.controls = false;
+      video.currentTime = 0;
+      tocar.hidden = false;
+    });
+
+    /* O "Ver como funciona" do hero aponta para #video. O salto de
+       âncora é do navegador; aqui só se dá o play ao chegar. Também
+       responde a quem cola a URL com #video direto na barra. */
+    const irEtocar = () => {
+      if (tocar.hidden) return; // já está tocando
+      comecar();
+    };
+
+    document
+      .querySelector<HTMLAnchorElement>('a[href="#video"]')
+      ?.addEventListener("click", () => {
+        // Depois do salto, para não competir com o scroll suave.
+        setTimeout(irEtocar, 450);
+      });
+
+    if (location.hash === "#video") setTimeout(irEtocar, 450);
+  }
+</script>
+
+<style>
+  /* ============================================================
+     Coordenada de seção — a contagem regressiva do jogo (H-7, H-0,
+     H+1), que é como quem organiza pensa a semana. Mesmo desenho da
+     tag de setor da landing do criador de mapas.
+     ============================================================ */
+  .tag-hora {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    border: 1px solid var(--color-borda-forte);
+    font-family: var(--font-dado);
+    font-size: 0.8125rem;
+    letter-spacing: 0.06em;
+    color: var(--color-oliva-400);
+  }
+
+  /* Escurece a textura do hero: mais fechado à esquerda (texto) e nas
+     bordas de cima e de baixo, para a foto nascer do fundo da página
+     e voltar para ele sem emenda. */
+  .hero-escurecer {
+    background:
+      linear-gradient(
+        to right,
+        rgba(11, 13, 9, 0.86) 0%,
+        rgba(11, 13, 9, 0.66) 45%,
+        rgba(11, 13, 9, 0.55) 100%
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(11, 13, 9, 0.75) 0%,
+        rgba(11, 13, 9, 0.12) 35%,
+        rgba(11, 13, 9, 0.12) 70%,
+        rgba(11, 13, 9, 0.9) 100%
+      );
+  }
+
+  /* Escurece a foto do CTA: quase opaca à esquerda (onde está o
+     texto), abre à direita (onde está o operador), fecha nas bordas. */
+  .cta-vinheta {
+    background:
+      linear-gradient(
+        to right,
+        var(--color-fundo) 0%,
+        rgba(11, 13, 9, 0.96) 38%,
+        rgba(11, 13, 9, 0.6) 72%,
+        rgba(11, 13, 9, 0.88) 100%
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(11, 13, 9, 0.7) 0%,
+        transparent 30%,
+        transparent 65%,
+        rgba(11, 13, 9, 0.92) 100%
+      );
+  }
+
+  /* Card com chanfro em cantos opostos ao do CTA primário (que corta
+     em cima-esquerda / baixo-direita). Clip-path também corta a
+     borda, então a borda é o fundo da camada de fora e o conteúdo é
+     uma camada de dentro 1px menor, com o mesmo corte. */
+  .card-passo {
+    --corte: 16px;
+    padding: 1px;
+    background: var(--color-oliva-700);
+    clip-path: polygon(
+      0 0,
+      calc(100% - var(--corte)) 0,
+      100% var(--corte),
+      100% 100%,
+      var(--corte) 100%,
+      0 calc(100% - var(--corte))
+    );
+  }
+  .card-passo-miolo {
+    background: rgba(20, 24, 15, 0.94);
+    clip-path: polygon(
+      0 0,
+      calc(100% - var(--corte) + 1px) 0,
+      100% calc(var(--corte) - 1px),
+      100% 100%,
+      calc(var(--corte) - 1px) 100%,
+      0 calc(100% - var(--corte) + 1px)
+    );
+  }
+
+  /* Emblema hexagonal — mesma técnica de duas camadas. */
+  .hexagono {
+    --hex: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    display: flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+    padding: 1.5px;
+    background: var(--color-oliva-500);
+    clip-path: var(--hex);
+  }
+  .hexagono-miolo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: var(--color-fundo);
+    color: var(--color-oliva-300);
+    clip-path: var(--hex);
+  }
+
+  /* Brilho do CTA. Vai no invólucro porque o chanfro do botão é
+     clip-path, que cortaria um box-shadow; drop-shadow segue a
+     silhueta recortada. */
+  .cta-brilho {
+    filter: drop-shadow(0 6px 18px rgba(169, 189, 102, 0.4));
+  }
+
+  /* Listra de detalhe sob o título da seção — eco miúdo da
+     faixa-perigo, em oliva. */
+  .listra-mini {
+    width: 64px;
+    height: 7px;
+    background: repeating-linear-gradient(
+      -55deg,
+      var(--color-oliva-500) 0 5px,
+      transparent 5px 11px
+    );
+    opacity: 0.75;
+  }
+
+  /* ============================================================
+     O painel do hero se preenche no carregamento.
+
+     Regra de robustez: o estado BASE de cada camada é a lista
+     CHEIA. Toda animação parte de "invisível" no `from` e termina
+     no estado base — se ela não rodar (reduced motion, navegador
+     antigo), o visitante vê o painel completo, nunca um vazio.
+     ============================================================ */
+
+  /* O link, os dois lados e cada nome da lista entram em sequência,
+     na mesma ordem em que a operação se preenche de verdade. */
+  .op-linha {
+    animation: op-entrar 420ms ease-out both;
+  }
+  .op-linha-1 { animation-delay: 150ms; }
+  .op-linha-2 { animation-delay: 450ms; }
+  .op-linha-3 { animation-delay: 600ms; }
+  .op-linha-4 { animation-delay: 900ms; }
+  .op-linha-5 { animation-delay: 1100ms; }
+  .op-linha-6 { animation-delay: 1300ms; }
+  .op-linha-7 { animation-delay: 1500ms; }
+  /* O último é o que bateu no teto e caiu na espera: entra depois de
+     um respiro, para a leitura registrar que ele é diferente. */
+  .op-linha-8 { animation-delay: 2000ms; }
+
+  /* As barras de vaga enchem da esquerda para a direita. `width` já
+     está no estado final (inline); a animação é só a escala. */
+  .op-barra {
+    animation: op-encher 900ms cubic-bezier(0.22, 1, 0.36, 1) 650ms both;
+  }
+
+  /* O ponto "no ar" da barra do painel. */
+  .op-pulso {
+    animation: op-pulsar 2s ease-in-out 2.4s infinite;
+  }
+
+  @keyframes op-entrar {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+
+  @keyframes op-encher {
+    from {
+      transform: scaleX(0);
+    }
+  }
+
+  @keyframes op-pulsar {
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .op-linha,
+    .op-barra,
+    .op-pulso {
+      animation: none;
+    }
+  }
+</style>

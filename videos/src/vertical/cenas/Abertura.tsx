@@ -24,14 +24,26 @@ export const Abertura: React.FC = () => {
           extrapolateRight: "clamp",
         })}
         centro={ENQ.aberto.centro}
-        desfoque={5}
+        // Nítido nos primeiros frames e só depois desfocado: o gancho é
+        // o mapa pronto, e mapa borrado no frame 1 não é gancho nenhum.
+        desfoque={interpolate(frame, [6, 26], [0, 5], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })}
       >
         <Documento>
           <Pecas aparicaoDe={() => 1} frame={frame} />
         </Documento>
       </Janela>
 
-      <AbsoluteFill style={{ backgroundColor: "rgba(6,8,5,0.74)" }} />
+      <AbsoluteFill
+        style={{
+          backgroundColor: `rgba(6,8,5,${interpolate(frame, [4, 26], [0.3, 0.74], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })})`,
+        }}
+      />
 
       <AbsoluteFill
         style={{

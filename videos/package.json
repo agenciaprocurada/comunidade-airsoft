@@ -1,13 +1,14 @@
 {
-  "name": "video-gerador-mapa",
+  "name": "videos-comunidade-airsoft",
   "version": "1.0.0",
-  "description": "My Remotion video",
+  "description": "Vídeos das ferramentas do Comunidade Airsoft, em Remotion",
   "repository": {},
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
     "@remotion/cli": "4.0.518",
     "@remotion/google-fonts": "4.0.518",
+    "@remotion/media": "4.0.518",
     "@remotion/tailwind-v4": "4.0.518",
     "@remotion/transitions": "4.0.518",
     "react": "19.2.3",
@@ -29,7 +30,11 @@
     "upgrade": "remotion upgrade",
     "lint": "eslint src && tsc",
     "render": "remotion render VideoGeradorMapa out/gerador-de-mapas-1920x1080.mp4",
-    "tiles": "node scripts/baixar-tiles.mjs"
+    "tiles": "node scripts/baixar-tiles.mjs",
+    "render:vertical": "remotion render VideoVertical out/gerador-de-mapas-1080x1920.mp4",
+    "batida": "node scripts/gerar-batida-guia.mjs",
+    "render:operacoes": "remotion render VideoOperacoes out/organizador-de-operacoes-1920x1080.mp4",
+    "render:operacoes-vertical": "remotion render VideoOperacoesVertical out/organizador-de-operacoes-1080x1920.mp4"
   },
   "sideEffects": [
     "*.css"

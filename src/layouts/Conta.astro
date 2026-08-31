@@ -43,7 +43,10 @@ const secoes = [
     ? [{ href: "/conta/equipes", texto: "Equipes", icone: "equipes" as const }]
     : []),
   // Réplicas viraram uma seção dentro de Meu perfil (/conta#replicas).
-  { href: "/conta/operacoes", texto: "Meus eventos", icone: "operacoes" as const },
+  // "Minhas operações" e não "Meus eventos": o produto se apresenta como
+  // Organizador de Operações (/organizador-de-operacoes) e o vocabulário do
+  // site é operação. Só o rótulo mudou — URL, banco e schema seguem iguais.
+  { href: "/conta/operacoes", texto: "Minhas operações", icone: "operacoes" as const },
   { href: "/conta/mapas", texto: "Meus mapas", icone: "mapas" as const },
   ...(paginas > 0
     ? [{ href: "/conta/reivindicacoes", texto: "Minhas páginas", icone: "paginas" as const }]

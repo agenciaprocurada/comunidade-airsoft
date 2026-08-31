@@ -18,7 +18,7 @@ import { COR } from "./tema";
 export const VideoGeradorMapa: React.FC = () => {
   return (
     <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
-      <Sequence name="0-2s · Marca" from={0} durationInFrames={66}>
+      <Sequence name="0-2s · Marca"  durationInFrames={66}>
         <Abertura />
       </Sequence>
 
