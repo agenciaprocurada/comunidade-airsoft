@@ -14,6 +14,7 @@ relacionados:
   - quanto-custa-comecar-no-airsoft
   - o-que-e-fps-no-airsoft
   - baterias-para-airsoft-lipo-e-nimh
+  - onde-comprar-airsoft
 faq:
   - pergunta: "Qual a melhor réplica de airsoft para iniciante?"
     resposta: "Uma AEG (elétrica) de fuzil, calibre 6 mm, de marca com peça de reposição fácil no Brasil. AEG é a única categoria que funciona bem em qualquer clima, tem munição barata e conserto acessível."

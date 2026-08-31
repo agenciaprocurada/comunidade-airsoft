@@ -13,6 +13,7 @@ relacionados:
   - como-escolher-a-primeira-replica-de-airsoft
   - equipamento-de-protecao-no-airsoft
   - guia-do-iniciante
+  - onde-comprar-airsoft
 faq:
   - pergunta: "Quanto custa começar no airsoft do zero?"
     resposta: "Um kit de entrada completo, com réplica, proteção, bateria, BBs e colete simples, costuma ficar entre R$ 1.500 e R$ 2.500. Se você só quer experimentar, alugar equipamento no campo sai por R$ 100 a R$ 300 no dia."

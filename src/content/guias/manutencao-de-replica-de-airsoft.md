@@ -13,6 +13,7 @@ relacionados:
   - hop-up-o-que-e-e-como-regular
   - baterias-para-airsoft-lipo-e-nimh
   - upgrade-de-aeg-por-onde-comecar
+  - onde-consertar-airsoft
 faq:
   - pergunta: "Com que frequência preciso limpar a réplica de airsoft?"
     resposta: "Uma limpeza rápida depois de cada jogo, com pano seco e ar comprimido na parte externa. Limpeza do cano interno a cada três a cinco jogos, ou sempre que a precisão cair."

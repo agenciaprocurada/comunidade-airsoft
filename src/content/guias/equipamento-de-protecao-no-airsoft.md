@@ -13,6 +13,7 @@ relacionados:
   - guia-do-iniciante
   - quanto-custa-comecar-no-airsoft
   - airsoft-doi-o-que-esperar-do-impacto
+  - o-que-levar-para-jogar-airsoft
 faq:
   - pergunta: "Óculos de sol ou de natação serve para jogar airsoft?"
     resposta: "Não. A proteção ocular precisa ser certificada para impacto balístico. Lente comum estilhaça com o impacto da BB e transforma a proteção no próprio acidente."

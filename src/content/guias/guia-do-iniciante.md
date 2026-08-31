@@ -13,6 +13,8 @@ relacionados:
   - como-encontrar-campo-de-airsoft-perto-de-voce
   - equipamento-de-protecao-no-airsoft
   - quanto-custa-comecar-no-airsoft
+  - o-que-levar-para-jogar-airsoft
+  - como-escolher-campo-de-airsoft
 faq:
   - pergunta: "Preciso ter réplica própria para jogar pela primeira vez?"
     resposta: "Não. Vários campos alugam réplica, máscara e carregam a bateria para você. Procure na ficha do campo se ele tem aluguel de equipamento — é o caminho mais barato para experimentar antes de comprar."

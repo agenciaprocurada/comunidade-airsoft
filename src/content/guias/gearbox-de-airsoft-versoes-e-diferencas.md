@@ -13,6 +13,7 @@ relacionados:
   - upgrade-de-aeg-por-onde-comecar
   - manutencao-de-replica-de-airsoft
   - como-escolher-a-primeira-replica-de-airsoft
+  - onde-consertar-airsoft
 faq:
   - pergunta: "Qual a diferença entre gearbox V2 e V3?"
     resposta: "A V2 equipa plataformas M4 e MP5 e tem o gatilho e os contatos dentro da caixa. A V3 equipa AK, G36 e SIG, tem os contatos em um bloco externo e é considerada mais fácil de abrir e mais resistente ao estresse da mola."

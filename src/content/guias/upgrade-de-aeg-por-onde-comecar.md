@@ -13,6 +13,7 @@ relacionados:
   - gearbox-de-airsoft-versoes-e-diferencas
   - hop-up-o-que-e-e-como-regular
   - hpa-ou-aeg-qual-escolher
+  - onde-consertar-airsoft
 faq:
   - pergunta: "Qual o primeiro upgrade que devo fazer na minha AEG?"
     resposta: "Vedação e hop-up, nessa ordem. Anel de pistão, cabeça de cilindro e bucking custam pouco e entregam mais ganho de consistência do que qualquer peça cara instalada em um sistema que vaza."

@@ -13,6 +13,7 @@ relacionados:
   - guia-do-iniciante
   - como-entrar-em-uma-equipe-de-airsoft
   - quanto-custa-comecar-no-airsoft
+  - como-escolher-campo-de-airsoft
 faq:
   - pergunta: "Como encontrar campo de airsoft na minha cidade?"
     resposta: "Comece pelo diretório de campos por estado e cidade da Comunidade Airsoft, que reúne local, terreno, estrutura e contato. Complementa bem com grupos regionais de WhatsApp e com as lojas de airsoft da região, que sempre sabem onde há jogo."
