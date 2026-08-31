@@ -1,0 +1,326 @@
+---
+/**
+ * /equipes — o diretório público das equipes.
+ *
+ * Esta página é a razão de a área de equipes existir. Enquanto ela não
+ * existia, /conta/equipes era cadastro sem vitrine: a pessoa preenchia
+ * uma vez e não voltava, porque não havia nada para mostrar a ninguém.
+ * Aqui a equipe ganha endereço, e quem está começando ganha resposta
+ * para "com quem eu jogo".
+ *
+ * SSR (`prerender = false`) como a agenda de operações: a lista muda
+ * quando alguém cria equipe, não quando o site é publicado.
+ */
+import Base from "../../layouts/Base.astro";
+import TopoPagina from "../../components/TopoPagina.astro";
+import Botao from "../../components/Botao.astro";
+import Etiqueta from "../../components/Etiqueta.astro";
+import LogoEquipe from "../../components/LogoEquipe.astro";
+import { COLUNAS_VITRINE, type EquipeVitrine } from "../../lib/equipe";
+import { NOME_UF, noEstado, nomeDeCidade, slugificar } from "../../lib/uf";
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+
+const parametros = Astro.url.searchParams;
+const uf = (parametros.get("uf") ?? "").toUpperCase().slice(0, 2);
+const cidade = slugificar(parametros.get("cidade") ?? "");
+const soRecrutando = parametros.get("recrutando") === "1";
+
+/*
+ * Mesmo desenho da agenda: os filtros vão para o banco, e a lista que
+ * alimenta os próprios filtros vem do conjunto inteiro — senão
+ * escolher PR apagaria os outros estados da barra de estados.
+ */
+let consulta = supabase.from("equipe_vitrine").select(COLUNAS_VITRINE);
+
+if (uf) consulta = consulta.eq("uf", uf);
+if (cidade) consulta = consulta.eq("cidade_slug", cidade);
+if (soRecrutando) consulta = consulta.eq("recrutando", true);
+
+const [{ data: bruto }, { data: paraFiltro }] = await Promise.all([
+  consulta
+    // Equipe com gente dentro primeiro: ordenar por data de cadastro
+    // faria o diretório abrir com as fichas mais vazias.
+    .order("membros", { ascending: false })
+    .order("nome")
+    .limit(180)
+    .returns<EquipeVitrine[]>(),
+  supabase
+    .from("equipe_vitrine")
+    .select("uf,cidade,cidade_slug,recrutando")
+    .returns<
+      {
+        uf: string | null;
+        cidade: string | null;
+        cidade_slug: string | null;
+        recrutando: boolean;
+      }[]
+    >(),
+]);
+
+const equipes = bruto ?? [];
+const universo = paraFiltro ?? [];
+
+const estados = [...new Set(universo.map((e) => e.uf).filter(Boolean))].sort() as string[];
+
+const cidades = [
+  ...new Map(
+    universo
+      .filter((e) => e.cidade_slug && (!uf || e.uf === uf))
+      .map((e) => [e.cidade_slug!, nomeDeCidade(e.cidade)!]),
+  ).entries(),
+].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+
+const recrutandoNoTotal = universo.filter((e) => e.recrutando).length;
+
+/** Mantém os outros filtros ao trocar um. Trocar de estado zera a cidade. */
+const comFiltro = (mudanca: Record<string, string | null>) => {
+  const p = new URLSearchParams();
+  const atual = { uf, cidade, recrutando: soRecrutando ? "1" : "", ...mudanca };
+  if (atual.uf) p.set("uf", atual.uf.toLowerCase());
+  if (atual.cidade && !("uf" in mudanca)) p.set("cidade", atual.cidade);
+  if (atual.recrutando) p.set("recrutando", "1");
+  const query = p.toString();
+  return query ? `/equipes?${query}` : "/equipes";
+};
+
+const nomeDaCidadeAtual = cidades.find(([slug]) => slug === cidade)?.[1];
+
+/**
+ * "em Joinville", mas "no Rio Grande do Sul" — a preposição do estado
+ * sai de `noEstado`, que já resolve os casos de gênero e artigo. Sem
+ * isso o título saía "Equipes de airsoft em Rio Grande do Sul".
+ */
+const ondeEstou = nomeDaCidadeAtual
+  ? `em ${nomeDaCidadeAtual}`
+  : uf
+    ? noEstado(uf)
+    : null;
+
+const titulo = ondeEstou
+  ? `Equipes de airsoft ${ondeEstou}`
+  : "Equipes de airsoft do Brasil";
+
+const descricao = ondeEstou
+  ? `As equipes de airsoft ${ondeEstou}: onde ficam, quem lidera e quais estão aceitando gente nova.`
+  : "O diretório de equipes de airsoft do Brasil. Veja as equipes da sua cidade, " +
+    "quais estão recrutando e fale direto com quem lidera.";
+
+/** ItemList: diz ao buscador que a página é diretório, e não artigo. */
+const dadoEstruturado = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: titulo,
+  numberOfItems: equipes.length,
+  itemListElement: equipes.map((equipe, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    name: equipe.nome,
+    url: new URL(`/equipes/${equipe.slug}`, Astro.site).href,
+  })),
+};
+
+const local = (equipe: EquipeVitrine) =>
+  equipe.cidade && equipe.uf
+    ? `${nomeDeCidade(equipe.cidade)} · ${equipe.uf}`
+    : equipe.uf
+      ? (NOME_UF[equipe.uf] ?? equipe.uf)
+      : "Região não informada";
+
+const CLASSE_FILTRO =
+  "border px-3 py-1.5 font-dado text-[0.75rem] uppercase tracking-[0.1em] transition-colors duration-150";
+const ATIVO = "border-oliva-700 bg-oliva-050 text-oliva-300";
+const INATIVO = "border-borda text-texto-2 hover:border-oliva-500 hover:text-oliva-300";
+---
+
+<Base
+  titulo={titulo}
+  descricao={descricao}
+  semIndexar={equipes.length === 0}
+  dadosEstruturados={equipes.length ? [dadoEstruturado] : []}
+>
+  <TopoPagina
+    trilha={[{ texto: "Equipes" }]}
+    dados={[
+      {
+        icone: "pessoas",
+        texto: `${equipes.length} ${equipes.length === 1 ? "equipe" : "equipes"}`,
+      },
+      { icone: "pino", texto: `${estados.length} ${estados.length === 1 ? "estado" : "estados"}` },
+      ...(recrutandoNoTotal > 0
+        ? [{ icone: "alvo" as const, texto: `${recrutandoNoTotal} recrutando` }]
+        : []),
+      { icone: "cadeado", texto: "Consulta livre" },
+    ]}
+    codigo="06"
+  >
+    Equipes de<br />airsoft no Brasil
+    <Fragment slot="descricao">
+      <p>{descricao}</p>
+      <p class="text-base text-texto-2">
+        Cada equipe é cadastrada e mantida por quem lidera. Ninguém entra numa
+        equipe sozinho aqui — a entrada passa pela liderança.
+      </p>
+    </Fragment>
+  </TopoPagina>
+
+  <div class="mx-auto max-w-[1240px] px-5 pb-8 pt-2 md:px-12 md:pb-12 md:pt-4">
+    <div class="mt-6 space-y-3">
+      {
+        estados.length > 1 && (
+          <nav aria-label="Filtrar por estado" class="flex flex-wrap items-center gap-2">
+            <span class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+              Estado
+            </span>
+            <a
+              href={comFiltro({ uf: null, cidade: null })}
+              class:list={[CLASSE_FILTRO, !uf ? ATIVO : INATIVO]}
+            >
+              Todos
+            </a>
+            {estados.map((sigla) => (
+              <a
+                href={comFiltro({ uf: sigla, cidade: null })}
+                aria-current={uf === sigla ? "page" : undefined}
+                class:list={[CLASSE_FILTRO, uf === sigla ? ATIVO : INATIVO]}
+              >
+                {sigla}
+              </a>
+            ))}
+          </nav>
+        )
+      }
+
+      {
+        cidades.length > 1 && (
+          <nav aria-label="Filtrar por cidade" class="flex flex-wrap items-center gap-2">
+            <span class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+              Cidade
+            </span>
+            <a
+              href={comFiltro({ cidade: null })}
+              class:list={[CLASSE_FILTRO, !cidade ? ATIVO : INATIVO]}
+            >
+              Todas
+            </a>
+            {cidades.map(([slug, nome]) => (
+              <a
+                href={comFiltro({ cidade: slug })}
+                aria-current={cidade === slug ? "page" : undefined}
+                class:list={[CLASSE_FILTRO, cidade === slug ? ATIVO : INATIVO]}
+              >
+                {nome}
+              </a>
+            ))}
+          </nav>
+        )
+      }
+
+      {
+        recrutandoNoTotal > 0 && (
+          <nav aria-label="Filtrar por recrutamento" class="flex flex-wrap items-center gap-2">
+            <span class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+              Vagas
+            </span>
+            <a
+              href={comFiltro({ recrutando: null })}
+              class:list={[CLASSE_FILTRO, !soRecrutando ? ATIVO : INATIVO]}
+            >
+              Todas
+            </a>
+            <a
+              href={comFiltro({ recrutando: "1" })}
+              aria-current={soRecrutando ? "page" : undefined}
+              class:list={[CLASSE_FILTRO, soRecrutando ? ATIVO : INATIVO]}
+            >
+              Recrutando
+            </a>
+          </nav>
+        )
+      }
+    </div>
+
+    {
+      equipes.length === 0 ? (
+        <section class="moldura-tatica mt-9 border border-borda bg-papel p-8 md:p-10">
+          <p class="rotulo">Lista aberta</p>
+          <h2 class="mt-3 font-display text-2xl font-bold uppercase md:text-3xl">
+            {uf || cidade || soRecrutando
+              ? "Nenhuma equipe com esses filtros"
+              : "O diretório de equipes está começando"}
+          </h2>
+          <p class="mt-4 max-w-[62ch] leading-relaxed text-texto-2">
+            Equipe de airsoft quase nunca tem site. Ela vive num grupo de
+            WhatsApp fechado e num Instagram que só quem já conhece encontra —
+            por isso quem está começando não acha ninguém para jogar junto. Esta
+            lista é construída pelas próprias equipes.
+          </p>
+          <div class="mt-7 flex flex-wrap gap-3">
+            {(uf || cidade || soRecrutando) && (
+              <Botao href="/equipes" variante="secundario">
+                Ver todas
+              </Botao>
+            )}
+            <Botao href="/conta/equipes">Cadastrar minha equipe</Botao>
+          </div>
+        </section>
+      ) : (
+        <ul class="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/*
+            Grade com espaço entre os cards, e não a moldura de uma peça
+            só (`gap-px` sobre fundo de borda) que o resto do site usa em
+            lista: com duas ou três equipes na cidade, a moldura deixava
+            meia tela de retângulo vazio ao lado do último card.
+          */}
+          {equipes.map((equipe) => (
+            <li class="border border-borda bg-papel">
+              <a
+                href={`/equipes/${equipe.slug}`}
+                class="flex h-full gap-4 p-5 transition-colors duration-150 hover:bg-oliva-050"
+              >
+                <LogoEquipe equipe={equipe} />
+
+                <div class="min-w-0 flex-1">
+                  <p class="font-display text-lg font-bold uppercase leading-tight text-tinta">
+                    {equipe.nome}
+                  </p>
+                  <p class="mt-1.5 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+                    {local(equipe)}
+                  </p>
+
+                  <div class="mt-3 flex flex-wrap items-center gap-2">
+                    {equipe.recrutando && <Etiqueta tom="info">Recrutando</Etiqueta>}
+                    {equipe.verificada && <Etiqueta tom="ok">Verificada</Etiqueta>}
+                    <span class="font-dado text-[0.8125rem] text-texto-2">
+                      <span class="text-[1.0625rem] text-tinta">{equipe.membros}</span> no
+                      site
+                    </span>
+                  </div>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+
+    {
+      equipes.length > 0 && (
+        <section class="mt-12 border-t border-borda pt-8">
+          <h2 class="font-display text-xl font-bold uppercase text-tinta">
+            Sua equipe não está aqui?
+          </h2>
+          <p class="mt-3 max-w-[62ch] leading-relaxed text-texto-2">
+            O cadastro é de graça e quem cria vira o líder — é você que aprova
+            quem pede para entrar. Leva dois minutos.
+          </p>
+          <div class="mt-6">
+            <Botao href="/conta/equipes">Cadastrar minha equipe</Botao>
+          </div>
+        </section>
+      )
+    }
+  </div>
+</Base>

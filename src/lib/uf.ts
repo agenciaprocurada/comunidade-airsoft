@@ -258,3 +258,33 @@ export function comoAtende(presencial: boolean, envio: boolean): string {
   if (envio) return "Só por envio";
   return "Só presencial";
 }
+
+/**
+ * "cachoeirinha" → "Cachoeirinha"; "santa cruz do sul" → "Santa Cruz do Sul".
+ *
+ * A cidade chega digitada pelo próprio usuário, então vem como ele
+ * escreveu — inclusive tudo em minúscula. Em tela de conta isso passa;
+ * em título de página pública, que é o que o Google mostra, não passa.
+ *
+ * As preposições ficam minúsculas porque é assim que se escreve nome de
+ * cidade em português, e "Santa Cruz Do Sul" denuncia texto gerado por
+ * máquina na primeira olhada.
+ */
+const MINUSCULAS = new Set(["de", "do", "da", "dos", "das", "e", "d'"]);
+
+export function nomeDeCidade(bruto: string | null): string | null {
+  const limpo = bruto?.trim().replace(/\s+/g, " ");
+  if (!limpo) return null;
+
+  return limpo
+    .split(" ")
+    .map((palavra, i) => {
+      const minuscula = palavra.toLocaleLowerCase("pt-BR");
+      if (i > 0 && MINUSCULAS.has(minuscula)) return minuscula;
+      // Nome já escrito com maiúscula no meio ("McDonald") não é
+      // reescrito: só arruma quem veio todo em caixa baixa.
+      if (palavra !== minuscula) return palavra;
+      return minuscula.charAt(0).toLocaleUpperCase("pt-BR") + minuscula.slice(1);
+    })
+    .join(" ");
+}

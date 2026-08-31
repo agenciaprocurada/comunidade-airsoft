@@ -6,8 +6,9 @@
  * volta faltando um pedaço — um `false` aqui é reversível em um
  * commit e não deixa a tela em estado meio-pronto.
  *
- * EQUIPES: escondida temporariamente. As tabelas, as páginas e a
- * inscrição em bloco continuam inteiras no repositório e no banco;
- * só não há porta de entrada enquanto isto for `false`.
+ * EQUIPES: ligada em 31/08/2026, quando a área ganhou o que faltava
+ * para valer a pena — a vitrine pública (/equipes), a logo, o sinal de
+ * recrutamento e a operação organizada pela equipe. Ficou escondida
+ * enquanto era só cadastro sem lugar nenhum para mostrar.
  */
-export const EQUIPES_VISIVEIS = false;
+export const EQUIPES_VISIVEIS = true;

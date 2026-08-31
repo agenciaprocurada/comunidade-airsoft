@@ -8,7 +8,7 @@
  * tem nada a ver com isto.
  */
 
-import { slugificar } from "./uf";
+import { SIGLAS_UF, slugificar } from "./uf";
 
 export const PAPEIS = {
   lider: { rotulo: "Líder", ordem: 0 },
@@ -39,6 +39,8 @@ export interface Equipe {
   logo_url: string | null;
   redes: Record<string, string>;
   verificada: boolean;
+  /** Equipe aceitando gente nova. Ligado à mão pelo líder. */
+  recrutando: boolean;
   criada_por: string | null;
   criado_em: string;
 }
@@ -80,7 +82,7 @@ export interface MembroDoElenco {
 
 export const COLUNAS_EQUIPE =
   "id,nome,sigla,slug,uf,cidade,cidade_slug,descricao,logo_url,redes," +
-  "verificada,criada_por,criado_em";
+  "verificada,recrutando,criada_por,criado_em";
 
 export const COLUNAS_VINCULO =
   "id,equipe_id,usuario_id,papel,status,origem,principal,criado_em";
@@ -97,10 +99,20 @@ export const DESCRICAO_MAXIMA = 400;
  * "R.I.S.E" vira "r-i-s-e"; "Nômade 22" vira "nomade-22".
  */
 export function slugDaEquipe(nome: string): string {
-  return slugificar(nome)
+  const bruto = slugificar(nome)
     .replace(/[^a-z0-9-]/g, "")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+
+  // /equipes/[slug] serve também o hub estadual (/equipes/pr), como
+  // /armeiros/[slug] já faz. Equipe chamada "PR" roubaria a URL do
+  // estado inteiro, então ela ganha sufixo na hora de nascer — o slug
+  // é o endereço, e endereço não se resolve depois.
+  if (SIGLAS_UF.some((sigla) => sigla.toLowerCase() === bruto)) {
+    return `${bruto}-equipe`;
+  }
+
+  return bruto;
 }
 
 /**
@@ -171,4 +183,142 @@ export function formatarData(iso: string | null): string {
     month: "2-digit",
     year: "numeric",
   });
+}
+
+// ------------------------------------------------------------------
+// Vitrine pública
+//
+// A partir daqui é o que a página pública da equipe usa. O que a área
+// logada precisa fica acima; misturar as duas listas de colunas foi o
+// que quase fez `criada_por` vazar para a resposta pública.
+// ------------------------------------------------------------------
+
+/** Uma linha da view `equipe_vitrine`: ficha + contagem do elenco. */
+export interface EquipeVitrine {
+  id: string;
+  nome: string;
+  sigla: string | null;
+  slug: string;
+  uf: string | null;
+  cidade: string | null;
+  cidade_slug: string | null;
+  descricao: string | null;
+  logo_url: string | null;
+  redes: Record<string, string>;
+  verificada: boolean;
+  recrutando: boolean;
+  criado_em: string;
+  /** Membros ATIVOS com conta no site. Contado, nunca declarado. */
+  membros: number;
+}
+
+export const COLUNAS_VITRINE =
+  "id,nome,sigla,slug,uf,cidade,cidade_slug,descricao,logo_url,redes," +
+  "verificada,recrutando,criado_em,membros";
+
+/** Logo: 2 MB e três formatos, igual ao bucket `logos` no banco. */
+export const LOGO_MAXIMA = 2 * 1024 * 1024;
+
+export const TIPOS_LOGO: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+const DESCRICAO_PARA_INDEXAR = 120;
+const MEMBROS_PARA_INDEXAR = 3;
+
+/**
+ * A ficha entra no índice do Google?
+ *
+ * Publicar em massa ficha de três linhas é a receita de conteúdo raso:
+ * centenas de páginas quase vazias puxam a autoridade do domínio para
+ * baixo e nenhuma delas ganha busca nenhuma. Então a página existe e
+ * abre para quem tem o link desde o primeiro minuto — só não é
+ * oferecida ao buscador antes de ter o que ler.
+ *
+ * O critério é: história escrita DE VERDADE, mais um sinal de que a
+ * equipe existe fora do cadastro (logo enviada ou gente dentro). Selo
+ * de verificada, dado por admin, passa por cima de tudo.
+ */
+export function equipeIndexavel(equipe: {
+  descricao: string | null;
+  logo_url: string | null;
+  membros: number;
+  verificada: boolean;
+}): boolean {
+  if (equipe.verificada) return true;
+  const historia = (equipe.descricao ?? "").trim().length;
+  if (historia < DESCRICAO_PARA_INDEXAR) return false;
+  return Boolean(equipe.logo_url) || equipe.membros >= MEMBROS_PARA_INDEXAR;
+}
+
+/**
+ * O que ainda falta para a ficha ser oferecida ao Google. Some quando
+ * `equipeIndexavel` passa — é o aviso que o painel do líder mostra.
+ */
+export function faltaParaIndexar(equipe: {
+  descricao: string | null;
+  logo_url: string | null;
+  membros: number;
+  verificada: boolean;
+}): string[] {
+  if (equipeIndexavel(equipe)) return [];
+  const falta: string[] = [];
+  if ((equipe.descricao ?? "").trim().length < DESCRICAO_PARA_INDEXAR) {
+    falta.push("escrever a história da equipe (pelo menos duas frases)");
+  }
+  if (!equipe.logo_url && equipe.membros < MEMBROS_PARA_INDEXAR) {
+    falta.push("enviar a logo ou ter 3 membros com conta no site");
+  }
+  return falta;
+}
+
+/**
+ * Instagram é guardado como @arroba, não como URL: o líder digita do
+ * jeito que ele sabe ("@equipe_rise", "instagram.com/equipe_rise") e a
+ * ficha mostra sempre igual.
+ */
+export function normalizarInstagram(bruto: string): string | null {
+  const limpo = bruto
+    .trim()
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+    .replace(/[/?#].*$/, "")
+    .replace(/^@/, "");
+  if (!limpo) return null;
+  if (!/^[A-Za-z0-9._]{1,30}$/.test(limpo)) return null;
+  return limpo.toLowerCase();
+}
+
+/** Só os dígitos, como o resto do site já guarda telefone. */
+export function normalizarWhatsapp(bruto: string): string | null {
+  const digitos = bruto.replace(/\D/g, "");
+  if (digitos.length < 10 || digitos.length > 13) return null;
+  return digitos;
+}
+
+/**
+ * Monta o objeto `redes` a partir do formulário. Campo apagado some da
+ * chave em vez de virar string vazia — `redes` é jsonb e chave com
+ * valor vazio dá trabalho em toda leitura depois.
+ */
+export function montarRedes(
+  atual: Record<string, string>,
+  entrada: { instagram?: string; whatsapp?: string },
+): Record<string, string> {
+  const redes = { ...atual };
+
+  if (entrada.instagram !== undefined) {
+    const valor = normalizarInstagram(entrada.instagram);
+    if (valor) redes.instagram = valor;
+    else delete redes.instagram;
+  }
+
+  if (entrada.whatsapp !== undefined) {
+    const valor = normalizarWhatsapp(entrada.whatsapp);
+    if (valor) redes.whatsapp = valor;
+    else delete redes.whatsapp;
+  }
+
+  return redes;
 }

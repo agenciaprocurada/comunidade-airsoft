@@ -50,6 +50,12 @@ const FERRAMENTAS = [
       "Técnicos que consertam réplica, filtráveis por plataforma (AEG, GBB, HPA, spring), serviço, estado e cidade.",
   },
   {
+    href: "/equipes",
+    titulo: "Diretório de equipes de airsoft",
+    descricao:
+      "Equipes de airsoft do Brasil por estado e cidade, com elenco de quem tem conta no site, história da equipe e quais estão recrutando.",
+  },
+  {
     href: "/primeiro-jogo-de-airsoft",
     titulo: "Primeiro jogo de airsoft",
     descricao:

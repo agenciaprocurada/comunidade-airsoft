@@ -1,0 +1,64 @@
+---
+/**
+ * A logo da equipe, com o caso "ainda não enviou" resolvido aqui uma
+ * vez só.
+ *
+ * Quase nenhuma equipe vai subir logo no primeiro dia, e ficha com
+ * quadrado cinza vazio parece cadastro abandonado. O reserva é a
+ * sigla (ou as iniciais do nome) desenhada em bloco — lê como
+ * emblema, não como imagem quebrada.
+ */
+interface Props {
+  equipe: { nome: string; sigla: string | null; logo_url: string | null };
+  tamanho?: "pequeno" | "grande";
+  class?: string;
+}
+
+const { equipe, tamanho = "pequeno", class: classe } = Astro.props;
+
+const medida = tamanho === "grande" ? "h-24 w-24 md:h-32 md:w-32" : "h-14 w-14";
+const texto = tamanho === "grande" ? "text-2xl md:text-3xl" : "text-base";
+
+/**
+ * Sigla curta cabe inteira ("RISE"); o resto vira iniciais das
+ * palavras ("Lobos do Sul" → "LDS"). Acima de quatro letras nada é
+ * legível no quadrado pequeno.
+ */
+const marca = (() => {
+  const sigla = equipe.sigla?.replace(/[^\p{L}\p{N}]/gu, "") ?? "";
+  if (sigla.length >= 2 && sigla.length <= 4) return sigla.toUpperCase();
+
+  const iniciais = equipe.nome
+    .split(/\s+/)
+    .filter((parte) => /\p{L}|\p{N}/u.test(parte))
+    .map((parte) => parte[0])
+    .join("")
+    .toUpperCase();
+
+  return (iniciais || equipe.nome.slice(0, 2)).slice(0, 3);
+})();
+---
+
+{
+  equipe.logo_url ? (
+    <img
+      src={equipe.logo_url}
+      alt={`Logo da equipe ${equipe.nome}`}
+      loading="lazy"
+      decoding="async"
+      class:list={[medida, "shrink-0 border border-borda bg-papel object-contain", classe]}
+    />
+  ) : (
+    <span
+      aria-hidden="true"
+      class:list={[
+        medida,
+        texto,
+        "flex shrink-0 items-center justify-center border border-borda bg-oliva-050 font-display font-bold uppercase tracking-[0.06em] text-oliva-300",
+        classe,
+      ]}
+    >
+      {marca}
+    </span>
+  )
+}

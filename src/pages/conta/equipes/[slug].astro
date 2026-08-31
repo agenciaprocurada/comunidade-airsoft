@@ -2,6 +2,7 @@
 import Conta from "../../../layouts/Conta.astro";
 import Painel from "../../../components/conta/Painel.astro";
 import Selo from "../../../components/conta/Selo.astro";
+import LogoEquipe from "../../../components/LogoEquipe.astro";
 import {
   AJUDA_CAMPO,
   BOTAO_PRIMARIO,
@@ -17,12 +18,16 @@ import {
   COLUNAS_EQUIPE,
   COLUNAS_VINCULO,
   DESCRICAO_MAXIMA,
+  LOGO_MAXIMA,
   NOME_MAXIMO,
   PAPEIS,
   SIGLA_MAXIMA,
+  TIPOS_LOGO,
   erroDoNome,
   etiqueta,
+  faltaParaIndexar,
   formatarData,
+  montarRedes,
   nomeCurto,
   normalizarSigla,
   ordenarElenco,
@@ -145,6 +150,57 @@ if (Astro.request.method === "POST") {
     }
   }
 
+  // Logo. Mesmo desenho do avatar do perfil, com uma diferença: a
+  // pasta é o id da EQUIPE, e quem escreve nela é a liderança — quem
+  // decide isso é a policy do bucket, não esta tela.
+  if (souLider && acao === "logo") {
+    const arquivo = dados.get("logo");
+
+    if (!(arquivo instanceof File) || arquivo.size === 0) {
+      erroDe.logo = "Escolha uma imagem.";
+    } else if (!TIPOS_LOGO[arquivo.type]) {
+      erroDe.logo = "Formato não aceito. Use JPG, PNG ou WebP.";
+    } else if (arquivo.size > LOGO_MAXIMA) {
+      erroDe.logo = "A logo pode ter no máximo 2 MB.";
+    } else {
+      // Carimbo de hora no nome: trocar a logo vira arquivo NOVO, e a
+      // URL nova fura qualquer cache do navegador na hora.
+      const caminho = `${equipe.id}/logo-${Date.now()}.${TIPOS_LOGO[arquivo.type]}`;
+
+      const { error: erroEnvio } = await supabase.storage
+        .from("logos")
+        .upload(caminho, await arquivo.arrayBuffer(), { contentType: arquivo.type });
+
+      if (erroEnvio) {
+        console.error("Falha ao enviar logo:", erroEnvio);
+        erroDe.logo = "Não conseguimos enviar a imagem. Tente de novo.";
+      } else {
+        const { data: publica } = supabase.storage.from("logos").getPublicUrl(caminho);
+        const { error: erroSalvar } = await supabase
+          .from("equipes")
+          .update({ logo_url: publica.publicUrl })
+          .eq("id", equipe.id);
+
+        if (erroSalvar) {
+          console.error("Falha ao gravar logo_url:", erroSalvar);
+          erroDe.logo = "A imagem subiu mas não conseguimos salvar.";
+        } else return Astro.redirect(`${daEquipe}?salvo=1`, 303);
+      }
+    }
+  }
+
+  // Recrutando é o que torna o diretório útil para quem está
+  // começando. Fica fora da gaveta "Dados da equipe" de propósito: é
+  // uma chave que se liga e desliga toda temporada, não um cadastro.
+  if (souLider && acao === "recrutando") {
+    const { error } = await supabase
+      .from("equipes")
+      .update({ recrutando: texto("valor") === "1" })
+      .eq("id", equipe.id);
+    if (error) console.error("Falha ao mudar recrutamento:", error);
+    return Astro.redirect(daEquipe, 303);
+  }
+
   if (souLider && acao === "editar") {
     const nome = texto("nome");
     const problema = erroDoNome(nome);
@@ -163,6 +219,13 @@ if (Astro.request.method === "POST") {
           uf: texto("uf") || null,
           cidade: cidade || null,
           cidade_slug: cidade ? slugificar(cidade) : null,
+          // Endereço torto é apagado em silêncio em vez de recusar o
+          // formulário inteiro: o líder veio salvar a história da
+          // equipe, e travar tudo por um @ mal digitado é atrito à toa.
+          redes: montarRedes(equipe.redes ?? {}, {
+            instagram: texto("instagram"),
+            whatsapp: texto("whatsapp"),
+          }),
         })
         .eq("id", equipe.id);
 
@@ -237,6 +300,19 @@ const convitesNaFila = fila.filter((f) => f.origem === "convite");
 const salvo = Astro.url.searchParams.get("salvo") === "1";
 const criada = Astro.url.searchParams.get("criada") === "1";
 
+/**
+ * O que ainda falta para a ficha ser oferecida ao Google. A página
+ * pública já existe e já abre para quem tem o link — este aviso é
+ * sobre indexação, e o painel diz isso com todas as letras para o
+ * líder não achar que a equipe está escondida.
+ */
+const faltaIndexar = faltaParaIndexar({
+  descricao: equipe.descricao,
+  logo_url: equipe.logo_url,
+  membros: elenco.length,
+  verificada: equipe.verificada,
+});
+
 const regiao =
   equipe.cidade && equipe.uf
     ? `${equipe.cidade} · ${NOME_UF[equipe.uf] ?? equipe.uf}`
@@ -259,6 +335,81 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
     <span aria-hidden="true" class="text-borda-forte">/</span>
     desde {formatarData(equipe.criado_em)}
   </p>
+
+  <!--
+    A vitrine vem antes da administração: é a página pública que dá
+    motivo para o líder manter isto aqui em dia. Enquanto ela não
+    existia, este painel era só burocracia.
+  -->
+  <div class="mt-8 flex flex-wrap items-start gap-5 border border-borda bg-papel/60 p-5">
+    <LogoEquipe equipe={equipe} tamanho="grande" />
+
+    <div class="min-w-0 flex-1 space-y-4">
+      <div>
+        <p class="rotulo">Página pública</p>
+        <p class="mt-2 text-[0.9375rem] leading-relaxed text-texto-2">
+          É o link que você manda no grupo e coloca na bio do Instagram.
+        </p>
+        <a
+          href={`/equipes/${equipe.slug}`}
+          class="mt-2 inline-block font-dado text-[0.875rem] text-oliva-300 underline transition-colors duration-150 hover:text-hud"
+        >
+          comunidadeairsoft.com.br/equipes/{equipe.slug}
+        </a>
+      </div>
+
+      {
+        souLider && (
+          <div class="flex flex-wrap items-center gap-4 border-t border-borda pt-4">
+            <form method="POST">
+              <input type="hidden" name="acao" value="recrutando" />
+              <input type="hidden" name="valor" value={equipe.recrutando ? "0" : "1"} />
+              <button type="submit" class={equipe.recrutando ? BOTAO_TEXTO : BOTAO_SECUNDARIO}>
+                {equipe.recrutando ? "Parar de recrutar" : "Estamos recrutando"}
+              </button>
+            </form>
+            {equipe.recrutando && (
+              <Selo tom="ok">Aparece no filtro de quem procura equipe</Selo>
+            )}
+          </div>
+        )
+      }
+
+      {
+        souLider && (
+          <form method="POST" enctype="multipart/form-data" class="border-t border-borda pt-4">
+            <input type="hidden" name="acao" value="logo" />
+            <label for="logo" class={ROTULO_CAMPO}>
+              {equipe.logo_url ? "Trocar a logo" : "Enviar a logo"}
+            </label>
+            <div class="mt-2 flex flex-wrap items-center gap-3">
+              <input
+                type="file"
+                id="logo"
+                name="logo"
+                accept="image/jpeg,image/png,image/webp"
+                class="max-w-full text-[0.875rem] text-texto-2 file:mr-3 file:border file:border-borda file:bg-papel file:px-3 file:py-1.5 file:font-dado file:text-[0.75rem] file:uppercase file:tracking-[0.1em] file:text-texto"
+              />
+              <button type="submit" class={BOTAO_SECUNDARIO}>Salvar logo</button>
+            </div>
+            <p class={AJUDA_CAMPO}>JPG, PNG ou WebP, até 2 MB. Quadrada fica melhor.</p>
+            {erroDe.logo && <p class={ERRO_CAMPO}>{erroDe.logo}</p>}
+          </form>
+        )
+      }
+
+      {
+        souLider && faltaIndexar.length > 0 && (
+          <div class="border-t border-borda pt-4">
+            <p class="text-[0.9375rem] leading-relaxed text-texto-2">
+              A página já abre para quem tem o link. Para ela também aparecer no
+              Google, falta: {faltaIndexar.join("; ")}.
+            </p>
+          </div>
+        )
+      }
+    </div>
+  </div>
 
   {
     criada && (
@@ -508,16 +659,50 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
               </div>
             </div>
 
+            <div class="flex flex-wrap gap-4">
+              <div class="min-w-[12rem] flex-1">
+                <label for="instagram" class={ROTULO_CAMPO}>Instagram</label>
+                <input
+                  type="text"
+                  id="instagram"
+                  name="instagram"
+                  value={equipe.redes?.instagram ?? ""}
+                  placeholder="@equipe"
+                  class={ENTRADA}
+                />
+              </div>
+              <div class="min-w-[12rem] flex-1">
+                <label for="whatsapp" class={ROTULO_CAMPO}>WhatsApp da equipe</label>
+                <input
+                  type="tel"
+                  id="whatsapp"
+                  name="whatsapp"
+                  value={equipe.redes?.whatsapp ?? ""}
+                  placeholder="51 98610 0348"
+                  class={ENTRADA}
+                />
+                <p class={AJUDA_CAMPO}>
+                  Fica visível na página pública. Só coloque o número que a
+                  equipe usa para receber contato.
+                </p>
+              </div>
+            </div>
+
             <div>
-              <label for="descricao" class={ROTULO_CAMPO}>Descrição</label>
+              <label for="descricao" class={ROTULO_CAMPO}>História da equipe</label>
               <textarea
                 id="descricao"
                 name="descricao"
-                rows="3"
+                rows="4"
                 maxlength={DESCRICAO_MAXIMA}
                 class={ENTRADA}
                 set:text={equipe.descricao ?? ""}
               />
+              <p class={AJUDA_CAMPO}>
+                Quando começou, onde joga, que estilo prefere. É o texto que
+                aparece na página pública — e o que faz o Google entender quem
+                vocês são.
+              </p>
             </div>
 
             <button type="submit" class={BOTAO_PRIMARIO}>Salvar</button>

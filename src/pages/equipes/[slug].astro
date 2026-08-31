@@ -1,0 +1,502 @@
+---
+/**
+ * /equipes/[slug] serve DUAS coisas, como /armeiros/[slug]:
+ *   /equipes/lobos-do-sul  → ficha pública da equipe
+ *   /equipes/pr            → hub estadual
+ *
+ * Duas rotas dinâmicas no mesmo segmento colidiriam, então o corpo
+ * escolhe. A separação é segura porque `slugDaEquipe` recusa nascer
+ * com sigla de estado: equipe chamada "PR" vira `pr-equipe`.
+ *
+ * O que esta página mostra e o que ela NÃO mostra:
+ *
+ *  - elenco com nome curto e apelido, que é o que a `equipe_elenco`
+ *    libera. Estar numa equipe é ato público — ir a uma operação
+ *    específica não é, e por isso a lista de presença continua fora
+ *    daqui e do resto do site;
+ *  - contagem de membros com conta, nunca efetivo declarado;
+ *  - `noindex` enquanto a ficha for rasa (ver `equipeIndexavel`). A
+ *    página abre para quem tem o link desde o primeiro minuto; ela só
+ *    não é oferecida ao Google antes de ter o que ler.
+ */
+import Base from "../../layouts/Base.astro";
+import Trilha from "../../components/Trilha.astro";
+import Botao from "../../components/Botao.astro";
+import Etiqueta from "../../components/Etiqueta.astro";
+import LogoEquipe from "../../components/LogoEquipe.astro";
+import {
+  COLUNAS_VITRINE,
+  equipeIndexavel,
+  nomeCurto,
+  ordenarElenco,
+  PAPEIS,
+  type EquipeVitrine,
+  type MembroDoElenco,
+} from "../../lib/equipe";
+import { COLUNAS_OPERACAO, dataPorExtenso, type Operacao } from "../../lib/operacao";
+import { NOME_UF, SIGLAS_UF, linkWhatsapp, noEstado, nomeDeCidade } from "../../lib/uf";
+
+export const prerender = false;
+
+const { supabase, usuario } = Astro.locals;
+const { slug } = Astro.params;
+
+const pedido = (slug ?? "").toLowerCase();
+const ufDoHub = SIGLAS_UF.find((sigla) => sigla.toLowerCase() === pedido) ?? null;
+
+// ------------------------------------------------------------------
+// Hub estadual — /equipes/pr
+// ------------------------------------------------------------------
+
+let doEstado: EquipeVitrine[] = [];
+
+if (ufDoHub) {
+  const { data } = await supabase
+    .from("equipe_vitrine")
+    .select(COLUNAS_VITRINE)
+    .eq("uf", ufDoHub)
+    .order("membros", { ascending: false })
+    .order("nome")
+    .limit(180)
+    .returns<EquipeVitrine[]>();
+  doEstado = data ?? [];
+}
+
+// ------------------------------------------------------------------
+// Ficha da equipe
+// ------------------------------------------------------------------
+
+let equipe: EquipeVitrine | null = null;
+let elenco: MembroDoElenco[] = [];
+let operacoes: Operacao[] = [];
+/** Vínculo de quem está lendo, para a página saber o que oferecer. */
+let meuStatus: string | null = null;
+let erroPedido = "";
+
+if (!ufDoHub) {
+  const { data } = await supabase
+    .from("equipe_vitrine")
+    .select(COLUNAS_VITRINE)
+    .eq("slug", pedido)
+    .maybeSingle<EquipeVitrine>();
+  equipe = data ?? null;
+
+  if (!equipe) {
+    const resposta = await Astro.rewrite("/404");
+    return new Response(resposta.body, { status: 404, headers: resposta.headers });
+  }
+
+  if (Astro.request.method === "POST" && usuario) {
+    const dados = await Astro.request.formData();
+
+    if (dados.get("acao")?.toString() === "pedir") {
+      // O gatilho `travar_entrada_em_equipe` força pendente/membro:
+      // não há como entrar direto por aqui, nem no cargo que quiser.
+      const { error } = await supabase
+        .from("equipe_membros")
+        .insert({ equipe_id: equipe.id, usuario_id: usuario.id });
+
+      // Já houve vínculo antes (saiu, recusado, removido): a linha é
+      // única por (equipe, usuário), então reabrir é o único caminho.
+      if (error?.code === "23505") {
+        const { error: erroReabrir } = await supabase
+          .from("equipe_membros")
+          .update({ status: "pendente" })
+          .eq("equipe_id", equipe.id)
+          .eq("usuario_id", usuario.id);
+        if (erroReabrir) console.error("Falha ao reabrir pedido:", erroReabrir);
+      } else if (error) {
+        console.error("Falha ao pedir entrada:", error);
+        erroPedido = "Não conseguimos enviar o pedido agora. Tente de novo.";
+      }
+
+      if (!erroPedido) return Astro.redirect(`/equipes/${equipe.slug}?pedido=1`, 303);
+    }
+  }
+
+  const hoje = new Date().toISOString().slice(0, 10);
+
+  const [{ data: elencoBruto }, { data: agenda }, { data: vinculo }] = await Promise.all([
+    supabase
+      .from("equipe_elenco")
+      .select("equipe_id,usuario_id,papel,membro_desde,nome,nickname,foto_url")
+      .eq("equipe_id", equipe.id)
+      .returns<MembroDoElenco[]>(),
+    // Operações que a EQUIPE organiza. Operação em que a equipe apenas
+    // joga fica de fora: dizer "a equipe X vai no sábado" é a lista de
+    // presença por outro caminho.
+    supabase
+      .from("operacoes")
+      .select(COLUNAS_OPERACAO)
+      .eq("equipe_id", equipe.id)
+      .eq("status", "publicada")
+      .gte("data", hoje)
+      .order("data")
+      .limit(6)
+      .returns<Operacao[]>(),
+    usuario
+      ? supabase
+          .from("equipe_membros")
+          .select("status")
+          .eq("equipe_id", equipe.id)
+          .eq("usuario_id", usuario.id)
+          .maybeSingle<{ status: string }>()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  elenco = ordenarElenco(elencoBruto ?? []);
+  operacoes = agenda ?? [];
+  meuStatus = vinculo?.status ?? null;
+}
+
+const pedidoEnviado = Astro.url.searchParams.get("pedido") === "1";
+
+// ------------------------------------------------------------------
+// Textos e dado estruturado
+// ------------------------------------------------------------------
+
+const nomeUf = (sigla: string | null) => (sigla ? (NOME_UF[sigla] ?? sigla) : null);
+
+const regiao = equipe
+  ? equipe.cidade && equipe.uf
+    ? `${nomeDeCidade(equipe.cidade)} · ${nomeUf(equipe.uf)}`
+    : (nomeUf(equipe.uf) ?? "Região não informada")
+  : "";
+
+const titulo = ufDoHub
+  ? `Equipes de airsoft ${noEstado(ufDoHub)}`
+  : equipe!.cidade
+    ? `${equipe!.nome} — equipe de airsoft em ${nomeDeCidade(equipe!.cidade)}`
+    : `${equipe!.nome} — equipe de airsoft`;
+
+const descricao = ufDoHub
+  ? `As equipes de airsoft ${noEstado(ufDoHub)}: onde ficam, quantos jogadores têm conta no site e quais estão recrutando.`
+  : (equipe!.descricao?.trim().slice(0, 155) ??
+    `${equipe!.nome} é uma equipe de airsoft${equipe!.cidade ? ` de ${nomeDeCidade(equipe!.cidade)}` : ""}. Veja o elenco e fale com quem lidera.`);
+
+const indexavel = ufDoHub ? doEstado.length > 0 : equipeIndexavel(equipe!);
+
+const dadoEstruturado: Record<string, unknown> = ufDoHub
+  ? {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: titulo,
+      numberOfItems: doEstado.length,
+      itemListElement: doEstado.map((e, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        name: e.nome,
+        url: new URL(`/equipes/${e.slug}`, Astro.site).href,
+      })),
+    }
+  : {
+      "@context": "https://schema.org",
+      "@type": "SportsTeam",
+      name: equipe!.nome,
+      ...(equipe!.sigla ? { alternateName: equipe!.sigla } : {}),
+      sport: "Airsoft",
+      url: new URL(`/equipes/${equipe!.slug}`, Astro.site).href,
+      // Sem descrição de verdade, `description: ""` seria dizer ao
+      // Google que a página tem texto e ele é nada.
+      ...(equipe!.descricao ? { description: equipe!.descricao } : {}),
+      ...(equipe!.logo_url ? { logo: equipe!.logo_url } : {}),
+      ...(equipe!.cidade
+        ? {
+            location: {
+              "@type": "Place",
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: nomeDeCidade(equipe!.cidade),
+                ...(equipe!.uf ? { addressRegion: equipe!.uf } : {}),
+                addressCountry: "BR",
+              },
+            },
+          }
+        : {}),
+      ...(equipe!.redes?.instagram
+        ? { sameAs: [`https://www.instagram.com/${equipe!.redes.instagram}`] }
+        : {}),
+    };
+
+/**
+ * Quem lidera aparece no rodapé da ficha sem ponto final na frase:
+ * `nomeCurto` já devolve nome abreviado terminado em ponto ("Vinicius
+ * K."), e a frase saía com dois seguidos.
+ */
+const lideres = elenco.filter((m) => m.papel === "lider");
+const whatsapp = equipe?.redes?.whatsapp ?? null;
+const instagram = equipe?.redes?.instagram ?? null;
+---
+
+<Base
+  titulo={titulo}
+  descricao={descricao}
+  semIndexar={!indexavel}
+  dadosEstruturados={indexavel ? [dadoEstruturado] : []}
+  imagem={equipe?.logo_url ?? undefined}
+>
+  <div class="mx-auto max-w-[1240px] px-5 py-8 md:px-12 md:py-12">
+    {
+      ufDoHub ? (
+        <Fragment>
+          <Trilha itens={[{ href: "/equipes", texto: "Equipes" }, { texto: nomeUf(ufDoHub)! }]} />
+
+          <h1 class="mt-6 font-display text-3xl font-bold uppercase leading-[1.05] text-tinta md:text-5xl">
+            Equipes de airsoft<br />
+            {noEstado(ufDoHub)}
+          </h1>
+
+          <p class="mt-5 max-w-[62ch] leading-relaxed text-texto-2">{descricao}</p>
+
+          {doEstado.length === 0 ? (
+            <section class="moldura-tatica mt-9 border border-borda bg-papel p-8">
+              <h2 class="font-display text-2xl font-bold uppercase">
+                Nenhuma equipe cadastrada {noEstado(ufDoHub)} ainda
+              </h2>
+              <p class="mt-4 max-w-[62ch] leading-relaxed text-texto-2">
+                Se a sua joga por aqui, seja a primeira. Quem cria vira o líder e
+                passa a aprovar quem pede para entrar.
+              </p>
+              <div class="mt-7">
+                <Botao href="/conta/equipes">Cadastrar minha equipe</Botao>
+              </div>
+            </section>
+          ) : (
+            <ul class="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {doEstado.map((e) => (
+                <li class="border border-borda bg-papel">
+                  <a
+                    href={`/equipes/${e.slug}`}
+                    class="flex h-full gap-4 p-5 transition-colors duration-150 hover:bg-oliva-050"
+                  >
+                    <LogoEquipe equipe={e} />
+                    <div class="min-w-0 flex-1">
+                      <p class="font-display text-lg font-bold uppercase leading-tight text-tinta">
+                        {e.nome}
+                      </p>
+                      <p class="mt-1.5 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+                        {nomeDeCidade(e.cidade) ?? nomeUf(e.uf)}
+                      </p>
+                      <div class="mt-3 flex flex-wrap items-center gap-2">
+                        {e.recrutando && <Etiqueta tom="info">Recrutando</Etiqueta>}
+                        <span class="font-dado text-[0.8125rem] text-texto-2">
+                          <span class="text-[1.0625rem] text-tinta">{e.membros}</span> no site
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div class="mt-12 border-t border-borda pt-8">
+            <Botao href="/equipes" variante="secundario">Ver todas as equipes</Botao>
+          </div>
+        </Fragment>
+      ) : (
+        <Fragment>
+          <Trilha
+            itens={[
+              { href: "/equipes", texto: "Equipes" },
+              ...(equipe!.uf
+                ? [{ href: `/equipes/${equipe!.uf.toLowerCase()}`, texto: nomeUf(equipe!.uf)! }]
+                : []),
+              { texto: equipe!.nome },
+            ]}
+          />
+
+          <header class="mt-6 flex flex-wrap items-start gap-6">
+            <LogoEquipe equipe={equipe!} tamanho="grande" />
+
+            <div class="min-w-0 flex-1">
+              <h1 class="font-display text-3xl font-bold uppercase leading-[1.05] text-tinta md:text-5xl">
+                {equipe!.nome}
+              </h1>
+
+              <p class="mt-3 font-dado text-[0.8125rem] uppercase tracking-[0.12em] text-texto-2">
+                {equipe!.sigla && (
+                  <Fragment>
+                    {equipe!.sigla}
+                    <span aria-hidden="true" class="px-2 text-borda-forte">
+                      /
+                    </span>
+                  </Fragment>
+                )}
+                {regiao}
+              </p>
+
+              <div class="mt-4 flex flex-wrap items-center gap-2">
+                {equipe!.recrutando && <Etiqueta tom="info">Recrutando</Etiqueta>}
+                {equipe!.verificada && <Etiqueta tom="ok" check>Verificada</Etiqueta>}
+                <span class="font-dado text-[0.8125rem] text-texto-2">
+                  <span class="text-[1.0625rem] text-tinta">{equipe!.membros}</span>{" "}
+                  {equipe!.membros === 1 ? "jogador com conta" : "jogadores com conta"}
+                </span>
+              </div>
+            </div>
+          </header>
+
+          {pedidoEnviado && (
+            <p class="entrada-suave mt-8 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
+              Pedido enviado. Quem lidera a equipe vai responder — você acompanha
+              em <a class="underline" href="/conta/equipes">Minhas equipes</a>.
+            </p>
+          )}
+
+          {erroPedido && (
+            <p class="mt-8 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
+              {erroPedido}
+            </p>
+          )}
+
+          {equipe!.descricao && (
+            <section class="mt-10 max-w-[68ch]">
+              <h2 class="rotulo">A equipe</h2>
+              <p class="mt-3 whitespace-pre-line text-[1.0625rem] leading-relaxed text-texto">
+                {equipe!.descricao}
+              </p>
+            </section>
+          )}
+
+          <section class="mt-10">
+            <h2 class="rotulo">
+              Elenco {elenco.length > 0 && `· ${elenco.length}`}
+            </h2>
+
+            {elenco.length === 0 ? (
+              <p class="mt-3 max-w-[62ch] leading-relaxed text-texto-2">
+                Ninguém da equipe criou conta no site ainda. O número aqui conta
+                só quem tem conta — não é o efetivo real da equipe.
+              </p>
+            ) : (
+              <ul class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {elenco.map((membro) => (
+                  <li class="flex items-center gap-3 border border-borda bg-papel px-4 py-3.5">
+                    {membro.foto_url ? (
+                      <img
+                        src={membro.foto_url}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        referrerpolicy="no-referrer"
+                        class="h-10 w-10 shrink-0 border border-borda object-cover"
+                      />
+                    ) : (
+                      <span
+                        aria-hidden="true"
+                        class="flex h-10 w-10 shrink-0 items-center justify-center border border-borda bg-oliva-050 font-dado text-[0.8125rem] text-oliva-300"
+                      >
+                        {(membro.nickname ?? membro.nome ?? "?").slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
+                    <div class="min-w-0">
+                      <p class="truncate text-[0.9375rem] font-semibold leading-tight text-tinta">
+                        {nomeCurto(membro.nome, membro.nickname)}
+                      </p>
+                      <p class="mt-1 truncate font-dado text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2">
+                        {PAPEIS[membro.papel].rotulo}
+                        {membro.nickname && ` · @${membro.nickname}`}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {operacoes.length > 0 && (
+            <section class="mt-12">
+              <h2 class="rotulo">Operações organizadas por esta equipe</h2>
+              <ul class="mt-4 grid gap-px border border-borda bg-borda">
+                {operacoes.map((operacao) => (
+                  <li class="bg-papel">
+                    <a
+                      href={`/operacoes/${operacao.slug}`}
+                      class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 p-5 transition-colors duration-150 hover:bg-oliva-050"
+                    >
+                      <div class="min-w-0">
+                        <p class="font-display text-lg font-bold uppercase leading-tight text-tinta">
+                          {operacao.campo_nome ?? operacao.local_avulso ?? "Local a definir"}
+                        </p>
+                        <p class="mt-1.5 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+                          {dataPorExtenso(operacao.data)}
+                          {operacao.cidade && ` · ${operacao.cidade}`}
+                        </p>
+                      </div>
+                      {operacao.visibilidade === "fechada" && (
+                        <Etiqueta tom="alerta">Fechada</Etiqueta>
+                      )}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section class="mt-12 border-t border-borda pt-8">
+            <h2 class="font-display text-xl font-bold uppercase text-tinta">
+              {equipe!.recrutando ? "Esta equipe está recrutando" : "Quer jogar com eles?"}
+            </h2>
+            <p class="mt-3 max-w-[62ch] leading-relaxed text-texto-2">
+              {equipe!.recrutando
+                ? "Peça para entrar aqui: quem lidera recebe o pedido e responde. Ninguém entra na equipe sem a liderança aprovar."
+                : "A equipe não marcou que está recrutando, mas você pode pedir para entrar mesmo assim — quem lidera decide."}
+            </p>
+
+            <div class="mt-6 flex flex-wrap items-center gap-3">
+              {!usuario ? (
+                <Botao href={`/entrar?destino=${encodeURIComponent(`/equipes/${equipe!.slug}`)}`}>
+                  Entrar para pedir
+                </Botao>
+              ) : meuStatus === "ativo" ? (
+                <Etiqueta tom="ok">Você já é desta equipe</Etiqueta>
+              ) : meuStatus === "pendente" ? (
+                <Etiqueta tom="neutro">Seu pedido já está com a liderança</Etiqueta>
+              ) : (
+                <form method="POST">
+                  <input type="hidden" name="acao" value="pedir" />
+                  <button
+                    type="submit"
+                    class="inline-flex items-center border border-oliva-700 bg-oliva-700 px-5 py-2.5 font-display text-base font-bold uppercase tracking-[0.06em] text-papel transition-colors hover:bg-oliva-500"
+                  >
+                    Pedir para entrar
+                  </button>
+                </form>
+              )}
+
+              {instagram && (
+                <a
+                  href={`https://www.instagram.com/${instagram}`}
+                  rel="nofollow noopener"
+                  target="_blank"
+                  class="font-dado text-[0.875rem] text-texto-2 underline transition-colors hover:text-oliva-300"
+                >
+                  @{instagram}
+                </a>
+              )}
+
+              {whatsapp && (
+                <a
+                  href={linkWhatsapp(whatsapp)}
+                  rel="nofollow noopener"
+                  target="_blank"
+                  class="font-dado text-[0.875rem] text-texto-2 underline transition-colors hover:text-oliva-300"
+                >
+                  WhatsApp da equipe
+                </a>
+              )}
+            </div>
+
+            {lideres.length > 0 && (
+              <p class="mt-5 text-[0.875rem] leading-relaxed text-texto-2">
+                Quem lidera:{" "}
+                {lideres.map((l) => nomeCurto(l.nome, l.nickname)).join(", ")}
+              </p>
+            )}
+          </section>
+        </Fragment>
+      )
+    }
+  </div>
+</Base>

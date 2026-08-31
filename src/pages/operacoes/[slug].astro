@@ -275,6 +275,24 @@ if (usuario) {
     : [];
 }
 
+/**
+ * Equipe que assina a operação, quando existe.
+ *
+ * Dizer quem organiza é informação de confiança, não enfeite: no
+ * grupo o pessoal decide ir pelo nome da equipe, e não pelo nome do
+ * campo. Vem da view pública, que não devolve dado de pessoa nenhuma.
+ */
+let equipeOrganizadora: { nome: string; slug: string } | null = null;
+
+if (EQUIPES_VISIVEIS && operacao.equipe_id) {
+  const { data } = await supabase
+    .from("equipe_vitrine")
+    .select("nome,slug")
+    .eq("id", operacao.equipe_id)
+    .maybeSingle<{ nome: string; slug: string }>();
+  equipeOrganizadora = data ?? null;
+}
+
 const lote = loteVigente(operacao);
 const aberta = abertaParaInscricao(operacao);
 const passou = jaPassou(operacao);
@@ -374,6 +392,18 @@ const HORARIOS = [
           {cidade && (
             <p class="mt-3 font-dado text-xs uppercase tracking-[0.18em] text-oliva-400">
               {cidade}
+            </p>
+          )}
+
+          {equipeOrganizadora && (
+            <p class="mt-3 font-dado text-xs uppercase tracking-[0.18em] text-oliva-400">
+              Organização:{" "}
+              <a
+                href={`/equipes/${equipeOrganizadora.slug}`}
+                class="underline transition-colors duration-150 hover:text-papel"
+              >
+                {equipeOrganizadora.nome}
+              </a>
             </p>
           )}
 

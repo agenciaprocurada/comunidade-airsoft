@@ -206,10 +206,34 @@ if (Astro.request.method === "POST") {
       erroDe.whatsapp_contato = "Não reconheci esse número. Use DDD + número.";
     }
 
+    /*
+     * Assinar a operação com uma equipe é permitido só para quem
+     * LIDERA a equipe escolhida. A RLS de `operacoes` autoriza o
+     * organizador a mexer na linha inteira, e policy não restringe
+     * coluna: sem esta checagem, um formulário forjado penduraria a
+     * operação na agenda pública de qualquer equipe.
+     */
+    let equipeEscolhida: string | null = null;
+
+    if (EQUIPES_VISIVEIS && texto("equipe_id")) {
+      const { data: lidera } = await supabase
+        .from("equipe_membros")
+        .select("id")
+        .eq("equipe_id", texto("equipe_id"))
+        .eq("usuario_id", usuario!.id)
+        .eq("papel", "lider")
+        .eq("status", "ativo")
+        .maybeSingle();
+
+      if (lidera) equipeEscolhida = texto("equipe_id");
+      else erroDe.equipe_id = "Você não lidera essa equipe.";
+    }
+
     if (Object.keys(erroDe).length === 0) {
       const { error } = await supabase
         .from("operacoes")
         .update({
+          ...(EQUIPES_VISIVEIS ? { equipe_id: equipeEscolhida } : {}),
           data: texto("data"),
           abertura: texto("abertura") || null,
           briefing: texto("briefing") || null,
@@ -357,6 +381,31 @@ const [{ data: ladosBruto }, { data: inscricoesBruto }, { data: nomesBruto }] = 
 
 const lados = ladosBruto ?? [];
 const inscricoes = inscricoesBruto ?? [];
+
+/**
+ * Equipes que ESTE organizador lidera — a operação pode ser assinada
+ * por uma delas.
+ *
+ * Assinar não é detalhe de vaidade: boa parte das operações é de
+ * equipe que aluga campo de terceiro, e é a equipe que o pessoal
+ * reconhece no grupo. É também o que faz a ficha pública da equipe
+ * deixar de ser cadastro parado e virar agenda.
+ */
+let minhasEquipes: { id: string; nome: string }[] = [];
+
+if (EQUIPES_VISIVEIS) {
+  const { data: lideranca } = await supabase
+    .from("equipe_membros")
+    .select("equipe_id, equipes(id,nome)")
+    .eq("usuario_id", usuario!.id)
+    .eq("papel", "lider")
+    .eq("status", "ativo")
+    .returns<{ equipe_id: string; equipes: { id: string; nome: string } | null }[]>();
+
+  minhasEquipes = (lideranca ?? [])
+    .map((l) => l.equipes)
+    .filter(Boolean) as { id: string; nome: string }[];
+}
 
 const nomes = (nomesBruto as Pick<LinhaDaLista, "id" | "nome" | "nickname">[] | null) ?? [];
 const nomePorInscricao = new Map(nomes.map((n) => [n.id, n.nome ?? n.nickname]));
@@ -667,6 +716,30 @@ const RESUMO = [
         apertar Enter salva, como sempre salvou.
       */}
       <button type="submit" hidden tabindex="-1">Salvar</button>
+
+      {
+        minhasEquipes.length > 0 && (
+          <div>
+            <label for="equipe_id" class={ROTULO_CAMPO}>
+              Operação da equipe{" "}
+              <span class="font-normal text-texto-2">(opcional)</span>
+            </label>
+            <select id="equipe_id" name="equipe_id" class={SELECAO}>
+              <option value="">Sou eu que organizo, sem equipe</option>
+              {minhasEquipes.map((equipe) => (
+                <option value={equipe.id} selected={operacao.equipe_id === equipe.id}>
+                  {equipe.nome}
+                </option>
+              ))}
+            </select>
+            <p class={AJUDA_CAMPO}>
+              A operação passa a aparecer na página pública da equipe, e quem
+              abrir a agenda vê quem está por trás dela.
+            </p>
+            {erroDe.equipe_id && <p class={ERRO_CAMPO}>{erroDe.equipe_id}</p>}
+          </div>
+        )
+      }
 
       {/*
         Aberto x fechado é um CAMPO, não um botão à parte: quem organiza
