@@ -29,9 +29,9 @@ import {
 
 const PARADAS: Parada[] = [
   { frame: 0, x: 980, y: 980 },
-  { frame: 24, x: 1010, y: 400, clique: true },
-  { frame: 56, x: 1180, y: 720 },
-  { frame: 126, x: 1240, y: 780 },
+  { frame: 16, x: 1010, y: 400, clique: true },
+  { frame: 40, x: 1180, y: 720 },
+  { frame: 90, x: 1240, y: 780 },
 ];
 
 export const Link: React.FC = () => {
@@ -39,13 +39,13 @@ export const Link: React.FC = () => {
   const cursor = posicaoCursor(frame, PARADAS);
   const clique = pulsoDoClique(frame, PARADAS);
 
-  const copiou = frame >= 28;
+  const copiou = frame >= 20;
 
   return (
     <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
       <GradeTatica opacidade={0.5} />
 
-      <Passo numero="02" titulo={"Mande o link.\nUma vez."} frame={frame} entrada={2} />
+      <Passo titulo={"Mande o link.\nUma vez."} frame={frame} entrada={2} />
 
       <div
         style={{
@@ -58,7 +58,7 @@ export const Link: React.FC = () => {
           lineHeight: 1.7,
           letterSpacing: "0.04em",
           color: COR.texto2,
-          opacity: surgir(frame, 20, 16),
+          opacity: surgir(frame, 14, 12),
         }}
       >
         Quem abrir amanhã vê a lista de amanhã. Você não reenvia print
@@ -85,13 +85,13 @@ export const Link: React.FC = () => {
               <Botao variante="secundario" tamanho={24}>
                 Ver a página
               </Botao>
-              <Botao tamanho={24} aceso={copiou ? interpolate(frame, [28, 44], [1, 0], {
+              <Botao tamanho={24} aceso={copiou ? interpolate(frame, [20, 36], [1, 0], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",
               }) : 0}>
                 Copiar link
               </Botao>
-              <span style={{ opacity: surgir(frame, 30, 8) }}>
+              <span style={{ opacity: surgir(frame, 22, 8) }}>
                 <Chip tom="ok">Copiado</Chip>
               </span>
             </div>
@@ -116,7 +116,7 @@ export const Link: React.FC = () => {
           height: 500,
           overflow: "hidden",
           border: `1px solid ${COR.borda}`,
-          opacity: surgir(frame, 38, 10),
+          opacity: surgir(frame, 26, 8),
         }}
       >
         <CabecalhoDaConversa nome={GRUPO.nome} membros={GRUPO.membros} />
@@ -141,7 +141,7 @@ export const Link: React.FC = () => {
                 eu="Rodrigo"
                 indiceNome={i}
                 largura={520}
-                entrada={surgir(frame, 46 + i * 22, 8)}
+                entrada={surgir(frame, 32 + i * 17, 7)}
               />
             ))}
           </div>

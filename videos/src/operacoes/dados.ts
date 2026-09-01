@@ -90,8 +90,12 @@ export const JOGADORES: Jogador[] = [
   { nome: "Bruno T. +1", lado: "Militar", estado: "pago", presente: true, peso: 2 },
   { nome: "Diego A.", lado: "PMC", estado: "a-pagar" },
   { nome: "Caio R.", lado: "Militar", estado: "pago", presente: true },
-  { nome: "Marcos V.", lado: "PMC", estado: "pago" },
   { nome: "Tiago S.", lado: "Militar", estado: "a-pagar" },
+  // Os dois últimos são a cena da espera: o Marcos é quem FECHA o PMC
+  // (12/12) e o Wesley é quem chega depois e cai na fila. Por isso eles
+  // não entram na cena da lista — entram na cena seguinte, com tempo
+  // para a pessoa ver o que aconteceu.
+  { nome: "Marcos V.", lado: "PMC", estado: "pago" },
   { nome: "Wesley P.", lado: "PMC", estado: "espera" },
 ];
 

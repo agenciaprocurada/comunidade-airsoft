@@ -270,7 +270,7 @@ export const Confirmar: React.FC = () => {
     <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
       <GradeTatica opacidade={0.5} />
 
-      <Passo numero="03" titulo={"Ele abre\ne confirma"} frame={frame} entrada={2} />
+      <Passo titulo={"Ele abre\ne confirma"} frame={frame} entrada={2} />
 
       <div
         style={{

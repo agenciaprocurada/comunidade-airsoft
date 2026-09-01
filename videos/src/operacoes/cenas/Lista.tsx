@@ -1,5 +1,5 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { COR, FONTE_DADO } from "../../tema";
+import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { COR, FONTE_DADO, FONTE_DISPLAY } from "../../tema";
 import {
   JOGADORES,
   LADOS,
@@ -11,15 +11,17 @@ import {
 import { BarraLado, Chip, GradeTatica, LinhaJogador, Painel, Passo, surgir } from "../pecas";
 
 /**
- * 12–17 s — a lista se enche sozinha.
+ * A lista se escreve sozinha — 4 s.
  *
- * É a cena que justifica o produto, e ela não tem ponteiro de mouse de
- * propósito: NINGUÉM está mexendo. Os nomes caem porque os jogadores
- * confirmaram no link, as barras enchem sozinhas, e o último nome
- * chega depois de o PMC lotar e vai para a espera sem que o
- * organizador toque em nada.
+ * Sem ponteiro de mouse de propósito: NINGUÉM está mexendo. Os nomes
+ * caem porque as pessoas confirmaram no link, e o contador ao lado
+ * sobe junto — número subindo é o argumento visual mais forte que
+ * existe para "não dá trabalho".
  *
- * As barras leem `confirmadosDo()`, a mesma função que a contagem do
+ * Os dois últimos jogadores (Marcos e Wesley) NÃO entram aqui: eles
+ * são a cena da espera, que precisa deles com tempo na tela.
+ *
+ * As barras leem `confirmadosDo()`, a mesma função da contagem do
  * topo — assim a soma nunca se contradiz no meio da animação.
  */
 
@@ -28,59 +30,82 @@ import { BarraLado, Chip, GradeTatica, LinhaJogador, Painel, Passo, surgir } fro
  * na cena anterior e a lista abre com ela dentro. O último demora — é
  * a virada da cena.
  */
-const ENTRADAS = [0, 12, 26, 40, 54, 68, 82, 106];
+const ENTRADAS = [0, 14, 30, 46, 62, 78];
 
 export const Lista: React.FC = () => {
   const frame = useCurrentFrame();
 
   const entraram = ENTRADAS.filter((f) => frame >= f).length;
+  // Só os seis primeiros: o Marcos e o Wesley são a cena seguinte.
+  const naTela = JOGADORES.slice(0, ENTRADAS.length);
   const total = totalConfirmado(entraram);
-  const naEspera = JOGADORES.slice(0, entraram).filter((j) => j.estado === "espera").length;
 
   return (
     <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
       <GradeTatica opacidade={0.5} />
 
-      <Passo numero="04" titulo={"A lista se\nenche sozinha"} frame={frame} entrada={2} />
+      <Passo titulo={"A lista se\nescreve sozinha"} frame={frame} entrada={2} />
 
       <div
         style={{
           position: "absolute",
           left: 110,
-          top: 620,
+          top: 600,
           width: 470,
           fontFamily: FONTE_DADO,
           fontSize: 24,
           lineHeight: 1.7,
           letterSpacing: "0.04em",
           color: COR.texto2,
-          opacity: surgir(frame, 18, 16),
+          opacity: surgir(frame, 14, 14),
         }}
       >
-        Lotou o lado, o próximo entra na espera. Desistiu alguém, o
-        primeiro da fila sobe.
+        Cada um entra pelo link, escolhe o lado e some da sua caixa de
+        mensagem.
       </div>
 
-      {/* O selo da espera, grande, na coluna do texto: é a informação
-          que a cena inteira existe para entregar. */}
+      {/*
+        O contador grande, do lado do texto: número subindo é o
+        argumento visual mais forte que existe para "se enche sozinha".
+        É o fio condutor do vídeo — reaparece na cena da espera.
+      */}
       <div
         style={{
           position: "absolute",
           left: 110,
-          top: 800,
-          opacity: surgir(frame, 108, 12),
-          translate: `0 ${interpolate(surgir(frame, 108, 12), [0, 1], [14, 0])}px`,
+          top: 740,
+          opacity: surgir(frame, 10, 10),
         }}
       >
-        <Chip tom="espera" tamanho={26}>
-          Wesley entrou na espera
-        </Chip>
+        <div
+          style={{
+            fontFamily: FONTE_DISPLAY,
+            fontWeight: 700,
+            fontSize: 120,
+            lineHeight: 0.9,
+            color: COR.oliva300,
+          }}
+        >
+          {total}
+        </div>
+        <div
+          style={{
+            marginTop: 6,
+            fontFamily: FONTE_DADO,
+            fontSize: 22,
+            textTransform: "uppercase",
+            letterSpacing: "0.18em",
+            color: COR.texto2,
+          }}
+        >
+          confirmados
+        </div>
       </div>
 
       <div style={{ position: "absolute", left: 700, top: 128, opacity: surgir(frame, 0, 8) }}>
         <Painel
           titulo={`${OPERACAO.titulo} · ${OPERACAO.dataCurta}`}
-          etiqueta={`${total} confirmados${naEspera > 0 ? ` · ${naEspera} na espera` : ""}`}
+          etiqueta={`${total} confirmados`}
           largura={1060}
           pulso
         >
@@ -123,7 +148,7 @@ export const Lista: React.FC = () => {
           </div>
 
           <div style={{ paddingBottom: 8 }}>
-            {JOGADORES.map((jogador, i) => {
+            {naTela.map((jogador, i) => {
               const entrada = surgir(frame, ENTRADAS[i], 9);
               if (entrada === 0) return null;
               return (

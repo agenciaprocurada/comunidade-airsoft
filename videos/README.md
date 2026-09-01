@@ -10,8 +10,8 @@ de terem duas paletas.
 | --- | --- | --- | --- |
 | `VideoGeradorMapa` | 1920×1080 | 15 s | bloco de vídeo da `/criador-de-mapas` |
 | `VideoVertical` | 1080×1920 | 30 s | Reels / TikTok / Shorts do criador de mapas |
-| `VideoOperacoes` | 1920×1080 | 26 s | bloco de vídeo da `/organizador-de-operacoes` |
-| `VideoOperacoesVertical` | 1080×1920 | 30 s | Reels / TikTok / Shorts do organizador |
+| `VideoOperacoes` | 1920×1080 | 20 s | bloco de vídeo da `/organizador-de-operacoes` |
+| `VideoOperacoesVertical` | 1080×1920 | 26 s | Reels / TikTok / Shorts do organizador |
 
 ```
 npm run dev                        # Remotion Studio (todas as composições)
@@ -175,38 +175,76 @@ Não foi corte: o documento é 16:9 e a tela é 9:16, não existe encaixe honest
 
 # Vídeos do Organizador de Operações
 
-## 16:9 — 26 s · 1920×1080 · 30 fps (780 frames)
+## O roteiro, e por que ele não é cronológico
+
+A primeira versão contava a história na ordem em que o organizador trabalha:
+logo, formulário, link, lista, portão. Não funcionava, e os motivos são
+nomeáveis:
+
+1. **Gastava os dois segundos mais caros com o logo.** Ninguém assiste um vídeo
+   para ver a sua marca; ela entra no fim, quando já existe motivo para lembrar
+   dela.
+2. **Não tinha dor na tela.** Quem não sente o problema não vê valor na
+   solução. Hoje o 9:16 abre com a lista no bloco de notas e as quatro
+   perguntas de sempre — 4 s inteiros sem mostrar o produto.
+3. **Dava a maior fatia para a parte mais chata.** Seis segundos de formulário
+   sendo preenchido. Preencher formulário é CUSTO, não benefício; a cena foi
+   removida dos dois formatos e virou a promessa "em 1 minuto" no fecho.
+4. **Escondia o melhor argumento.** A lista de espera automática passava em um
+   segundo, como um chip no canto. Agora é cena inteira, com três batidas.
+5. **As legendas descreviam em vez de convencer.** "Abra a operação" é rótulo;
+   "Manda UM link. Uma vez." é argumento.
+
+O 16:9 e o 9:16 têm roteiros DIFERENTES de propósito: quem vê o da landing já
+leu o hero logo acima e precisa de prova, não de dor; quem vê o das redes é
+público frio e decide nos dois primeiros segundos.
+
+## 16:9 — 20 s · 1920×1080 · 30 fps (600 frames)
 
 ```
 npm run render:operacoes   # out/organizador-de-operacoes-1920x1080.mp4
 ```
 
-Composição `VideoOperacoes`; as sete cenas também estão soltas na pasta
+Composição `VideoOperacoes`; as seis cenas também estão soltas na pasta
 "Cenas-Operacoes" do Studio.
 
 | Frames | Tempo | Cena | Arquivo |
 | --- | --- | --- | --- |
-| 0–66 | 0–2 s | A marca surge | `src/operacoes/cenas/Abertura.tsx` |
-| 60–246 | 2–8 s | Abrir a operação: campo, data, lados, lotes, publicar | `src/operacoes/cenas/Criar.tsx` |
-| 240–366 | 8–12 s | O link vai para o grupo da equipe | `src/operacoes/cenas/Link.tsx` |
-| 360–486 | 12–16 s | Alguém abre o link no celular e confirma presença | `src/operacoes/cenas/Confirmar.tsx` |
-| 480–636 | 16–21 s | A lista se enche e alguém cai na espera | `src/operacoes/cenas/Lista.tsx` |
-| 630–726 | 21–24 s | No portão: pago e presente | `src/operacoes/cenas/NoDia.tsx` |
-| 720–780 | 24–26 s | Chamada e botão | `src/operacoes/cenas/Chamada.tsx` |
+| 0–90 | 0–3 s | O link vai para o grupo da equipe | `src/operacoes/cenas/Link.tsx` |
+| 84–204 | 3–7 s | Alguém abre o link no celular e confirma | `src/operacoes/cenas/Confirmar.tsx` |
+| 198–318 | 7–11 s | A lista se escreve, com o contador subindo | `src/operacoes/cenas/Lista.tsx` |
+| 312–402 | 11–14 s | **O pico:** lotou, entra na fila, a fila anda | `src/operacoes/cenas/Espera.tsx` |
+| 396–516 | 14–18 s | No portão: pago e presente | `src/operacoes/cenas/NoDia.tsx` |
+| 510–600 | 18–20 s | Chamada e botão | `src/operacoes/cenas/Chamada.tsx` |
 
 As cenas se sobrepõem em 6 frames, então a troca é dissolvência e não corte.
 
-## 9:16 — 30 s · 1080×1920 · 30 fps (900 frames)
+## 9:16 — 26 s · 1080×1920 · 30 fps (780 frames)
 
 ```
 npm run render:operacoes-vertical   # out/organizador-de-operacoes-1080x1920.mp4
 ```
 
 Sete cenas, cortes SECOS caindo no compasso de 120 BPM
-(`src/operacoes/vertical/ritmo.ts`),
-mesma regra do vertical do criador de mapas. Cenas em
-`src/operacoes/vertical/cenas.tsx` — um arquivo só, porque cada uma delas é uma
-variante de enquadramento da cena equivalente do 16:9, não um roteiro novo.
+(`src/operacoes/vertical/ritmo.ts`), mesma regra do vertical do criador de
+mapas. Cenas em `src/operacoes/vertical/cenas.tsx` — um arquivo só, porque cada
+uma delas é uma variante de enquadramento da cena equivalente do 16:9.
+
+| Frames | Tempo | Cena | O que o texto diz |
+| --- | --- | --- | --- |
+| 0–120 | 0–4 s | **O gancho:** a lista no bloco de notas e as perguntas de sempre | "Sua lista de presença hoje" → "E as mesmas 4 perguntas. Toda semana." |
+| 120–210 | 4–7 s | O link vai para o grupo | "Manda UM link. Uma vez." |
+| 210–330 | 7–11 s | Alguém abre e confirma | "Ele abre e confirma" → "Entrou na lista" |
+| 330–450 | 11–15 s | A lista se escreve, contador subindo | "A lista se escreve sozinha" |
+| 450–540 | 15–18 s | **O pico:** lotou, a fila anda | "O lado lotou" → "Desistiu um? A fila anda." |
+| 540–660 | 18–22 s | No portão do campo | "Quem pagou, quem chegou" |
+| 660–780 | 22–26 s | Objeções e chamada | "Grátis · Sem taxa · O dinheiro é seu" |
+
+A barra de progresso do 9:16 é LOCAL (dentro de `VideoOperacoesVertical.tsx`) e
+não a de `../../vertical/Moldura`: aquela é calculada sobre os 900 frames do
+vídeo do criador de mapas, e uma barra que chega a 100% antes do fim é pior do
+que barra nenhuma. A marca do topo só entra depois dos 4 s de dor — no gancho a
+tela é do espectador, não nossa.
 
 ## A interface é RECRIADA, não gravada
 
@@ -229,10 +267,14 @@ longe da tela.
 ## A conversa do grupo imita a forma, não a marca
 
 `src/operacoes/conversa.tsx` desenha o grupo com a cara do aplicativo de
-mensagens que todo mundo usa: fundo escuro, balão verde à direita, balão cinza
-à esquerda com o nome de quem fala colorido, hora miúda, tique duplo azul,
-cabeçalho com foto do grupo e barra de digitar. É isso que faz a cena ser
-reconhecida em meio segundo — balão genérico não faz.
+mensagens que todo mundo usa, no TEMA CLARO: papel de parede bege, balão
+verde-claro à direita, balão branco à esquerda com o nome de quem fala
+colorido, hora miúda, tique duplo azul, cabeçalho com foto do grupo e barra de
+digitar. É isso que faz a cena ser reconhecida em meio segundo — balão genérico
+não faz.
+
+O tema claro também resolve um problema de vídeo: num fundo escuro como o
+nosso, a tela clara do celular ACENDE, do jeito que acende na mão de alguém.
 
 O que fica DE FORA, e é decisão consciente: o logo, o nome do aplicativo
 escrito em qualquer lugar e o papel de parede de rabiscos deles. Marca de
@@ -240,7 +282,7 @@ terceiro em peça de divulgação sugere parceria que não existe, e o que a cen
 precisa dizer — o link foi para o grupo — não depende de qual aplicativo é.
 
 As cores dessa tela vivem em `conversa.tsx` e NÃO em `tema.ts`: elas não são do
-Design System do site. Misturar as duas faria alguém achar que `#005c4b` é cor
+Design System do site. Misturar as duas faria alguém achar que `#d9fdd3` é cor
 da marca.
 
 A mesma conversa aparece duas vezes, espelhada: na cena do link quem olha a
@@ -266,7 +308,7 @@ explicar mas todo mundo sente.
 
 ## Onde mexer
 
-- **Tempo das cenas**: `src/operacoes/VideoOperacoes.tsx` (16:9) e
+- **Ordem e duração das cenas**: `src/operacoes/VideoOperacoes.tsx` (16:9) e
   `src/operacoes/vertical/ritmo.ts` (9:16, tudo múltiplo de meio compasso).
 - **Dados da operação**: `src/operacoes/dados.ts`.
 - **Peças de interface**: `src/operacoes/pecas.tsx` — muda nos dois formatos.

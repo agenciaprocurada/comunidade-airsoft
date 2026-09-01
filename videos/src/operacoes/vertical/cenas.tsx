@@ -2,10 +2,11 @@ import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } f
 import { Cursor, posicaoCursor, pulsoDoClique, type Parada } from "../../componentes/Cursor";
 import { Legenda } from "../../vertical/Moldura";
 import { ChatNoCelular, PaginaDoEvento } from "../cenas/Confirmar";
+import { Dor as DorBase } from "../cenas/Dor";
+import { Espera as EsperaBase } from "../cenas/Espera";
 import { Balao, CabecalhoDaConversa, FundoDaConversa } from "../conversa";
 import { COR, FONTE_DADO, FONTE_DISPLAY } from "../../tema";
 import {
-  BUSCA_CAMPO,
   CONVERSA,
   JOGADORES,
   LADOS,
@@ -14,14 +15,12 @@ import {
   TOTAL_FIM,
   confirmadosDo,
   corDoLado,
-  digitado,
   totalConfirmado,
 } from "../dados";
 import {
   BarraLado,
   Botao,
   CaixaLink,
-  CampoForm,
   Chip,
   GradeTatica,
   LinhaJogador,
@@ -31,7 +30,7 @@ import {
 } from "../pecas";
 
 /**
- * As seis cenas do 9:16.
+ * As sete cenas do 9:16.
  *
  * Ficam num arquivo só, e não em seis, porque cada uma aqui é uma
  * VARIANTE de enquadramento da cena equivalente do 16:9 — o conteúdo
@@ -74,221 +73,28 @@ const Palco: React.FC<{ topo: number; children: React.ReactNode }> = ({ topo, ch
 );
 
 /* ==================================================================
-   0–2 s · Gancho — a lista cheia atrás da marca
+   0–4 s · O gancho: a dor
    ================================================================== */
 
-export const Gancho: React.FC = () => {
-  const frame = useCurrentFrame();
-
-  const suave = (a: number, b: number) =>
-    interpolate(frame, [a, b], [0, 1], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
-    });
-
-  return (
-    <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
-      <GradeTatica opacidade={0.6} />
-
-      <Palco topo={430}>
-        <div style={{ filter: "blur(3px)", opacity: 0.7 }}>
-          <Painel
-            titulo={`${OPERACAO.titulo} · ${OPERACAO.dataCurta}`}
-            etiqueta={`${TOTAL_FIM} confirmados`}
-            largura={1060}
-            pulso
-          >
-            <div style={{ padding: 26, display: "flex", gap: 22 }}>
-              {LADOS.map((lado) => (
-                <BarraLado
-                  key={lado.nome}
-                  nome={lado.nome}
-                  confirmados={confirmadosDo(lado, JOGADORES.length)}
-                  vagas={lado.vagas}
-                  cor={lado.cor}
-                  largura={493}
-                />
-              ))}
-            </div>
-            {JOGADORES.slice(0, 5).map((j) => (
-              <LinhaJogador
-                key={j.nome}
-                nome={j.nome}
-                lado={j.lado}
-                cor={corDoLado(j.lado)}
-                altura={68}
-                direita={<Chip tom="oliva">Confirmado</Chip>}
-              />
-            ))}
-          </Painel>
-        </div>
-      </Palco>
-
-      <AbsoluteFill style={{ backgroundColor: "rgba(6,8,5,0.72)" }} />
-
-      <AbsoluteFill
-        style={{ alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 30 }}
-      >
-        <Img
-          src={staticFile("logo.webp")}
-          style={{
-            height: 150,
-            width: "auto",
-            filter: "brightness(0) invert(1)",
-            opacity: suave(0, 16),
-          }}
-        />
-        <div style={{ height: 2, backgroundColor: COR.oliva500, width: interpolate(suave(10, 30), [0, 1], [0, 520]) }} />
-        <span
-          style={{
-            fontFamily: FONTE_DISPLAY,
-            fontWeight: 700,
-            fontSize: 78,
-            lineHeight: 0.98,
-            textTransform: "uppercase",
-            textAlign: "center",
-            color: COR.tinta,
-            opacity: suave(14, 34),
-          }}
-        >
-          Sua lista de presença<br />
-          <span style={{ color: COR.oliva300 }}>vira um link</span>
-        </span>
-      </AbsoluteFill>
-    </AbsoluteFill>
-  );
-};
+/**
+ * A abertura NÃO tem marca nem produto.
+ *
+ * O vídeo antigo abria com o logo por dois segundos — os dois
+ * segundos mais caros do formato, gastos com a única coisa que o
+ * espectador ainda não tem motivo para querer ver. Agora ele abre na
+ * tela que o organizador reconhece antes de ler: a lista no bloco de
+ * notas, e as mesmas quatro perguntas de toda semana caindo por cima.
+ */
+export const Dor: React.FC = () => (
+  <DorBase
+    inicioPerguntas={54}
+    telefone={{ x: 240, y: 300, largura: 600, altura: 1060 }}
+    legenda={{ x: 64, y: 1400, largura: 952, tamanho: 82 }}
+  />
+);
 
 /* ==================================================================
-   2–8 s · Abrir a operação
-   ================================================================== */
-
-const PARADAS_CRIAR: Parada[] = [
-  { frame: 0, x: 520, y: 820 },
-  { frame: 12, x: 220, y: 154, clique: true },
-  { frame: 54, x: 220, y: 265, clique: true },
-  { frame: 76, x: 160, y: 450, clique: true },
-  { frame: 96, x: 220, y: 561, clique: true },
-  { frame: 124, x: 200, y: 650, clique: true },
-  { frame: 150, x: 200, y: 650 },
-];
-
-export const Criar: React.FC = () => {
-  const frame = useCurrentFrame();
-  const cursor = posicaoCursor(frame, PARADAS_CRIAR);
-  const clique = pulsoDoClique(frame, PARADAS_CRIAR);
-
-  const digitando = frame >= 14 && frame < 46;
-  const escolheu = frame >= 48;
-  const publicou = frame >= 124;
-
-  return (
-    <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
-      <GradeTatica opacidade={0.6} />
-
-      <Palco topo={480}>
-        <Painel
-          titulo="Nova operação"
-          etiqueta={publicou ? "Aberta" : "Rascunho"}
-          corEtiqueta={publicou ? COR.oliva300 : COR.texto2}
-          largura={1060}
-        >
-          <div style={{ padding: 34, display: "flex", flexDirection: "column", gap: 22 }}>
-            <CampoForm
-              rotulo="Campo"
-              valor={
-                escolheu ? `${OPERACAO.campo} — ${OPERACAO.cidade}` : digitado(BUSCA_CAMPO, frame, 14)
-              }
-              digitando={digitando}
-              frame={frame}
-            />
-            <div style={{ display: "flex", gap: 22 }}>
-              <CampoForm rotulo="Data" valor={frame >= 58 ? "13/09/2026" : ""} largura={485} />
-              <CampoForm rotulo="Início" valor={frame >= 66 ? OPERACAO.inicio : ""} largura={485} />
-            </div>
-
-            <div>
-              <div
-                style={{
-                  fontFamily: FONTE_DADO,
-                  fontSize: 18,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.16em",
-                  color: COR.texto2,
-                  marginBottom: 9,
-                }}
-              >
-                Lados do jogo
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {LADOS.map((lado, i) => {
-                  /* O primeiro lado já vem sugerido; o segundo entra no
-                     clique do frame 92 — sem isso o ponteiro clicaria
-                     num espaço vazio e o gesto não faria sentido. */
-                  const entra = i === 0 ? surgir(frame, 50, 10) : surgir(frame, 84, 10);
-                  return (
-                    <div
-                      key={lado.nome}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        height: 62,
-                        padding: "0 18px",
-                        border: `1px solid ${COR.bordaForte}`,
-                        backgroundColor: COR.papel,
-                        opacity: entra,
-                      }}
-                    >
-                      <span style={{ fontSize: 27, color: COR.tinta }}>{lado.nome}</span>
-                      <span
-                        style={{
-                          fontFamily: FONTE_DADO,
-                          fontSize: 22,
-                          letterSpacing: "0.1em",
-                          color: COR.oliva300,
-                        }}
-                      >
-                        {lado.vagas} vagas
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 22 }}>
-              <CampoForm rotulo="Lote antecipado" valor={frame >= 98 ? "35,00" : ""} largura={485} />
-              <CampoForm rotulo="No dia" valor={frame >= 106 ? "50,00" : ""} largura={485} />
-            </div>
-
-            <Botao
-              aceso={
-                publicou
-                  ? interpolate(frame, [124, 144], [1, 0.2], {
-                      extrapolateLeft: "clamp",
-                      extrapolateRight: "clamp",
-                    })
-                  : 0
-              }
-            >
-              Publicar evento
-            </Botao>
-          </div>
-        </Painel>
-
-        <Cursor x={cursor.x} y={cursor.y} clique={clique} />
-      </Palco>
-
-      <Legenda kicker="Passo 1" titulo={"Abra a\noperação"} entrada={6} saida={110} />
-      <Legenda kicker="Passo 1" titulo={"Vagas de cada\nlado do jogo"} entrada={116} />
-    </AbsoluteFill>
-  );
-};
-
-/* ==================================================================
-   8–13 s · O link no grupo
+   4–7 s · A virada: o link vai para o grupo
    ================================================================== */
 
 export const LinkNoGrupo: React.FC = () => {
@@ -301,15 +107,15 @@ export const LinkNoGrupo: React.FC = () => {
       <Palco topo={440}>
         <Painel titulo={OPERACAO.titulo} etiqueta="Aberta" largura={1060} pulso>
           <div style={{ padding: 30, display: "flex", flexDirection: "column", gap: 20 }}>
-            <CaixaLink rotulo="Link do evento" link={OPERACAO.link} entrada={surgir(frame, 4, 10)} />
-            <div style={{ display: "flex", alignItems: "center", gap: 16, opacity: surgir(frame, 12, 8) }}>
-              <Botao tamanho={24} aceso={frame >= 24 ? interpolate(frame, [24, 40], [1, 0], {
+            <CaixaLink rotulo="Link do evento" link={OPERACAO.link} entrada={surgir(frame, 2, 8)} />
+            <div style={{ display: "flex", alignItems: "center", gap: 16, opacity: surgir(frame, 8, 6) }}>
+              <Botao tamanho={24} aceso={frame >= 16 ? interpolate(frame, [16, 32], [1, 0], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",
               }) : 0}>
                 Copiar link
               </Botao>
-              <span style={{ opacity: surgir(frame, 26, 8) }}>
+              <span style={{ opacity: surgir(frame, 18, 8) }}>
                 <Chip tom="ok">Copiado</Chip>
               </span>
             </div>
@@ -331,7 +137,7 @@ export const LinkNoGrupo: React.FC = () => {
           height: 560,
           overflow: "hidden",
           border: `1px solid ${COR.borda}`,
-          opacity: surgir(frame, 34, 10),
+          opacity: surgir(frame, 24, 8),
         }}
       >
         <CabecalhoDaConversa nome={GRUPO.nome} membros={GRUPO.membros} />
@@ -356,14 +162,14 @@ export const LinkNoGrupo: React.FC = () => {
                 eu="Rodrigo"
                 indiceNome={i}
                 largura={560}
-                entrada={surgir(frame, 42 + i * 20, 8)}
+                entrada={surgir(frame, 30 + i * 16, 7)}
               />
             ))}
           </div>
         </div>
       </div>
 
-      <Legenda kicker="Passo 2" titulo={"Mande o link.\nUma vez."} entrada={4} />
+      <Legenda kicker="A virada" titulo={"Manda UM link.\nUma vez."} entrada={4} />
     </AbsoluteFill>
   );
 };
@@ -380,14 +186,14 @@ export const LinkNoGrupo: React.FC = () => {
  * As telas são as MESMAS do 16:9 (`ChatNoCelular`, `PaginaDoEvento`),
  * só o ritmo muda: 150 frames em vez de 126.
  */
-const TROCA_V = 40;
+const TROCA_V = 32;
 
 const PARADAS_CONFIRMAR: Parada[] = [
   { frame: 0, x: 540, y: 1500 },
-  { frame: 32, x: 480, y: 1020, clique: true },
-  { frame: 78, x: 480, y: 1053, clique: true },
-  { frame: 106, x: 440, y: 1137, clique: true },
-  { frame: 150, x: 470, y: 1160 },
+  { frame: 26, x: 480, y: 1020, clique: true },
+  { frame: 62, x: 480, y: 1053, clique: true },
+  { frame: 86, x: 440, y: 1137, clique: true },
+  { frame: 120, x: 470, y: 1160 },
 ];
 
 export const ConfirmarNoCelular: React.FC = () => {
@@ -426,7 +232,7 @@ export const ConfirmarNoCelular: React.FC = () => {
                 translate: `0 ${interpolate(abrindo, [0, 1], [0, 40])}px`,
               }}
             >
-              <PaginaDoEvento frame={frame} militar={78} confirmar={106} />
+              <PaginaDoEvento frame={frame} militar={62} confirmar={86} />
             </div>
           </div>
         </Telefone>
@@ -434,8 +240,8 @@ export const ConfirmarNoCelular: React.FC = () => {
 
       <Cursor x={cursor.x} y={cursor.y} clique={clique} />
 
-      <Legenda kicker="Passo 3" titulo={"Ele abre\ne confirma"} entrada={4} saida={100} />
-      <Legenda kicker="Dois toques" titulo={"Entrou\nna lista"} entrada={110} />
+      <Legenda kicker="Do outro lado" titulo={"Ele abre\ne confirma"} entrada={4} saida={80} />
+      <Legenda kicker="Dois toques" titulo={"Entrou\nna lista"} entrada={88} />
     </AbsoluteFill>
   );
 };
@@ -444,12 +250,14 @@ export const ConfirmarNoCelular: React.FC = () => {
    16–23 s · A lista se enche sozinha
    ================================================================== */
 
-const ENTRADAS_V = [0, 22, 44, 66, 88, 110, 132, 168];
+const ENTRADAS_V = [0, 14, 30, 46, 62, 78];
 
 export const Lista: React.FC = () => {
   const frame = useCurrentFrame();
 
   const entraram = ENTRADAS_V.filter((f) => frame >= f).length;
+  // Só os seis primeiros: o Marcos e o Wesley são a cena da espera.
+  const naTela = JOGADORES.slice(0, ENTRADAS_V.length);
   const total = totalConfirmado(entraram);
   const naEspera = JOGADORES.slice(0, entraram).filter((j) => j.estado === "espera").length;
 
@@ -484,7 +292,7 @@ export const Lista: React.FC = () => {
           </div>
 
           <div style={{ paddingBottom: 8 }}>
-            {JOGADORES.map((jogador, i) => {
+            {naTela.map((jogador, i) => {
               const entrada = surgir(frame, ENTRADAS_V[i], 9);
               if (entrada === 0) return null;
               return (
@@ -509,14 +317,31 @@ export const Lista: React.FC = () => {
         </Painel>
       </Palco>
 
-      <Legenda kicker="Passo 3" titulo={"A lista se\nenche sozinha"} entrada={4} saida={150} />
-      <Legenda kicker="Lotou o lado" titulo={"O próximo entra\nna espera"} entrada={168} />
+      <Legenda kicker="Sem você fazer nada" titulo={"A lista se\nescreve sozinha"} entrada={4} />
     </AbsoluteFill>
   );
 };
 
 /* ==================================================================
-   21–26 s · No dia do jogo
+   15–18 s · O pico: lotou, e a fila anda sozinha
+   ================================================================== */
+
+/**
+ * A mesma cena do 16:9, só reenquadrada.
+ *
+ * É o único momento do vídeo que mostra algo que o bloco de notas não
+ * faz de jeito nenhum — por isso ela tem cena própria, três batidas e
+ * um número grande, em vez do chip discreto de antes.
+ */
+export const EsperaNaFila: React.FC = () => (
+  <EsperaBase
+    painel={{ x: 64, y: 520, largura: 952 }}
+    legenda={{ x: 64, y: 1330, largura: 952, tamanho: 76 }}
+  />
+);
+
+/* ==================================================================
+   18–22 s · No dia do jogo
    ================================================================== */
 
 const ACENDE_V = {
@@ -532,7 +357,7 @@ const PARADAS_DIA: Parada[] = [
   { frame: 54, x: 790, y: LINHA_Y_V[2], clique: true },
   { frame: 74, x: 960, y: LINHA_Y_V[2], clique: true },
   { frame: 96, x: 960, y: LINHA_Y_V[3], clique: true },
-  { frame: 120, x: 940, y: 452 },
+  { frame: 118, x: 940, y: 452 },
 ];
 
 export const NoDia: React.FC = () => {
@@ -586,8 +411,17 @@ export const NoDia: React.FC = () => {
 };
 
 /* ==================================================================
-   26–30 s · Chamada
+   22–26 s · Objeções e chamada
    ================================================================== */
+
+/**
+ * Os três selos entram ANTES do botão, e não é enfeite: as três
+ * objeções de quem organiza jogo são sempre as mesmas — "quanto
+ * custa", "vocês ficam com uma parte" e "vou ter que cobrar por
+ * dentro do site". Responder isso em três segundos vale mais do que
+ * qualquer adjetivo no CTA.
+ */
+const SELOS = ["Grátis", "Sem taxa por inscrição", "O dinheiro é seu"];
 
 export const Chamada: React.FC = () => {
   const frame = useCurrentFrame();
@@ -641,23 +475,30 @@ export const Chamada: React.FC = () => {
           <br />
           de operações
         </span>
-        <span
+
+        {/* As três objeções, respondidas antes do botão. */}
+        <div
           style={{
-            marginTop: 18,
-            fontFamily: FONTE_DADO,
-            fontSize: 30,
-            letterSpacing: "0.22em",
-            textTransform: "uppercase",
-            color: COR.oliva300,
-            opacity: surge(12),
+            marginTop: 28,
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            gap: 12,
+            maxWidth: 900,
           }}
         >
-          Grátis · sem taxa por inscrição
-        </span>
+          {SELOS.map((selo, i) => (
+            <span key={selo} style={{ opacity: surge(10 + i * 6) }}>
+              <Chip tom="oliva" tamanho={24} marcavel>
+                {selo}
+              </Chip>
+            </span>
+          ))}
+        </div>
 
         <div
           style={{
-            marginTop: 60,
+            marginTop: 52,
             filter: `drop-shadow(0 0 ${interpolate(frame, [18, 44, 70], [0, 44, 22], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
@@ -665,7 +506,7 @@ export const Chamada: React.FC = () => {
             opacity: surge(18),
           }}
         >
-          <Botao tamanho={44}>Abra a sua no site</Botao>
+          <Botao tamanho={44}>Abra a sua em 1 minuto</Botao>
         </div>
 
         <span

@@ -19,26 +19,28 @@ export const BATIDA = (FPS * 60) / BPM; // 15 frames
 export const COMPASSO = BATIDA * 4; // 60 frames = 2 s
 export const MEIO_COMPASSO = COMPASSO / 2; // 30 frames
 
-export const DURACAO = 900; // 30 s
+export const DURACAO = 780; // 26 s
 
 export const TRILHA: string | null = "guia-120bpm.mp3";
 
 /**
  * Onde cada cena começa. O último valor é o fim do vídeo.
  *
- * O total continua em 900 frames mesmo com a cena do "confirmar" — o
- * vertical vive de 30 s, e a barra de progresso da moldura é calculada
- * sobre essa duração. Entrou cena nova, as outras encolheram.
+ * 26 s. A cena de abertura NÃO mostra o produto: são 4 segundos de
+ * dor (a lista no bloco de notas e as mesmas perguntas de sempre),
+ * porque quem não sente o problema não vê valor na solução — e num
+ * vídeo de rede social os dois primeiros segundos são os únicos
+ * garantidos.
  */
 export const LIMITES = {
-  gancho: 0,
-  criar: 60,
-  link: 210,
-  confirmar: 330,
-  lista: 480,
-  nodia: 690,
-  chamada: 810,
-  fim: 900,
+  dor: 0,
+  link: 120,
+  confirmar: 210,
+  lista: 330,
+  espera: 450,
+  dia: 540,
+  chamada: 660,
+  fim: 780,
 } as const;
 
 export const duracaoDe = (cena: keyof typeof LIMITES) => {

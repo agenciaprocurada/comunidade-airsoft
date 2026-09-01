@@ -7,8 +7,9 @@ import { OPERACAO, TOTAL_VAGAS } from "./dados";
  *
  * POR QUE ASSIM: o vídeo precisa que a pessoa reconheça a cena em meio
  * segundo — "isso é o meu grupo" — e um balão genérico não faz isso. A
- * forma (fundo escuro, balão verde à direita, balão cinza à esquerda,
- * hora miúda, tique duplo) é o que carrega o reconhecimento.
+ * forma (papel de parede bege, balão verde-claro à direita, balão
+ * branco à esquerda, hora miúda, tique duplo azul) é o que carrega o
+ * reconhecimento.
  *
  * O QUE NÃO ENTRA, e é decisão consciente: o logo, o nome do
  * aplicativo escrito em algum lugar e o papel de parede de rabiscos
@@ -21,20 +22,27 @@ import { OPERACAO, TOTAL_VAGAS } from "./dados";
  * gente está representando. Misturar as duas faria alguém achar que
  * #005c4b é cor da marca.
  */
+/**
+ * Tema CLARO, que é como a maioria das pessoas usa o aplicativo — e,
+ * num vídeo de fundo escuro, é o que faz a tela do celular acender
+ * como acende na vida real: um retângulo claro na mão de alguém.
+ */
 export const ZAP = {
-  fundo: "#0b141a",
-  barra: "#202c33",
-  recebida: "#202c33",
-  enviada: "#005c4b",
-  previaEnviada: "#025144",
-  previaRecebida: "#182229",
-  texto: "#e9edef",
-  fraco: "#8696a0",
-  hora: "#8fa39b",
+  fundo: "#efe7de",
+  barra: "#f0f2f5",
+  recebida: "#ffffff",
+  enviada: "#d9fdd3",
+  previaEnviada: "#c8f2c0",
+  previaRecebida: "#f5f6f6",
+  texto: "#111b21",
+  fraco: "#667781",
+  hora: "#667781",
   check: "#53bdeb",
   acento: "#00a884",
   /** Cor do nome de quem fala, como no aplicativo: uma por pessoa. */
-  nomes: ["#53bdeb", "#e542a3", "#f0b330", "#a6db5a"] as const,
+  nomes: ["#1f7aec", "#c4532d", "#8e44ad", "#0a7c68"] as const,
+  /** Contorno de balão claro sobre fundo claro. */
+  sombra: "0 1px 0.5px rgba(11,20,26,0.13)",
 } as const;
 
 export interface Mensagem {
@@ -78,7 +86,7 @@ export const FundoDaConversa: React.FC = () => (
       inset: 0,
       backgroundColor: ZAP.fundo,
       backgroundImage:
-        "radial-gradient(rgba(233,237,239,0.035) 1px, transparent 1px), radial-gradient(rgba(233,237,239,0.02) 1px, transparent 1px)",
+        "radial-gradient(rgba(11,20,26,0.05) 1px, transparent 1px), radial-gradient(rgba(11,20,26,0.03) 1px, transparent 1px)",
       backgroundSize: "38px 38px, 38px 38px",
       backgroundPosition: "0 0, 19px 19px",
     }}
@@ -110,7 +118,7 @@ export const CabecalhoDaConversa: React.FC<{
     >
       <path
         d="M15 5 8 12l7 7"
-        stroke={ZAP.texto}
+        stroke="#54656f"
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -123,14 +131,14 @@ export const CabecalhoDaConversa: React.FC<{
         width: 44 * escala,
         height: 44 * escala,
         borderRadius: 999,
-        backgroundColor: "#6a7175",
+        backgroundColor: "#dfe5e7",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         flexShrink: 0,
       }}
     >
-      <svg width={28 * escala} height={28 * escala} viewBox="0 0 24 24" fill="#cfd5d8">
+      <svg width={28 * escala} height={28 * escala} viewBox="0 0 24 24" fill="#8696a0">
         <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7.5 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM9 12.5c-2.7 0-6 1.35-6 4V19h12v-2.5c0-2.65-3.3-4-6-4zm7.5.5c-.6 0-1.3.07-2 .2 1.2.9 1.9 2.05 1.9 3.3V19H21v-2.2c0-2.35-2.7-3.3-4.5-3.3z" />
       </svg>
     </div>
@@ -162,7 +170,7 @@ export const CabecalhoDaConversa: React.FC<{
     </div>
 
     {[0, 1].map((i) => (
-      <svg key={i} width={20 * escala} height={20 * escala} viewBox="0 0 24 24" fill={ZAP.fraco}>
+      <svg key={i} width={20 * escala} height={20 * escala} viewBox="0 0 24 24" fill="#54656f">
         {i === 0 ? (
           <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z" />
         ) : (
@@ -267,7 +275,7 @@ export const Balao: React.FC<{
           borderTopRightRadius: minha ? 0 : 9 * escala,
           borderTopLeftRadius: minha ? 9 * escala : 0,
           backgroundColor: minha ? ZAP.enviada : ZAP.recebida,
-          boxShadow: "0 1px 1px rgba(0,0,0,0.28)",
+          boxShadow: ZAP.sombra,
         }}
       >
         {!minha ? (
@@ -332,6 +340,7 @@ export const BarraDeEnvio: React.FC<{ escala?: number }> = ({ escala = 1 }) => (
       alignItems: "center",
       gap: 8 * escala,
       padding: `${8 * escala}px ${10 * escala}px`,
+      backgroundColor: ZAP.barra,
       flexShrink: 0,
     }}
   >
@@ -344,10 +353,11 @@ export const BarraDeEnvio: React.FC<{ escala?: number }> = ({ escala = 1 }) => (
         height: 46 * escala,
         padding: `0 ${14 * escala}px`,
         borderRadius: 999,
-        backgroundColor: ZAP.barra,
+        backgroundColor: "#ffffff",
+        boxShadow: ZAP.sombra,
       }}
     >
-      <svg width={22 * escala} height={22 * escala} viewBox="0 0 24 24" fill={ZAP.fraco}>
+      <svg width={22 * escala} height={22 * escala} viewBox="0 0 24 24" fill="#54656f">
         <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-3.5 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM12 18c-2.3 0-4.3-1.4-5.2-3.4h10.4C16.3 16.6 14.3 18 12 18z" />
       </svg>
       <span
@@ -372,7 +382,7 @@ export const BarraDeEnvio: React.FC<{ escala?: number }> = ({ escala = 1 }) => (
         flexShrink: 0,
       }}
     >
-      <svg width={22 * escala} height={22 * escala} viewBox="0 0 24 24" fill="#0b141a">
+      <svg width={22 * escala} height={22 * escala} viewBox="0 0 24 24" fill="#ffffff">
         <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
       </svg>
     </div>

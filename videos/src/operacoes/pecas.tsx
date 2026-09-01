@@ -574,8 +574,15 @@ export const Botao: React.FC<{
    Etiqueta de passo — a legenda do 16:9
    ================================================================== */
 
+/**
+ * A frase grande de cada cena.
+ *
+ * O `numero` é OPCIONAL e hoje ninguém passa: os passos numerados
+ * vinham do roteiro antigo, que era um tutorial. O roteiro novo conta
+ * uma história — e história não se numera na tela.
+ */
 export const Passo: React.FC<{
-  numero: string;
+  numero?: string;
   titulo: string;
   /** Frame local da cena. */
   frame: number;
@@ -602,6 +609,7 @@ export const Passo: React.FC<{
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+        {numero ? (
         <span
           style={{
             display: "inline-flex",
@@ -618,6 +626,7 @@ export const Passo: React.FC<{
         >
           {numero}
         </span>
+        ) : null}
         <span style={{ width: 56, height: 3, backgroundColor: COR.oliva500 }} />
       </div>
       <div
