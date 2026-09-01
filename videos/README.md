@@ -226,6 +226,28 @@ captura — cada elemento precisa ser um nó que responde ao frame atual. A
 tipografia está um passo maior que no site porque em vídeo o espectador está
 longe da tela.
 
+## A conversa do grupo imita a forma, não a marca
+
+`src/operacoes/conversa.tsx` desenha o grupo com a cara do aplicativo de
+mensagens que todo mundo usa: fundo escuro, balão verde à direita, balão cinza
+à esquerda com o nome de quem fala colorido, hora miúda, tique duplo azul,
+cabeçalho com foto do grupo e barra de digitar. É isso que faz a cena ser
+reconhecida em meio segundo — balão genérico não faz.
+
+O que fica DE FORA, e é decisão consciente: o logo, o nome do aplicativo
+escrito em qualquer lugar e o papel de parede de rabiscos deles. Marca de
+terceiro em peça de divulgação sugere parceria que não existe, e o que a cena
+precisa dizer — o link foi para o grupo — não depende de qual aplicativo é.
+
+As cores dessa tela vivem em `conversa.tsx` e NÃO em `tema.ts`: elas não são do
+Design System do site. Misturar as duas faria alguém achar que `#005c4b` é cor
+da marca.
+
+A mesma conversa aparece duas vezes, espelhada: na cena do link quem olha a
+tela é o Rodrigo (que organiza), e na cena do celular é a Ana. O componente
+`Balao` recebe `eu` e decide de que lado fica o verde — por isso o texto das
+mensagens é escrito uma vez só.
+
 ## Os números são a mesma conta do produto
 
 `src/operacoes/dados.ts` é a fonte única dos dois formatos: a operação, os dois

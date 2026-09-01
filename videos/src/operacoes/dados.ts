@@ -120,17 +120,34 @@ export const totalConfirmado = (entraram: number): number =>
   LADOS.reduce((soma, lado) => soma + confirmadosDo(lado, entraram), 0);
 
 /**
- * As mensagens do grupo, na cena do link.
+ * As mensagens do grupo da equipe.
  *
- * Conversa genérica de propósito: sem marca, sem logo e sem imitar a
- * interface de nenhum aplicativo. O que a cena precisa dizer é "o link
- * é colado no grupo uma vez", e isso não depende de qual grupo é.
+ * O desenho da conversa mora em `conversa.tsx` — e lá está explicado
+ * por que ela imita a FORMA do aplicativo de mensagens sem levar o
+ * logo, o nome dele nem o papel de parede.
+ *
+ * `comLink` marca a mensagem que carrega a prévia do evento: é a
+ * única do vídeo, porque o argumento é justamente esse — o link vai
+ * uma vez.
  */
 export const CONVERSA = [
-  { de: "Organizador", texto: "Fechou o domingo. Lista aberta 👇", minha: true },
-  { de: "Léo", texto: "Tô dentro! Já confirmei no PMC", minha: false },
-  { de: "Ana", texto: "Vou sim, abrindo o link agora", minha: false },
-] as const;
+  { de: "Rodrigo", texto: "Fechou o domingo. Lista aberta 👇", hora: "08:04", comLink: true },
+  { de: "Léo", texto: "Tô dentro! Já confirmei no PMC", hora: "08:06" },
+  { de: "Ana", texto: "Vou sim, abrindo o link agora", hora: "08:07" },
+];
+
+/**
+ * O nome do grupo e quem está nele.
+ *
+ * "Você" abre a lista de membros porque é assim que o aplicativo
+ * escreve. A MESMA conversa é vista de dois lados no vídeo:
+ * na tela de quem organiza (cena do link) e na de quem recebeu (cena
+ * do celular). Quem é "eu" muda; a conversa, não.
+ */
+export const GRUPO = {
+  nome: "Equipe Fênix ⚡",
+  membros: "Você, Léo, Ana, Rafael, Bruno, +37",
+};
 
 /**
  * Texto revelado letra por letra.

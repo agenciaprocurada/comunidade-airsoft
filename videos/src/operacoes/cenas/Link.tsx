@@ -1,7 +1,8 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { Cursor, posicaoCursor, pulsoDoClique, type Parada } from "../../componentes/Cursor";
-import { COR, FONTE_DADO, FONTE_DISPLAY, FONTE_TEXTO } from "../../tema";
-import { CONVERSA, OPERACAO, TOTAL_VAGAS } from "../dados";
+import { COR, FONTE_DADO } from "../../tema";
+import { Balao, CabecalhoDaConversa, FundoDaConversa } from "../conversa";
+import { CONVERSA, GRUPO, OPERACAO } from "../dados";
 import {
   Botao,
   CaixaLink,
@@ -20,9 +21,10 @@ import {
  * painel com o link de um lado, a conversa do grupo do outro — e o
  * link atravessando de um para o outro UMA vez.
  *
- * A conversa é genérica de propósito: sem logo, sem marca e sem imitar
- * a interface de nenhum aplicativo. O que a cena diz é "o link é
- * colado no grupo", e isso vale para qualquer grupo.
+ * A conversa tem a cara do aplicativo de mensagens (ver
+ * ../conversa.tsx) porque a cena precisa ser reconhecida em meio
+ * segundo: "isso é o meu grupo". O que fica de fora dessa imitação —
+ * logo, nome do app, papel de parede deles — está explicado lá.
  */
 
 const PARADAS: Parada[] = [
@@ -31,50 +33,6 @@ const PARADAS: Parada[] = [
   { frame: 56, x: 1180, y: 720 },
   { frame: 126, x: 1240, y: 780 },
 ];
-
-/** Bolha da conversa. */
-const Bolha: React.FC<{
-  de: string;
-  texto: string;
-  minha: boolean;
-  entrada: number;
-  children?: React.ReactNode;
-}> = ({ de, texto, minha, entrada, children }) => (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: minha ? "flex-end" : "flex-start",
-      opacity: entrada,
-      translate: `0 ${interpolate(entrada, [0, 1], [16, 0])}px`,
-    }}
-  >
-    <div
-      style={{
-        maxWidth: 660,
-        padding: "14px 18px",
-        border: `1px solid ${minha ? COR.oliva700 : COR.borda}`,
-        backgroundColor: minha ? COR.oliva050 : COR.papel,
-      }}
-    >
-      {!minha ? (
-        <div
-          style={{
-            fontFamily: FONTE_DADO,
-            fontSize: 17,
-            textTransform: "uppercase",
-            letterSpacing: "0.14em",
-            color: COR.texto2,
-            marginBottom: 7,
-          }}
-        >
-          {de}
-        </div>
-      ) : null}
-      <div style={{ fontFamily: FONTE_TEXTO, fontSize: 25, color: COR.texto }}>{texto}</div>
-      {children}
-    </div>
-  </div>
-);
 
 export const Link: React.FC = () => {
   const frame = useCurrentFrame();
@@ -141,76 +99,53 @@ export const Link: React.FC = () => {
         </Painel>
       </div>
 
-      {/* O grupo. */}
+      {/*
+        O grupo, na tela de quem organiza.
+
+        Aqui o "eu" é o Rodrigo: a mensagem dele é a verde, à direita,
+        e as respostas chegam do outro lado. A mesma conversa aparece
+        espelhada na cena seguinte, no celular da Ana — é o que faz as
+        duas cenas serem o mesmo acontecimento visto de dois lugares.
+      */}
       <div
         style={{
           position: "absolute",
           left: 700,
-          top: 500,
+          top: 486,
+          width: 1060,
+          height: 500,
+          overflow: "hidden",
+          border: `1px solid ${COR.borda}`,
           opacity: surgir(frame, 38, 10),
         }}
       >
-        <Painel titulo="Grupo da equipe" etiqueta="42 membros" corEtiqueta={COR.texto2} largura={1060}>
-          <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 14 }}>
-            <Bolha
-              de={CONVERSA[0].de}
-              texto={CONVERSA[0].texto}
-              minha
-              entrada={surgir(frame, 48, 10)}
-            >
-              {/* A prévia do link: é ela que faz o grupo clicar. */}
-              <div
-                style={{
-                  marginTop: 14,
-                  border: `1px solid ${COR.oliva700}`,
-                  backgroundColor: COR.fundo,
-                  padding: "14px 18px",
-                  opacity: surgir(frame, 54, 10),
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: FONTE_DISPLAY,
-                    fontWeight: 700,
-                    fontSize: 27,
-                    textTransform: "uppercase",
-                    color: COR.tinta,
-                  }}
-                >
-                  {OPERACAO.titulo} · {OPERACAO.dataCurta}
-                </div>
-                <div style={{ fontFamily: FONTE_TEXTO, fontSize: 22, color: COR.texto2, marginTop: 6 }}>
-                  {OPERACAO.campo} · {TOTAL_VAGAS} vagas · {OPERACAO.precoAntecipado}{" "}
-                  {OPERACAO.prazoLote}
-                </div>
-                <div
-                  style={{
-                    fontFamily: FONTE_DADO,
-                    fontSize: 18,
-                    letterSpacing: "0.1em",
-                    color: COR.oliva300,
-                    marginTop: 10,
-                  }}
-                >
-                  comunidadeairsoft.com.br
-                </div>
-              </div>
-            </Bolha>
+        <CabecalhoDaConversa nome={GRUPO.nome} membros={GRUPO.membros} />
 
-            <Bolha
-              de={CONVERSA[1].de}
-              texto={CONVERSA[1].texto}
-              minha={false}
-              entrada={surgir(frame, 72, 8)}
-            />
-            <Bolha
-              de={CONVERSA[2].de}
-              texto={CONVERSA[2].texto}
-              minha={false}
-              entrada={surgir(frame, 90, 8)}
-            />
+        <div style={{ position: "relative", height: 430 }}>
+          <FundoDaConversa />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              padding: 18,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "flex-end",
+              gap: 10,
+            }}
+          >
+            {CONVERSA.map((mensagem, i) => (
+              <Balao
+                key={mensagem.de}
+                mensagem={mensagem}
+                eu="Rodrigo"
+                indiceNome={i}
+                largura={520}
+                entrada={surgir(frame, 46 + i * 22, 8)}
+              />
+            ))}
           </div>
-        </Painel>
+        </div>
       </div>
 
       <Cursor x={cursor.x} y={cursor.y} clique={clique} />

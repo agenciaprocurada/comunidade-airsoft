@@ -2,10 +2,16 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { Cursor, posicaoCursor, pulsoDoClique, type Parada } from "../../componentes/Cursor";
 import { COR, FONTE_DADO, FONTE_DISPLAY, FONTE_TEXTO } from "../../tema";
 import {
+  Balao,
+  BarraDeEnvio,
+  CabecalhoDaConversa,
+  FundoDaConversa,
+} from "../conversa";
+import {
   CONVERSA,
+  GRUPO,
   LADOS,
   OPERACAO,
-  TOTAL_VAGAS,
   confirmadosDo,
   totalConfirmado,
 } from "../dados";
@@ -42,142 +48,58 @@ const TROCA = 32; // frame em que o link abre a página
 
 const PARADAS: Parada[] = [
   { frame: 0, x: 1000, y: 980 },
-  { frame: 26, x: 1360, y: 745, clique: true },
+  { frame: 26, x: 1370, y: 665, clique: true },
   { frame: 62, x: 1400, y: 704, clique: true },
   { frame: 86, x: 1400, y: 781, clique: true },
   { frame: 126, x: 1420, y: 800 },
 ];
 
 /**
- * A conversa como ela aparece na tela do celular.
+ * A conversa do grupo na tela do celular da Ana.
  *
  * Exportada porque o 9:16 mostra a MESMA tela — muda o tamanho do
- * aparelho, não o que está escrito nele.
+ * aparelho, não o que está escrito nele. O desenho (balão verde,
+ * cabeçalho, barra de digitar) vem de `../conversa.tsx`, que também
+ * explica o que foi deixado de fora da imitação e por quê.
  */
-export const ChatNoCelular: React.FC<{ frame: number }> = ({ frame }) => (
-  /* As mensagens encostam embaixo, como em qualquer aplicativo de
-     conversa: chat alinhado ao topo com meia tela vazia por baixo não
-     se parece com o celular de ninguém. */
-  <div
-    style={{
-      height: "100%",
-      padding: 20,
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "flex-end",
-      gap: 12,
-    }}
-  >
-    <div
-      style={{
-        fontFamily: FONTE_DADO,
-        fontSize: 17,
-        textTransform: "uppercase",
-        letterSpacing: "0.14em",
-        color: COR.texto2,
-        textAlign: "center",
-        paddingBottom: 6,
-        borderBottom: `1px solid ${COR.borda}`,
-      }}
-    >
-      Grupo da equipe
-    </div>
+export const ChatNoCelular: React.FC<{ frame: number; escala?: number }> = ({
+  frame,
+  escala = 1,
+}) => (
+  <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <CabecalhoDaConversa nome={GRUPO.nome} membros={GRUPO.membros} escala={escala} />
 
-    {/* O espaçador é o que empurra a conversa para o pé da tela. */}
-    <div style={{ flex: 1 }} />
-
-    {/* A mensagem do organizador, com a prévia do link. */}
-    <div
-      style={{
-        alignSelf: "flex-start",
-        maxWidth: 380,
-        padding: "12px 14px",
-        border: `1px solid ${COR.borda}`,
-        backgroundColor: COR.papel,
-        opacity: surgir(frame, 0, 6),
-      }}
-    >
+    <div style={{ position: "relative", flex: 1, overflow: "hidden" }}>
+      <FundoDaConversa />
+      {/* As mensagens encostam embaixo, como em qualquer aplicativo de
+          conversa: chat alinhado ao topo com meia tela vazia por baixo
+          não se parece com o celular de ninguém. */}
       <div
         style={{
-          fontFamily: FONTE_DADO,
-          fontSize: 15,
-          textTransform: "uppercase",
-          letterSpacing: "0.12em",
-          color: COR.texto2,
-          marginBottom: 6,
+          position: "absolute",
+          inset: 0,
+          padding: 14 * escala,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          gap: 8 * escala,
         }}
       >
-        {CONVERSA[0].de}
-      </div>
-      <div style={{ fontFamily: FONTE_TEXTO, fontSize: 21, color: COR.texto }}>
-        {CONVERSA[0].texto}
-      </div>
-      <div
-        style={{
-          marginTop: 10,
-          border: `1px solid ${COR.oliva700}`,
-          backgroundColor: COR.oliva050,
-          padding: "10px 12px",
-        }}
-      >
-        <div
-          style={{
-            fontFamily: FONTE_DISPLAY,
-            fontWeight: 700,
-            fontSize: 21,
-            textTransform: "uppercase",
-            color: COR.tinta,
-          }}
-        >
-          {OPERACAO.titulo} · {OPERACAO.dataCurta}
-        </div>
-        <div style={{ fontFamily: FONTE_TEXTO, fontSize: 17, color: COR.texto2, marginTop: 4 }}>
-          {OPERACAO.campo} · {TOTAL_VAGAS} vagas
-        </div>
-        <div
-          style={{
-            fontFamily: FONTE_DADO,
-            fontSize: 15,
-            letterSpacing: "0.08em",
-            color: COR.oliva300,
-            marginTop: 6,
-          }}
-        >
-          comunidadeairsoft.com.br
-        </div>
+        {CONVERSA.map((mensagem, i) => (
+          <Balao
+            key={mensagem.de}
+            mensagem={mensagem}
+            eu="Ana"
+            indiceNome={i}
+            escala={escala}
+            largura={430 * escala}
+            entrada={surgir(frame, i * 8, 6)}
+          />
+        ))}
       </div>
     </div>
 
-    {/* As respostas: "eu vou". É o que o grupo faz de verdade. */}
-    {CONVERSA.slice(1).map((msg, i) => (
-      <div
-        key={msg.de}
-        style={{
-          alignSelf: i === 1 ? "flex-end" : "flex-start",
-          maxWidth: 340,
-          padding: "10px 14px",
-          border: `1px solid ${i === 1 ? COR.oliva700 : COR.borda}`,
-          backgroundColor: i === 1 ? COR.oliva050 : COR.papel,
-          opacity: surgir(frame, 8 + i * 8, 6),
-        }}
-      >
-        {i !== 1 ? (
-          <div
-            style={{
-              fontFamily: FONTE_DADO,
-              fontSize: 15,
-              textTransform: "uppercase",
-              letterSpacing: "0.12em",
-              color: COR.texto2,
-              marginBottom: 5,
-            }}
-          >
-            {msg.de}
-          </div>
-        ) : null}
-        <div style={{ fontFamily: FONTE_TEXTO, fontSize: 21, color: COR.texto }}>{msg.texto}</div>
-      </div>
-    ))}
+    <BarraDeEnvio escala={escala} />
   </div>
 );
 

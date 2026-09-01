@@ -2,15 +2,16 @@ import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } f
 import { Cursor, posicaoCursor, pulsoDoClique, type Parada } from "../../componentes/Cursor";
 import { Legenda } from "../../vertical/Moldura";
 import { ChatNoCelular, PaginaDoEvento } from "../cenas/Confirmar";
-import { COR, FONTE_DADO, FONTE_DISPLAY, FONTE_TEXTO } from "../../tema";
+import { Balao, CabecalhoDaConversa, FundoDaConversa } from "../conversa";
+import { COR, FONTE_DADO, FONTE_DISPLAY } from "../../tema";
 import {
   BUSCA_CAMPO,
   CONVERSA,
   JOGADORES,
   LADOS,
+  GRUPO,
   OPERACAO,
   TOTAL_FIM,
-  TOTAL_VAGAS,
   confirmadosDo,
   corDoLado,
   digitado,
@@ -316,84 +317,51 @@ export const LinkNoGrupo: React.FC = () => {
         </Painel>
       </Palco>
 
-      {/* O grupo, logo abaixo: o link atravessa de um para o outro. */}
-      <Palco topo={730}>
-        <div style={{ opacity: surgir(frame, 34, 10) }}>
-          <Painel titulo="Grupo da equipe" etiqueta="42 membros" corEtiqueta={COR.texto2} largura={1060}>
-            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-              <div
-                style={{
-                  alignSelf: "flex-end",
-                  maxWidth: 760,
-                  padding: "16px 20px",
-                  border: `1px solid ${COR.oliva700}`,
-                  backgroundColor: COR.oliva050,
-                  opacity: surgir(frame, 44, 10),
-                }}
-              >
-                <div style={{ fontFamily: FONTE_TEXTO, fontSize: 26, color: COR.texto }}>
-                  {CONVERSA[0].texto}
-                </div>
-                <div
-                  style={{
-                    marginTop: 14,
-                    border: `1px solid ${COR.oliva700}`,
-                    backgroundColor: COR.fundo,
-                    padding: "14px 18px",
-                    opacity: surgir(frame, 50, 10),
-                  }}
-                >
-                  <div
-                    style={{
-                      fontFamily: FONTE_DISPLAY,
-                      fontWeight: 700,
-                      fontSize: 28,
-                      textTransform: "uppercase",
-                      color: COR.tinta,
-                    }}
-                  >
-                    {OPERACAO.titulo} · {OPERACAO.dataCurta}
-                  </div>
-                  <div style={{ fontFamily: FONTE_TEXTO, fontSize: 22, color: COR.texto2, marginTop: 6 }}>
-                    {OPERACAO.campo} · {TOTAL_VAGAS} vagas · {OPERACAO.precoAntecipado}{" "}
-                    {OPERACAO.prazoLote}
-                  </div>
-                </div>
-              </div>
+      {/*
+        O grupo, logo abaixo: o link atravessa de um painel para o
+        outro. Aqui quem olha a tela é o Rodrigo, que organiza — a
+        mesma conversa reaparece espelhada na cena do celular da Ana.
+      */}
+      <div
+        style={{
+          position: "absolute",
+          left: 64,
+          top: 900,
+          width: 952,
+          height: 560,
+          overflow: "hidden",
+          border: `1px solid ${COR.borda}`,
+          opacity: surgir(frame, 34, 10),
+        }}
+      >
+        <CabecalhoDaConversa nome={GRUPO.nome} membros={GRUPO.membros} />
 
-              {[1, 2].map((i) => (
-                <div
-                  key={CONVERSA[i].de}
-                  style={{
-                    alignSelf: "flex-start",
-                    maxWidth: 700,
-                    padding: "16px 20px",
-                    border: `1px solid ${COR.borda}`,
-                    backgroundColor: COR.papel,
-                    opacity: surgir(frame, 76 + (i - 1) * 20, 8),
-                  }}
-                >
-                  <div
-                    style={{
-                      fontFamily: FONTE_DADO,
-                      fontSize: 17,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.14em",
-                      color: COR.texto2,
-                      marginBottom: 7,
-                    }}
-                  >
-                    {CONVERSA[i].de}
-                  </div>
-                  <div style={{ fontFamily: FONTE_TEXTO, fontSize: 26, color: COR.texto }}>
-                    {CONVERSA[i].texto}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Painel>
+        <div style={{ position: "relative", height: 490 }}>
+          <FundoDaConversa />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              padding: 18,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "flex-end",
+              gap: 10,
+            }}
+          >
+            {CONVERSA.map((mensagem, i) => (
+              <Balao
+                key={mensagem.de}
+                mensagem={mensagem}
+                eu="Rodrigo"
+                indiceNome={i}
+                largura={560}
+                entrada={surgir(frame, 42 + i * 20, 8)}
+              />
+            ))}
+          </div>
         </div>
-      </Palco>
+      </div>
 
       <Legenda kicker="Passo 2" titulo={"Mande o link.\nUma vez."} entrada={4} />
     </AbsoluteFill>
@@ -416,10 +384,10 @@ const TROCA_V = 40;
 
 const PARADAS_CONFIRMAR: Parada[] = [
   { frame: 0, x: 540, y: 1500 },
-  { frame: 32, x: 560, y: 620, clique: true },
-  { frame: 78, x: 560, y: 922, clique: true },
-  { frame: 106, x: 560, y: 999, clique: true },
-  { frame: 150, x: 580, y: 1030 },
+  { frame: 32, x: 480, y: 1020, clique: true },
+  { frame: 78, x: 480, y: 1053, clique: true },
+  { frame: 106, x: 440, y: 1137, clique: true },
+  { frame: 150, x: 470, y: 1160 },
 ];
 
 export const ConfirmarNoCelular: React.FC = () => {
