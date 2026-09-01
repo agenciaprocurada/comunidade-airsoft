@@ -1,0 +1,76 @@
+---
+import IconeNav, { type NomeIcone } from "./IconeNav.astro";
+
+/**
+ * Uma linha da navegação da conta.
+ *
+ * Existe para que a coluna do desktop e a gaveta do celular sejam a
+ * MESMA lista em duas densidades. Antes cada uma carregava a sua cópia
+ * das classes e elas já tinham começado a divergir: no celular o item
+ * de moderação vinha com o prefixo "Moderação · " grudado no rótulo,
+ * porque lá o título do grupo estava escondido. Rótulo remendado é
+ * sinal de que faltava o grupo, não de que faltava prefixo.
+ *
+ * `denso` = coluna do desktop, onde o ponteiro do mouse acerta alvo
+ * pequeno. Sem ele, a linha vai a 48px de altura — o mínimo para dedo.
+ */
+interface Props {
+  href: string | null;
+  texto: string;
+  icone: NomeIcone;
+  ativo?: boolean;
+  denso?: boolean;
+}
+
+const { href, texto, icone, ativo = false, denso = false } = Astro.props;
+
+const BASE =
+  "flex w-full items-center transition-colors duration-150 " +
+  "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-oliva-300";
+
+/* A gaveta do celular já é `bg-papel`, então o hover dela precisa de
+   um degrau a mais para aparecer. */
+const DENSIDADE = denso
+  ? "gap-2.5 px-3 py-2 text-[0.9375rem] leading-tight"
+  : "gap-3 px-4 py-3.5 text-[1rem] leading-tight";
+
+const HOVER = denso ? "hover:bg-papel hover:text-tinta" : "hover:bg-papel-2 hover:text-tinta";
+
+const ESTADO = ativo ? "bg-oliva-050 font-semibold text-oliva-100" : `text-texto ${HOVER}`;
+
+const TAMANHO_ICONE = denso ? "h-[1.15rem] w-[1.15rem]" : "h-[1.3rem] w-[1.3rem]";
+---
+
+{
+  href === null ? (
+    /* Seção anunciada e ainda não construída: some o link, fica o
+       rótulo com a marca de espera. Item de menu que quebra ensina a
+       pessoa a não confiar no menu. */
+    <span class:list={[BASE, DENSIDADE, "cursor-default text-desabilitado"]}>
+      <IconeNav nome={icone} class={TAMANHO_ICONE} />
+      <span class="min-w-0 flex-1 truncate text-left">{texto}</span>
+      <span class="ml-auto shrink-0 font-dado text-[0.625rem] uppercase tracking-[0.12em]">
+        em breve
+      </span>
+    </span>
+  ) : (
+    <a href={href} aria-current={ativo ? "page" : undefined} class:list={[BASE, DENSIDADE, ESTADO]}>
+      <IconeNav nome={icone} class={TAMANHO_ICONE} />
+      <span class="min-w-0 flex-1 truncate text-left">{texto}</span>
+      {ativo && !denso && (
+        /* Na gaveta o fundo oliva sozinho é discreto demais para
+           responder "onde eu estou" de relance. */
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          class="h-4 w-4 shrink-0"
+        >
+          <path d="m5 12 5 5 9-10" stroke-linecap="square" stroke-linejoin="miter" />
+        </svg>
+      )}
+    </a>
+  )
+}

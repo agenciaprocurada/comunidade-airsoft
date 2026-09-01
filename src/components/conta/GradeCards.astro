@@ -11,6 +11,10 @@
  * as trilhas vazias e estica o card na largura inteira. Eventos,
  * equipes e páginas quase sempre têm um ou dois itens — o card tem
  * que manter o tamanho, não virar uma faixa.
+ *
+ * O `min(...)` no mínimo é o que impede a trilha de ficar maior que a
+ * própria coluna: num celular de 320px sobravam 280px de conteúdo e a
+ * trilha de 19rem (304px) empurrava a página inteira para o lado.
  */
 interface Props {
   /** Largura mínima do card. Só mude com motivo. */
@@ -23,7 +27,7 @@ const { minimo = "19rem", class: classe } = Astro.props;
 
 <ul
   class:list={["grid gap-4", classe]}
-  style={`grid-template-columns: repeat(auto-fill, minmax(${minimo}, 1fr));`}
+  style={`grid-template-columns: repeat(auto-fill, minmax(min(${minimo}, 100%), 1fr));`}
 >
   <slot />
 </ul>

@@ -3,18 +3,21 @@
  * Ícones da navegação da conta. Traço reto e ponta quadrada, no mesmo
  * vocabulário angular dos ícones de categoria.
  */
+/** Exportado para ItemNav.astro falar o mesmo vocabulário sem copiar a lista. */
+export type NomeIcone =
+  | "painel"
+  | "operacoes"
+  | "equipes"
+  | "paginas"
+  | "replicas"
+  | "perfil"
+  | "moderacao"
+  | "mapas"
+  | "usuarios"
+  | "sair";
+
 interface Props {
-  nome:
-    | "painel"
-    | "operacoes"
-    | "equipes"
-    | "paginas"
-    | "replicas"
-    | "perfil"
-    | "moderacao"
-    | "mapas"
-    | "usuarios"
-    | "sair";
+  nome: NomeIcone;
   class?: string;
 }
 

@@ -1,18 +1,27 @@
 ---
 import Base from "./Base.astro";
 import IconeNav from "../components/conta/IconeNav.astro";
+import ItemNav from "../components/conta/ItemNav.astro";
 import { EQUIPES_VISIVEIS } from "../lib/flags";
 
 /**
  * Casca da área logada.
  *
- * Antes: uma segunda barra horizontal colada no Header do site, as duas
- * em caixa alta display. Duas navegações empilhadas, peso dobrado logo
- * na entrada, e sem espaço para crescer (equipes e operações ainda vêm).
+ * Desktop: coluna lateral fixa. Separa os dois níveis — sair da conta
+ * para o site continua sendo o Header — e aguenta a lista crescer.
  *
- * Agora: coluna lateral no desktop, faixa rolável no celular. Separa os
- * dois níveis — sair da conta para o site continua sendo o Header — e
- * aguenta a lista de seções crescer.
+ * Celular: a mesma lista virou UM seletor de seção. A tentativa
+ * anterior espalhava os itens numa grade que quebrava em linha e
+ * ocupava quatro fileiras irregulares antes do título da página; para
+ * quem modera, sete. Duas navegações empilhadas (o MENU do site e a
+ * nuvem de atalhos da conta) logo na primeira dobra, e a única pista
+ * de "onde eu estou" era um fundo escuro quase igual ao da página.
+ *
+ * Agora a barra mostra a seção atual e abre a lista inteira por cima
+ * do conteúdo — uma linha em vez de quatro, o mesmo gesto do menu do
+ * site, e nenhum item escondido. Feito com <details>: abre sem
+ * JavaScript, que aqui é decisão de acesso e não de gosto (muita
+ * gente abre o site no campo, com sinal ruim).
  */
 interface Props {
   titulo: string;
@@ -29,9 +38,7 @@ const { usuario, perfil, admin, paginas } = Astro.locals;
  * era um índice de coisas que já estão na navegação ao lado, então
  * duplicava a própria barra.
  *
- * `href: null` = seção anunciada mas ainda não construída. Aparece
- * inerte, com marca de "em breve", em vez de levar a lugar nenhum:
- * item de menu que quebra ensina a pessoa a não confiar no menu.
+ * `href: null` = seção anunciada mas ainda não construída.
  *
  * "Minhas páginas" só entra para quem já teve alguma reivindicação
  * aprovada — quem não tem campo nem loja não precisa da seção.
@@ -65,27 +72,148 @@ const atual = Astro.url.pathname;
 const ativo = (href: string | null) =>
   href === null ? false : href === "/conta" ? atual === "/conta" : atual.startsWith(href);
 
+/**
+ * O que a barra do celular mostra fechada. Telas fora do menu
+ * (/conta/completar, um formulário solto) caem no rótulo genérico em
+ * vez de mentir que estão numa seção.
+ */
+const secaoAtual = [...secoes, ...moderacao].find((secao) => ativo(secao.href)) ?? {
+  texto: "Minha conta",
+  icone: "perfil" as const,
+};
+
 const nome = perfil?.nome ?? usuario?.email ?? "jogador";
 const inicial = nome.trim().charAt(0).toUpperCase();
 
-const CLASSE_ITEM =
-  "flex items-center gap-2.5 px-3 py-2 text-[0.9375rem] leading-tight transition-colors duration-150 " +
-  "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-oliva-300";
+const CLASSE_SAIR =
+  "flex w-full cursor-pointer items-center text-texto-2 transition-colors duration-150 " +
+  "hover:text-alerta focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-oliva-300";
+
+const CLASSE_GRUPO = "font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2";
 ---
 
 <Base titulo={titulo} descricao={descricao} semIndexar={true}>
   <div class="mx-auto max-w-[1240px] px-5 md:px-12">
     <div class="lg:grid lg:grid-cols-[14.5rem_minmax(0,1fr)] lg:gap-12">
-      <!-- Identidade + navegação -->
-      <div class="lg:sticky lg:top-24 lg:self-start lg:py-12">
-        <div class="flex items-center gap-3 border-b border-borda py-5 lg:border-b-0 lg:pb-6 lg:pt-0">
+      <!-- ================= Celular: seletor de seção ================= -->
+      <nav aria-label="Minha conta" class="relative z-20 pt-5 lg:hidden">
+        <details class="group relative sm:max-w-[24rem]" data-menu-conta>
+          <summary
+            class="flex cursor-pointer list-none items-center gap-3 border border-borda-forte bg-papel px-4 py-3 text-[1rem] leading-tight text-tinta transition-colors duration-150 hover:border-oliva-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oliva-300 [&::-webkit-details-marker]:hidden"
+          >
+            <IconeNav nome={secaoAtual.icone} class="h-[1.3rem] w-[1.3rem] text-oliva-300" />
+            <span class="min-w-0 flex-1 truncate font-semibold">{secaoAtual.texto}</span>
+
+            {
+              perfil?.foto_url ? (
+                <img
+                  src={perfil.foto_url}
+                  alt=""
+                  width="28"
+                  height="28"
+                  referrerpolicy="no-referrer"
+                  class="octogono h-7 w-7 shrink-0 bg-oliva-050 object-cover"
+                />
+              ) : (
+                <span class="octogono flex h-7 w-7 shrink-0 items-center justify-center bg-oliva-050 text-[0.8125rem] font-semibold text-hud">
+                  {inicial}
+                </span>
+              )
+            }
+
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="h-4 w-4 shrink-0 text-texto-2 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
+            >
+              <path d="m6 9 6 6 6-6" stroke-linecap="square"></path>
+            </svg>
+          </summary>
+
+          <div
+            class="absolute inset-x-0 top-[calc(100%+0.375rem)] z-20 border border-borda-forte bg-papel shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
+          >
+            <!-- Quem está logado. Sai da página e vem para cá, junto do
+                 "sair": é onde as pessoas procuram as duas coisas. -->
+            <div class="flex items-center gap-3 border-b border-borda px-4 py-3">
+              {
+                perfil?.foto_url ? (
+                  <img
+                    src={perfil.foto_url}
+                    alt=""
+                    width="36"
+                    height="36"
+                    referrerpolicy="no-referrer"
+                    class="octogono h-9 w-9 shrink-0 bg-oliva-050 object-cover"
+                  />
+                ) : (
+                  <span class="octogono flex h-9 w-9 shrink-0 items-center justify-center bg-oliva-050 text-[0.9375rem] font-semibold text-hud">
+                    {inicial}
+                  </span>
+                )
+              }
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[0.9375rem] font-semibold leading-tight text-tinta">
+                  {nome}
+                </p>
+                <p class="truncate text-[0.8125rem] leading-tight text-texto-2">
+                  {usuario?.email}
+                </p>
+              </div>
+            </div>
+
+            <ul class="py-1">
+              {
+                secoes.map((secao) => (
+                  <li>
+                    <ItemNav {...secao} ativo={ativo(secao.href)} />
+                  </li>
+                ))
+              }
+            </ul>
+
+            {
+              moderacao.length > 0 && (
+                <div class="border-t border-borda pb-1 pt-2">
+                  <p class:list={[CLASSE_GRUPO, "px-4 pb-1"]}>Moderação</p>
+                  <ul>
+                    {moderacao.map((secao) => (
+                      <li>
+                        <ItemNav {...secao} ativo={ativo(secao.href)} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            }
+
+            <!-- Fora da lista de seções e por último: sair não é um
+                 lugar para ir. Antes ficava no alto da tela, colado no
+                 MENU do site — o pior canto possível para um botão que
+                 derruba a sessão. -->
+            <form method="POST" action="/auth/sair" class="border-t border-borda">
+              <button type="submit" class:list={[CLASSE_SAIR, "gap-3 px-4 py-3.5 text-[1rem]"]}>
+                <IconeNav nome="sair" class="h-[1.3rem] w-[1.3rem]" />
+                Sair da conta
+              </button>
+            </form>
+          </div>
+        </details>
+      </nav>
+
+      <!-- ================= Desktop: coluna lateral ================= -->
+      <div class="hidden lg:sticky lg:top-24 lg:block lg:self-start lg:py-12">
+        <div class="flex items-center gap-3 pb-6">
           {
             perfil?.foto_url ? (
               <img
                 src={perfil.foto_url}
                 alt=""
-                width="36"
-                height="36"
+                width="44"
+                height="44"
                 referrerpolicy="no-referrer"
                 class="octogono h-11 w-11 shrink-0 bg-oliva-050 object-cover"
               />
@@ -103,93 +231,28 @@ const CLASSE_ITEM =
               {usuario?.email}
             </p>
           </div>
-
-          <!-- No celular o "sair" fica aqui; no desktop vai para o pé da coluna. -->
-          <form method="POST" action="/auth/sair" class="lg:hidden">
-            <button
-              type="submit"
-              class="cursor-pointer px-2 py-1 text-[0.8125rem] font-semibold text-texto-2 transition-colors duration-150 hover:text-alerta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oliva-300"
-            >
-              Sair
-            </button>
-          </form>
         </div>
 
-        <nav aria-label="Minha conta" class="lg:mt-2">
-          <!--
-            Quebra em linha no celular em vez de rolar na horizontal.
-            Rolagem lateral escondia a última seção sem nenhuma pista de
-            que havia mais — item de navegação invisível é item que não
-            existe.
-          -->
-          <ul
-            class="-mx-1 flex flex-wrap gap-1 py-2 lg:mx-0 lg:flex-col lg:flex-nowrap lg:gap-0.5 lg:py-0"
-          >
+        <nav aria-label="Minha conta" class="mt-2">
+          <ul class="flex flex-col gap-0.5">
             {
-              secoes.map((secao) =>
-                secao.href === null ? (
-                  /* Seção anunciada e ainda não construída: some o
-                     link, fica o rótulo com a marca de espera. */
-                  <li class="shrink-0 lg:shrink">
-                    <span
-                      class:list={[CLASSE_ITEM, "cursor-default whitespace-nowrap text-desabilitado lg:whitespace-normal"]}
-                    >
-                      <IconeNav nome={secao.icone} class="h-[1.15rem] w-[1.15rem]" />
-                      {secao.texto}
-                      <span class="ml-auto hidden font-dado text-[0.625rem] uppercase tracking-[0.12em] lg:inline">
-                        em breve
-                      </span>
-                    </span>
-                  </li>
-                ) : (
-                  <li class="shrink-0 lg:shrink">
-                    <a
-                      href={secao.href}
-                      aria-current={ativo(secao.href) ? "page" : undefined}
-                      class:list={[
-                        CLASSE_ITEM,
-                        "whitespace-nowrap lg:whitespace-normal",
-                        ativo(secao.href)
-                          ? "bg-oliva-050 font-semibold text-oliva-100"
-                          : "text-texto hover:bg-papel hover:text-tinta",
-                      ]}
-                    >
-                      <IconeNav nome={secao.icone} class="h-[1.15rem] w-[1.15rem]" />
-                      {secao.texto}
-                    </a>
-                  </li>
-                ),
-              )
+              secoes.map((secao) => (
+                <li>
+                  <ItemNav {...secao} ativo={ativo(secao.href)} denso />
+                </li>
+              ))
             }
 
             {
               moderacao.length > 0 && (
                 <>
-                  <li
-                    aria-hidden="true"
-                    class="hidden lg:mt-4 lg:mb-1 lg:block lg:h-px lg:w-full bg-borda"
-                  />
-                  <li class="hidden lg:block">
-                    <p class="px-3 pb-1 font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
-                      Moderação
-                    </p>
+                  <li aria-hidden="true" class="mb-1 mt-4 h-px w-full bg-borda" />
+                  <li>
+                    <p class:list={[CLASSE_GRUPO, "px-3 pb-1"]}>Moderação</p>
                   </li>
                   {moderacao.map((secao) => (
-                    <li class="shrink-0 lg:shrink">
-                      <a
-                        href={secao.href}
-                        aria-current={ativo(secao.href) ? "page" : undefined}
-                        class:list={[
-                          CLASSE_ITEM,
-                          "whitespace-nowrap lg:whitespace-normal",
-                          ativo(secao.href)
-                            ? "bg-oliva-050 font-semibold text-oliva-100"
-                            : "text-texto hover:bg-papel hover:text-tinta",
-                        ]}
-                      >
-                        <IconeNav nome={secao.icone} class="h-[1.15rem] w-[1.15rem]" />
-                        <span class="lg:hidden">Moderação · </span>{secao.texto}
-                      </a>
+                    <li>
+                      <ItemNav {...secao} ativo={ativo(secao.href)} denso />
                     </li>
                   ))}
                 </>
@@ -198,19 +261,17 @@ const CLASSE_ITEM =
           </ul>
         </nav>
 
-        <form method="POST" action="/auth/sair" class="mt-6 hidden border-t border-borda pt-4 lg:block">
-          <button
-            type="submit"
-            class="flex cursor-pointer items-center gap-2.5 px-3 py-1 text-[0.9375rem] text-texto-2 transition-colors duration-150 hover:text-alerta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oliva-300"
-          >
+        <form method="POST" action="/auth/sair" class="mt-6 border-t border-borda pt-4">
+          <button type="submit" class:list={[CLASSE_SAIR, "gap-2.5 px-3 py-1 text-[0.9375rem]"]}>
             <IconeNav nome="sair" class="h-[1.15rem] w-[1.15rem]" />
             Sair da conta
           </button>
         </form>
 
         <!-- Convite para o grupo oficial: só no desktop, onde a coluna
-             tem espaço sobrando embaixo da navegação. -->
-        <div class="mt-8 hidden border border-borda bg-gradient-to-b from-oliva-050 to-papel/40 p-4 lg:block">
+             tem espaço sobrando embaixo da navegação. No celular quem
+             faz esse convite é a barra fixa do rodapé. -->
+        <div class="mt-8 border border-borda bg-gradient-to-b from-oliva-050 to-papel/40 p-4">
           <p class="text-[0.9375rem] font-semibold leading-snug text-tinta">
             Faça parte da comunidade
           </p>
@@ -228,7 +289,7 @@ const CLASSE_ITEM =
         </div>
       </div>
 
-      <!-- Conteúdo -->
+      <!-- ================= Conteúdo ================= -->
       <div class="min-w-0 py-8 lg:py-12">
         <header>
           <h1
@@ -250,3 +311,25 @@ const CLASSE_ITEM =
     </div>
   </div>
 </Base>
+
+<script>
+  /*
+   * Enfeite em cima do <details>, que já abre e fecha sozinho: fechar
+   * tocando fora e no Esc. Sem isso a gaveta continua funcionando —
+   * fecha tocando na barra de novo.
+   */
+  const menu = document.querySelector<HTMLDetailsElement>("[data-menu-conta]");
+
+  if (menu) {
+    document.addEventListener("click", (evento) => {
+      if (menu.open && !menu.contains(evento.target as Node)) menu.open = false;
+    });
+
+    document.addEventListener("keydown", (evento) => {
+      if (evento.key === "Escape" && menu.open) {
+        menu.open = false;
+        menu.querySelector("summary")?.focus();
+      }
+    });
+  }
+</script>
