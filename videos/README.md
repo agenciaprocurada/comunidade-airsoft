@@ -10,7 +10,7 @@ de terem duas paletas.
 | --- | --- | --- | --- |
 | `VideoGeradorMapa` | 1920×1080 | 15 s | bloco de vídeo da `/criador-de-mapas` |
 | `VideoVertical` | 1080×1920 | 30 s | Reels / TikTok / Shorts do criador de mapas |
-| `VideoOperacoes` | 1920×1080 | 22 s | bloco de vídeo da `/organizador-de-operacoes` |
+| `VideoOperacoes` | 1920×1080 | 26 s | bloco de vídeo da `/organizador-de-operacoes` |
 | `VideoOperacoesVertical` | 1080×1920 | 30 s | Reels / TikTok / Shorts do organizador |
 
 ```
@@ -175,23 +175,24 @@ Não foi corte: o documento é 16:9 e a tela é 9:16, não existe encaixe honest
 
 # Vídeos do Organizador de Operações
 
-## 16:9 — 22 s · 1920×1080 · 30 fps (660 frames)
+## 16:9 — 26 s · 1920×1080 · 30 fps (780 frames)
 
 ```
 npm run render:operacoes   # out/organizador-de-operacoes-1920x1080.mp4
 ```
 
-Composição `VideoOperacoes`; as seis cenas também estão soltas na pasta
+Composição `VideoOperacoes`; as sete cenas também estão soltas na pasta
 "Cenas-Operacoes" do Studio.
 
 | Frames | Tempo | Cena | Arquivo |
 | --- | --- | --- | --- |
 | 0–66 | 0–2 s | A marca surge | `src/operacoes/cenas/Abertura.tsx` |
 | 60–246 | 2–8 s | Abrir a operação: campo, data, lados, lotes, publicar | `src/operacoes/cenas/Criar.tsx` |
-| 240–366 | 8–12 s | O link vai para o grupo | `src/operacoes/cenas/Link.tsx` |
-| 360–516 | 12–17 s | A lista se enche e alguém cai na espera | `src/operacoes/cenas/Lista.tsx` |
-| 510–606 | 17–20 s | No portão: pago e presente | `src/operacoes/cenas/NoDia.tsx` |
-| 600–660 | 20–22 s | Chamada e botão | `src/operacoes/cenas/Chamada.tsx` |
+| 240–366 | 8–12 s | O link vai para o grupo da equipe | `src/operacoes/cenas/Link.tsx` |
+| 360–486 | 12–16 s | Alguém abre o link no celular e confirma presença | `src/operacoes/cenas/Confirmar.tsx` |
+| 480–636 | 16–21 s | A lista se enche e alguém cai na espera | `src/operacoes/cenas/Lista.tsx` |
+| 630–726 | 21–24 s | No portão: pago e presente | `src/operacoes/cenas/NoDia.tsx` |
+| 720–780 | 24–26 s | Chamada e botão | `src/operacoes/cenas/Chamada.tsx` |
 
 As cenas se sobrepõem em 6 frames, então a troca é dissolvência e não corte.
 
@@ -201,7 +202,8 @@ As cenas se sobrepõem em 6 frames, então a troca é dissolvência e não corte
 npm run render:operacoes-vertical   # out/organizador-de-operacoes-1080x1920.mp4
 ```
 
-Cortes SECOS caindo no compasso de 120 BPM (`src/operacoes/vertical/ritmo.ts`),
+Sete cenas, cortes SECOS caindo no compasso de 120 BPM
+(`src/operacoes/vertical/ritmo.ts`),
 mesma regra do vertical do criador de mapas. Cenas em
 `src/operacoes/vertical/cenas.tsx` — um arquivo só, porque cada uma delas é uma
 variante de enquadramento da cena equivalente do 16:9, não um roteiro novo.
@@ -210,7 +212,13 @@ variante de enquadramento da cena equivalente do 16:9, não um roteiro novo.
 
 Remotion não grava tela. `src/operacoes/pecas.tsx` é uma reconstrução em React
 do painel de `/conta/operacoes` e da página pública da operação: painel, chips,
-barra de vagas, linha da lista, caixa do link, botão.
+barra de vagas, linha da lista, caixa do link, botão, moldura de celular e
+opção de lado.
+
+A cena `Confirmar.tsx` exporta as duas telas do celular (`ChatNoCelular` e
+`PaginaDoEvento`) porque o 9:16 mostra as MESMAS telas — muda o tamanho do
+aparelho e o ritmo, não o que está escrito nelas. Por isso os marcos de tempo
+(`militar`, `confirmar`) entram por prop.
 
 Não é preciosismo: o roteiro pede que a barra de vagas ENCHA, que os nomes
 CAIAM um a um e que o chip de "pago" ACENDA no clique. Nada disso sai de uma
@@ -228,6 +236,11 @@ animação — o vertical dizendo 20 enquanto o horizontal diz 21.
 
 Os nomes são fictícios. Lista de presença de verdade tem gente de verdade
 dentro, e isso não vai para vídeo de divulgação.
+
+A Ana é a primeira da lista de propósito: é ela quem confirma na cena do
+celular, e a lista da cena seguinte abre com ela já dentro. Sem isso a contagem
+caía de 14 para 13 na troca de cena — o tipo de detalhe que ninguém sabe
+explicar mas todo mundo sente.
 
 ## Onde mexer
 

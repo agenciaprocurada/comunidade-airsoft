@@ -23,8 +23,12 @@ import { BarraLado, Chip, GradeTatica, LinhaJogador, Painel, Passo, surgir } fro
  * topo — assim a soma nunca se contradiz no meio da animação.
  */
 
-/** Frame em que cada jogador aparece. O último demora: é a virada. */
-const ENTRADAS = [10, 24, 38, 52, 66, 80, 104];
+/**
+ * Frame em que cada jogador aparece. A Ana entra em 0: ela confirmou
+ * na cena anterior e a lista abre com ela dentro. O último demora — é
+ * a virada da cena.
+ */
+const ENTRADAS = [0, 12, 26, 40, 54, 68, 82, 106];
 
 export const Lista: React.FC = () => {
   const frame = useCurrentFrame();
@@ -37,7 +41,7 @@ export const Lista: React.FC = () => {
     <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
       <GradeTatica opacidade={0.5} />
 
-      <Passo numero="03" titulo={"A lista se\nenche sozinha"} frame={frame} entrada={2} />
+      <Passo numero="04" titulo={"A lista se\nenche sozinha"} frame={frame} entrada={2} />
 
       <div
         style={{
@@ -129,7 +133,7 @@ export const Lista: React.FC = () => {
                   lado={jogador.lado}
                   cor={corDoLado(jogador.lado)}
                   entrada={entrada}
-                  altura={68}
+                  altura={64}
                   direita={
                     jogador.estado === "espera" ? (
                       <Chip tom="espera">Lista de espera</Chip>

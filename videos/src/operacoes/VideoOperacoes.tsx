@@ -3,17 +3,23 @@ import { COR } from "../tema";
 import { Abertura } from "./cenas/Abertura";
 import { Criar } from "./cenas/Criar";
 import { Link } from "./cenas/Link";
+import { Confirmar } from "./cenas/Confirmar";
 import { Lista } from "./cenas/Lista";
 import { NoDia } from "./cenas/NoDia";
 import { Chamada } from "./cenas/Chamada";
 
 /**
- * 22 s a 30 fps = 660 frames, 1920×1080.
+ * 26 s a 30 fps = 780 frames, 1920×1080.
  *
  * O roteiro é a semana de quem organiza, na ordem em que ela acontece:
- * abrir a operação, mandar o link, a lista se encher, o portão do
- * campo. A ferramenta não é explicada — ela é usada na frente de quem
- * assiste.
+ * abrir a operação, mandar o link no grupo, alguém abrir esse link e
+ * confirmar, a lista se encher, o portão do campo. A ferramenta não é
+ * explicada — ela é usada na frente de quem assiste.
+ *
+ * A cena do "Confirmar" existe porque sem ela o vídeo pedia um ato de
+ * fé: o link saía do painel e a lista aparecia cheia, sem mostrar
+ * ninguém entrando. É o único momento em que a tela é do JOGADOR, e
+ * não do organizador.
  *
  * As cenas SE SOBREPÕEM em 6 frames de propósito: cada uma nasce
  * transparente por cima da anterior, então a troca é dissolvência e
@@ -23,7 +29,7 @@ import { Chamada } from "./cenas/Chamada";
 export const VideoOperacoes: React.FC = () => {
   return (
     <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
-      <Sequence name="0-2s · Marca"  durationInFrames={66}>
+      <Sequence name="0-2s · Marca" durationInFrames={66}>
         <Abertura />
       </Sequence>
 
@@ -35,19 +41,23 @@ export const VideoOperacoes: React.FC = () => {
         <Link />
       </Sequence>
 
-      <Sequence name="12-17s · A lista se enche" from={360} durationInFrames={156}>
+      <Sequence name="12-16s · Ele abre e confirma" from={360} durationInFrames={126}>
+        <Confirmar />
+      </Sequence>
+
+      <Sequence name="16-21s · A lista se enche" from={480} durationInFrames={156}>
         <Lista />
       </Sequence>
 
-      <Sequence name="17-20s · No portão do campo" from={510} durationInFrames={96}>
+      <Sequence name="21-24s · No portão do campo" from={630} durationInFrames={96}>
         <NoDia />
       </Sequence>
 
-      <Sequence name="20-22s · Chamada" from={600} durationInFrames={60}>
+      <Sequence name="24-26s · Chamada" from={720} durationInFrames={60}>
         <Chamada />
       </Sequence>
     </AbsoluteFill>
   );
 };
 
-export const DURACAO_OPERACOES = 660;
+export const DURACAO_OPERACOES = 780;

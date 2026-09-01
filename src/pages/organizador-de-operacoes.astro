@@ -174,7 +174,7 @@ const faq = {
 };
 
 /**
- * Vídeo de demonstração — 22 segundos, da operação vazia à lista
+ * Vídeo de demonstração — 26 segundos, da operação vazia à lista
  * fechada.
  *
  * O MP4 sai do projeto Remotion em videos/ (composição
@@ -191,16 +191,16 @@ const faq = {
  * O binário do ffmpeg já vem junto com o Remotion, dentro de
  * videos/node_modules/@remotion/compositor-*.
  *
- * O pôster é o quadro dos 16,6 s — a lista JÁ CHEIA, com os dois
+ * O pôster é o quadro dos 20,5 s — a lista JÁ CHEIA, com os dois
  * lados e o selo da espera. O primeiro quadro é a marca sobre fundo
  * preto, que não convida ninguém a apertar o play.
  */
 const VIDEO = {
   arquivo: "/video/organizador-de-operacoes-airsoft.mp4",
   titulo: "Organizador de operações de airsoft — lista de presença num link",
-  duracaoIso: "PT22S",
-  duracaoTexto: "22 segundos",
-  publicadoEm: "2026-08-31",
+  duracaoIso: "PT26S",
+  duracaoTexto: "26 segundos",
+  publicadoEm: "2026-09-01",
 };
 
 /**
@@ -216,9 +216,9 @@ const video = {
   name: VIDEO.titulo,
   description:
     "Demonstração do Organizador de Operações da Comunidade Airsoft: abrir a " +
-    "operação com campo, data, lados e vagas, publicar o link no grupo, a lista " +
-    "se enchendo com lista de espera automática e a marcação de pago e presente " +
-    "no dia do jogo.",
+    "operação com campo, data, lados e vagas, publicar o link no grupo da equipe, " +
+    "um jogador abrindo esse link e confirmando presença, a lista se enchendo com " +
+    "lista de espera automática e a marcação de pago e presente no dia do jogo.",
   uploadDate: VIDEO.publicadoEm,
   duration: VIDEO.duracaoIso,
   thumbnailUrl: new URL(capaVideo.src, Astro.site).href,

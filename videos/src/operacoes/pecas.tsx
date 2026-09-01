@@ -384,6 +384,142 @@ export const CaixaLink: React.FC<{
 );
 
 /* ==================================================================
+   Telefone — a página do evento na mão de quem recebeu o link
+   ================================================================== */
+
+/**
+ * A moldura do celular.
+ *
+ * Único lugar do vídeo com canto arredondado: é o que faz a tela ser
+ * lida como "celular de alguém" e não como mais um painel. Exceção
+ * local e consciente à regra de canto reto do DS — a mesma licença
+ * que a bandeja de símbolos tem na landing do criador de mapas.
+ *
+ * A tela por dentro é reta, então tudo que vive nela continua no
+ * dialeto do produto.
+ */
+export const Telefone: React.FC<{
+  largura: number;
+  altura: number;
+  children: React.ReactNode;
+  /** Barra de status falsa no topo — hora e sinal, sem marca nenhuma. */
+  hora?: string;
+}> = ({ largura, altura, children, hora = "08:12" }) => (
+  <div
+    style={{
+      width: largura,
+      height: altura,
+      padding: 14,
+      borderRadius: 44,
+      backgroundColor: "#05060a",
+      border: `2px solid ${COR.bordaForte}`,
+      boxShadow: "0 50px 120px -40px rgba(0,0,0,0.95)",
+      overflow: "hidden",
+    }}
+  >
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        borderRadius: 32,
+        backgroundColor: COR.fundo,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "16px 26px 10px",
+          fontFamily: FONTE_DADO,
+          fontSize: 19,
+          color: COR.texto2,
+          flexShrink: 0,
+        }}
+      >
+        <span>{hora}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {[6, 9, 12, 15].map((h) => (
+            <span key={h} style={{ width: 4, height: h, backgroundColor: COR.texto2 }} />
+          ))}
+          <span
+            style={{
+              marginLeft: 6,
+              width: 26,
+              height: 12,
+              border: `1px solid ${COR.texto2}`,
+              padding: 2,
+            }}
+          >
+            <span style={{ display: "block", width: "70%", height: "100%", backgroundColor: COR.texto2 }} />
+          </span>
+        </span>
+      </div>
+      <div style={{ flex: 1, overflow: "hidden" }}>{children}</div>
+    </div>
+  </div>
+);
+
+/**
+ * Uma opção de lado no formulário de inscrição, como no site: caixa
+ * clicável inteira, marcador redondo à esquerda e o aviso de "espera"
+ * quando aquele lado já lotou.
+ */
+export const OpcaoLado: React.FC<{
+  nome: string;
+  marcada: boolean;
+  cheio?: boolean;
+  tamanho?: number;
+}> = ({ nome, marcada, cheio = false, tamanho = 25 }) => (
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 14,
+      padding: "14px 18px",
+      border: `1px solid ${marcada ? COR.oliva700 : COR.borda}`,
+      backgroundColor: marcada ? COR.oliva050 : "transparent",
+    }}
+  >
+    <span
+      style={{
+        width: 20,
+        height: 20,
+        flexShrink: 0,
+        borderRadius: 999,
+        border: `2px solid ${marcada ? COR.oliva500 : COR.bordaForte}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {marcada ? (
+        <span style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: COR.oliva500 }} />
+      ) : null}
+    </span>
+    <span style={{ flex: 1, fontFamily: FONTE_TEXTO, fontSize: tamanho, color: COR.texto }}>
+      {nome}
+    </span>
+    {cheio ? (
+      <span
+        style={{
+          fontFamily: FONTE_DADO,
+          fontSize: 17,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          color: COR.latao,
+        }}
+      >
+        espera
+      </span>
+    ) : null}
+  </div>
+);
+
+/* ==================================================================
    Botão
    ================================================================== */
 

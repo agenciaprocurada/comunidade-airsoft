@@ -11,6 +11,7 @@ import { VideoOperacoes } from "./operacoes/VideoOperacoes";
 import { Abertura as AberturaOp } from "./operacoes/cenas/Abertura";
 import { Criar as CriarOp } from "./operacoes/cenas/Criar";
 import { Link as LinkOp } from "./operacoes/cenas/Link";
+import { Confirmar as ConfirmarOp } from "./operacoes/cenas/Confirmar";
 import { Lista as ListaOp } from "./operacoes/cenas/Lista";
 import { NoDia as NoDiaOp } from "./operacoes/cenas/NoDia";
 import { Chamada as ChamadaOp } from "./operacoes/cenas/Chamada";
@@ -22,6 +23,7 @@ import {
   LinkNoGrupo as LinkOpV,
   Lista as ListaOpV,
   NoDia as NoDiaOpV,
+  ConfirmarNoCelular as ConfirmarOpV,
 } from "./operacoes/vertical/cenas";
 import { Abertura as AberturaV } from "./vertical/cenas/Abertura";
 import { Ferramenta as FerramentaV } from "./vertical/cenas/Ferramenta";
@@ -53,7 +55,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="VideoOperacoes"
         component={VideoOperacoes}
-        durationInFrames={660}
+        durationInFrames={780}
         fps={30}
         width={1920}
         height={1080}
@@ -80,7 +82,7 @@ export const RemotionRoot: React.FC = () => {
         <Composition
           id="OV2-Criar"
           component={CriarOpV}
-          durationInFrames={180}
+          durationInFrames={150}
           fps={30}
           width={1080}
           height={1920}
@@ -88,31 +90,39 @@ export const RemotionRoot: React.FC = () => {
         <Composition
           id="OV3-Link"
           component={LinkOpV}
-          durationInFrames={150}
-          fps={30}
-          width={1080}
-          height={1920}
-        />
-        <Composition
-          id="OV4-Lista"
-          component={ListaOpV}
-          durationInFrames={240}
-          fps={30}
-          width={1080}
-          height={1920}
-        />
-        <Composition
-          id="OV5-NoDia"
-          component={NoDiaOpV}
-          durationInFrames={150}
-          fps={30}
-          width={1080}
-          height={1920}
-        />
-        <Composition
-          id="OV6-Chamada"
-          component={ChamadaOpV}
           durationInFrames={120}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="OV4-Confirmar"
+          component={ConfirmarOpV}
+          durationInFrames={150}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="OV5-Lista"
+          component={ListaOpV}
+          durationInFrames={210}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="OV6-NoDia"
+          component={NoDiaOpV}
+          durationInFrames={120}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="OV7-Chamada"
+          component={ChamadaOpV}
+          durationInFrames={90}
           fps={30}
           width={1080}
           height={1920}
@@ -145,7 +155,15 @@ export const RemotionRoot: React.FC = () => {
           height={1080}
         />
         <Composition
-          id="O4-Lista"
+          id="O4-Confirmar"
+          component={ConfirmarOp}
+          durationInFrames={126}
+          fps={30}
+          width={1920}
+          height={1080}
+        />
+        <Composition
+          id="O5-Lista"
           component={ListaOp}
           durationInFrames={156}
           fps={30}
@@ -153,7 +171,7 @@ export const RemotionRoot: React.FC = () => {
           height={1080}
         />
         <Composition
-          id="O5-NoDia"
+          id="O6-NoDia"
           component={NoDiaOp}
           durationInFrames={96}
           fps={30}
@@ -161,7 +179,7 @@ export const RemotionRoot: React.FC = () => {
           height={1080}
         />
         <Composition
-          id="O6-Chamada"
+          id="O7-Chamada"
           component={ChamadaOp}
           durationInFrames={60}
           fps={30}

@@ -150,7 +150,7 @@ export const Link: React.FC = () => {
           opacity: surgir(frame, 38, 10),
         }}
       >
-        <Painel titulo="Grupo do jogo" etiqueta="42 membros" corEtiqueta={COR.texto2} largura={1060}>
+        <Painel titulo="Grupo da equipe" etiqueta="42 membros" corEtiqueta={COR.texto2} largura={1060}>
           <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 14 }}>
             <Bolha
               de={CONVERSA[0].de}

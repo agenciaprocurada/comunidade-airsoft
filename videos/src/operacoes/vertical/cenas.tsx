@@ -1,6 +1,7 @@
 import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { Cursor, posicaoCursor, pulsoDoClique, type Parada } from "../../componentes/Cursor";
 import { Legenda } from "../../vertical/Moldura";
+import { ChatNoCelular, PaginaDoEvento } from "../cenas/Confirmar";
 import { COR, FONTE_DADO, FONTE_DISPLAY, FONTE_TEXTO } from "../../tema";
 import {
   BUSCA_CAMPO,
@@ -24,6 +25,7 @@ import {
   GradeTatica,
   LinhaJogador,
   Painel,
+  Telefone,
   surgir,
 } from "../pecas";
 
@@ -164,11 +166,11 @@ export const Gancho: React.FC = () => {
 const PARADAS_CRIAR: Parada[] = [
   { frame: 0, x: 520, y: 820 },
   { frame: 12, x: 220, y: 154, clique: true },
-  { frame: 60, x: 220, y: 265, clique: true },
-  { frame: 92, x: 160, y: 450, clique: true },
-  { frame: 122, x: 220, y: 561, clique: true },
-  { frame: 152, x: 200, y: 650, clique: true },
-  { frame: 180, x: 200, y: 650 },
+  { frame: 54, x: 220, y: 265, clique: true },
+  { frame: 76, x: 160, y: 450, clique: true },
+  { frame: 96, x: 220, y: 561, clique: true },
+  { frame: 124, x: 200, y: 650, clique: true },
+  { frame: 150, x: 200, y: 650 },
 ];
 
 export const Criar: React.FC = () => {
@@ -176,9 +178,9 @@ export const Criar: React.FC = () => {
   const cursor = posicaoCursor(frame, PARADAS_CRIAR);
   const clique = pulsoDoClique(frame, PARADAS_CRIAR);
 
-  const digitando = frame >= 14 && frame < 54;
-  const escolheu = frame >= 56;
-  const publicou = frame >= 156;
+  const digitando = frame >= 14 && frame < 46;
+  const escolheu = frame >= 48;
+  const publicou = frame >= 124;
 
   return (
     <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
@@ -201,8 +203,8 @@ export const Criar: React.FC = () => {
               frame={frame}
             />
             <div style={{ display: "flex", gap: 22 }}>
-              <CampoForm rotulo="Data" valor={frame >= 66 ? "13/09/2026" : ""} largura={485} />
-              <CampoForm rotulo="Início" valor={frame >= 74 ? OPERACAO.inicio : ""} largura={485} />
+              <CampoForm rotulo="Data" valor={frame >= 58 ? "13/09/2026" : ""} largura={485} />
+              <CampoForm rotulo="Início" valor={frame >= 66 ? OPERACAO.inicio : ""} largura={485} />
             </div>
 
             <div>
@@ -223,7 +225,7 @@ export const Criar: React.FC = () => {
                   /* O primeiro lado já vem sugerido; o segundo entra no
                      clique do frame 92 — sem isso o ponteiro clicaria
                      num espaço vazio e o gesto não faria sentido. */
-                  const entra = i === 0 ? surgir(frame, 58, 10) : surgir(frame, 96, 10);
+                  const entra = i === 0 ? surgir(frame, 50, 10) : surgir(frame, 84, 10);
                   return (
                     <div
                       key={lado.nome}
@@ -256,14 +258,14 @@ export const Criar: React.FC = () => {
             </div>
 
             <div style={{ display: "flex", gap: 22 }}>
-              <CampoForm rotulo="Lote antecipado" valor={frame >= 128 ? "35,00" : ""} largura={485} />
-              <CampoForm rotulo="No dia" valor={frame >= 136 ? "50,00" : ""} largura={485} />
+              <CampoForm rotulo="Lote antecipado" valor={frame >= 98 ? "35,00" : ""} largura={485} />
+              <CampoForm rotulo="No dia" valor={frame >= 106 ? "50,00" : ""} largura={485} />
             </div>
 
             <Botao
               aceso={
                 publicou
-                  ? interpolate(frame, [156, 176], [1, 0.2], {
+                  ? interpolate(frame, [124, 144], [1, 0.2], {
                       extrapolateLeft: "clamp",
                       extrapolateRight: "clamp",
                     })
@@ -317,7 +319,7 @@ export const LinkNoGrupo: React.FC = () => {
       {/* O grupo, logo abaixo: o link atravessa de um para o outro. */}
       <Palco topo={730}>
         <div style={{ opacity: surgir(frame, 34, 10) }}>
-          <Painel titulo="Grupo do jogo" etiqueta="42 membros" corEtiqueta={COR.texto2} largura={1060}>
+          <Painel titulo="Grupo da equipe" etiqueta="42 membros" corEtiqueta={COR.texto2} largura={1060}>
             <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
               <div
                 style={{
@@ -399,10 +401,82 @@ export const LinkNoGrupo: React.FC = () => {
 };
 
 /* ==================================================================
-   13–21 s · A lista se enche sozinha
+   11–16 s · Do outro lado do link: ele abre e confirma
    ================================================================== */
 
-const ENTRADAS_V = [20, 44, 66, 88, 110, 132, 168];
+/**
+ * O aparelho ocupa quase a tela toda aqui — é o formato pedindo: um
+ * celular dentro de um vídeo vertical é o mesmo retângulo, e fingir
+ * outra coisa só desperdiçaria pixel.
+ *
+ * As telas são as MESMAS do 16:9 (`ChatNoCelular`, `PaginaDoEvento`),
+ * só o ritmo muda: 150 frames em vez de 126.
+ */
+const TROCA_V = 40;
+
+const PARADAS_CONFIRMAR: Parada[] = [
+  { frame: 0, x: 540, y: 1500 },
+  { frame: 32, x: 560, y: 620, clique: true },
+  { frame: 78, x: 560, y: 922, clique: true },
+  { frame: 106, x: 560, y: 999, clique: true },
+  { frame: 150, x: 580, y: 1030 },
+];
+
+export const ConfirmarNoCelular: React.FC = () => {
+  const frame = useCurrentFrame();
+  const cursor = posicaoCursor(frame, PARADAS_CONFIRMAR);
+  const clique = pulsoDoClique(frame, PARADAS_CONFIRMAR);
+
+  const abrindo = interpolate(frame, [TROCA_V, TROCA_V + 12], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
+      <GradeTatica opacidade={0.6} />
+
+      <div
+        style={{
+          position: "absolute",
+          left: 240,
+          top: 270,
+          opacity: surgir(frame, 0, 10),
+          translate: `0 ${interpolate(surgir(frame, 0, 10), [0, 1], [26, 0])}px`,
+        }}
+      >
+        <Telefone largura={600} altura={1100}>
+          <div style={{ position: "relative", height: "100%" }}>
+            <div style={{ position: "absolute", inset: 0, opacity: abrindo }}>
+              <ChatNoCelular frame={frame} />
+            </div>
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                opacity: 1 - abrindo,
+                translate: `0 ${interpolate(abrindo, [0, 1], [0, 40])}px`,
+              }}
+            >
+              <PaginaDoEvento frame={frame} militar={78} confirmar={106} />
+            </div>
+          </div>
+        </Telefone>
+      </div>
+
+      <Cursor x={cursor.x} y={cursor.y} clique={clique} />
+
+      <Legenda kicker="Passo 3" titulo={"Ele abre\ne confirma"} entrada={4} saida={100} />
+      <Legenda kicker="Dois toques" titulo={"Entrou\nna lista"} entrada={110} />
+    </AbsoluteFill>
+  );
+};
+
+/* ==================================================================
+   16–23 s · A lista se enche sozinha
+   ================================================================== */
+
+const ENTRADAS_V = [0, 22, 44, 66, 88, 110, 132, 168];
 
 export const Lista: React.FC = () => {
   const frame = useCurrentFrame();
@@ -452,7 +526,7 @@ export const Lista: React.FC = () => {
                   lado={jogador.lado}
                   cor={corDoLado(jogador.lado)}
                   entrada={entrada}
-                  altura={72}
+                  altura={66}
                   direita={
                     jogador.estado === "espera" ? (
                       <Chip tom="espera">Lista de espera</Chip>
@@ -490,7 +564,7 @@ const PARADAS_DIA: Parada[] = [
   { frame: 54, x: 790, y: LINHA_Y_V[2], clique: true },
   { frame: 74, x: 960, y: LINHA_Y_V[2], clique: true },
   { frame: 96, x: 960, y: LINHA_Y_V[3], clique: true },
-  { frame: 150, x: 940, y: 452 },
+  { frame: 120, x: 940, y: 452 },
 ];
 
 export const NoDia: React.FC = () => {

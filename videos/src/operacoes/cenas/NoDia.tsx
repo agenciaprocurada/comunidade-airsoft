@@ -46,7 +46,7 @@ export const NoDia: React.FC = () => {
     <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
       <GradeTatica opacidade={0.5} />
 
-      <Passo numero="04" titulo={"No portão\ndo campo"} frame={frame} entrada={2} />
+      <Passo numero="05" titulo={"No portão\ndo campo"} frame={frame} entrada={2} />
 
       <div
         style={{

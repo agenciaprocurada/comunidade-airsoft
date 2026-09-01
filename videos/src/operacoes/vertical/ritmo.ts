@@ -23,14 +23,21 @@ export const DURACAO = 900; // 30 s
 
 export const TRILHA: string | null = "guia-120bpm.mp3";
 
-/** Onde cada cena começa. O último valor é o fim do vídeo. */
+/**
+ * Onde cada cena começa. O último valor é o fim do vídeo.
+ *
+ * O total continua em 900 frames mesmo com a cena do "confirmar" — o
+ * vertical vive de 30 s, e a barra de progresso da moldura é calculada
+ * sobre essa duração. Entrou cena nova, as outras encolheram.
+ */
 export const LIMITES = {
   gancho: 0,
   criar: 60,
-  link: 240,
-  lista: 390,
-  nodia: 630,
-  chamada: 780,
+  link: 210,
+  confirmar: 330,
+  lista: 480,
+  nodia: 690,
+  chamada: 810,
   fim: 900,
 } as const;
 

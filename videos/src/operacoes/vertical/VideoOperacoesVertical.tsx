@@ -2,7 +2,15 @@ import { AbsoluteFill, Sequence, staticFile } from "remotion";
 import { Audio } from "@remotion/media";
 import { BarraDeProgresso, Rodape, Topo } from "../../vertical/Moldura";
 import { COR } from "../../tema";
-import { Chamada, Criar, Gancho, LinkNoGrupo, Lista, NoDia } from "./cenas";
+import {
+  Chamada,
+  ConfirmarNoCelular,
+  Criar,
+  Gancho,
+  LinkNoGrupo,
+  Lista,
+  NoDia,
+} from "./cenas";
 import { DURACAO, LIMITES, TRILHA, duracaoDe } from "./ritmo";
 
 /**
@@ -30,19 +38,27 @@ export const VideoOperacoesVertical: React.FC = () => {
         <Criar />
       </Sequence>
 
-      <Sequence name="8-13s · O link no grupo" from={LIMITES.link} durationInFrames={duracaoDe("link")}>
+      <Sequence name="7-11s · O link no grupo" from={LIMITES.link} durationInFrames={duracaoDe("link")}>
         <LinkNoGrupo />
       </Sequence>
 
-      <Sequence name="13-21s · A lista se enche" from={LIMITES.lista} durationInFrames={duracaoDe("lista")}>
+      <Sequence
+        name="11-16s · Ele abre e confirma"
+        from={LIMITES.confirmar}
+        durationInFrames={duracaoDe("confirmar")}
+      >
+        <ConfirmarNoCelular />
+      </Sequence>
+
+      <Sequence name="16-23s · A lista se enche" from={LIMITES.lista} durationInFrames={duracaoDe("lista")}>
         <Lista />
       </Sequence>
 
-      <Sequence name="21-26s · No dia do jogo" from={LIMITES.nodia} durationInFrames={duracaoDe("nodia")}>
+      <Sequence name="23-27s · No dia do jogo" from={LIMITES.nodia} durationInFrames={duracaoDe("nodia")}>
         <NoDia />
       </Sequence>
 
-      <Sequence name="26-30s · Chamada" from={LIMITES.chamada} durationInFrames={duracaoDe("chamada")}>
+      <Sequence name="27-30s · Chamada" from={LIMITES.chamada} durationInFrames={duracaoDe("chamada")}>
         <Chamada />
       </Sequence>
 

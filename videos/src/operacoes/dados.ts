@@ -49,10 +49,10 @@ export interface Lado {
  */
 export const LADOS: Lado[] = [
   { nome: "PMC", vagas: 12, inicio: 9, fim: 12, cor: "#7d9139" },
-  { nome: "Militar", vagas: 12, inicio: 5, fim: 9, cor: "#d1a13c" },
+  { nome: "Militar", vagas: 12, inicio: 4, fim: 9, cor: "#d1a13c" },
 ];
 
-export const TOTAL_INICIO = LADOS.reduce((s, l) => s + l.inicio, 0); // 14
+export const TOTAL_INICIO = LADOS.reduce((s, l) => s + l.inicio, 0); // 13
 export const TOTAL_FIM = LADOS.reduce((s, l) => s + l.fim, 0); // 21
 /** Vagas da operação inteira — o número que aparece na prévia do link. */
 export const TOTAL_VAGAS = LADOS.reduce((s, l) => s + l.vagas, 0); // 24
@@ -82,6 +82,10 @@ export interface Jogador {
  * a lista de espera acontece sem o organizador fazer nada.
  */
 export const JOGADORES: Jogador[] = [
+  // A Ana é a pessoa da cena do celular: ela entra ANTES das outras
+  // porque o vídeo mostra a inscrição dela acontecendo. Sem isso, a
+  // contagem caía de 14 para 13 na troca de cena.
+  { nome: "Ana C.", lado: "Militar", estado: "pago", presente: true },
   { nome: "Rafael M.", lado: "PMC", estado: "pago", presente: true },
   { nome: "Bruno T. +1", lado: "Militar", estado: "pago", presente: true, peso: 2 },
   { nome: "Diego A.", lado: "PMC", estado: "a-pagar" },
@@ -124,8 +128,8 @@ export const totalConfirmado = (entraram: number): number =>
  */
 export const CONVERSA = [
   { de: "Organizador", texto: "Fechou o domingo. Lista aberta 👇", minha: true },
-  { de: "Léo", texto: "Boa! Já entrei, PMC", minha: false },
-  { de: "Ana", texto: "Ainda tem vaga no militar?", minha: false },
+  { de: "Léo", texto: "Tô dentro! Já confirmei no PMC", minha: false },
+  { de: "Ana", texto: "Vou sim, abrindo o link agora", minha: false },
 ] as const;
 
 /**
