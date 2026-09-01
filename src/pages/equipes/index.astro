@@ -24,67 +24,120 @@ export const prerender = false;
 const { supabase } = Astro.locals;
 
 const parametros = Astro.url.searchParams;
-const uf = (parametros.get("uf") ?? "").toUpperCase().slice(0, 2);
-const cidade = slugificar(parametros.get("cidade") ?? "");
 const soRecrutando = parametros.get("recrutando") === "1";
 
-/*
- * Mesmo desenho da agenda: os filtros vão para o banco, e a lista que
- * alimenta os próprios filtros vem do conjunto inteiro — senão
- * escolher PR apagaria os outros estados da barra de estados.
+/**
+ * Busca por nome. `.or()` do PostgREST separa condições por vírgula e
+ * delimita com parênteses, então esses caracteres (mais o `%` e o `*`,
+ * que são curinga) saem do texto antes de virar filtro.
  */
-let consulta = supabase.from("equipe_vitrine").select(COLUNAS_VITRINE);
+const busca = (parametros.get("q") ?? "").trim().slice(0, 60);
+const buscaSegura = busca.replace(/[,()%*\\]/g, " ").trim();
+
+/**
+ * Cidade só vale dentro de um estado. "Santa Maria" existe em RS, DF e
+ * RN: filtrar só pelo slug devolvia equipe do estado errado. Por isso o
+ * seletor de cidade é o segundo passo, e não uma lista de todas as
+ * cidades do Brasil — que, além de errada, seria um paredão de opções.
+ */
+const cidadePedida = slugificar(parametros.get("cidade") ?? "");
+let uf = (parametros.get("uf") ?? "").toUpperCase().slice(0, 2);
+
+/* Link antigo com cidade e sem estado não perde o filtro em silêncio:
+   descobre o estado dela e segue. Consulta só neste caso raro. */
+if (!uf && cidadePedida) {
+  const { data } = await supabase
+    .from("equipe_vitrine")
+    .select("uf")
+    .eq("cidade_slug", cidadePedida)
+    .not("uf", "is", null)
+    .limit(1)
+    .maybeSingle<{ uf: string }>();
+  if (data?.uf) uf = data.uf;
+}
+
+const cidade = uf ? cidadePedida : "";
+
+/**
+ * Um endereço por resultado. O formulário GET manda todo campo, mesmo
+ * vazio (`?q=&uf=rs`), e `?uf=RS` e `?uf=rs` são a mesma lista — três
+ * URLs para uma página só, que é o que o buscador chama de conteúdo
+ * duplicado. Aqui elas convergem para uma antes de qualquer consulta.
+ */
+const canonico = new URLSearchParams();
+if (busca) canonico.set("q", busca);
+if (uf) canonico.set("uf", uf.toLowerCase());
+if (cidade) canonico.set("cidade", cidade);
+if (soRecrutando) canonico.set("recrutando", "1");
+
+const enderecoLimpo = canonico.toString() ? `/equipes?${canonico}` : "/equipes";
+if (`${Astro.url.pathname}${Astro.url.search}` !== enderecoLimpo) {
+  return Astro.redirect(enderecoLimpo, 302);
+}
+
+/** Quantas equipes a lista mostra de uma vez. */
+const TETO = 60;
+
+let consulta = supabase.from("equipe_vitrine").select(COLUNAS_VITRINE, { count: "exact" });
 
 if (uf) consulta = consulta.eq("uf", uf);
 if (cidade) consulta = consulta.eq("cidade_slug", cidade);
 if (soRecrutando) consulta = consulta.eq("recrutando", true);
+if (buscaSegura) {
+  consulta = consulta.or(
+    `nome.ilike.%${buscaSegura}%,sigla.ilike.%${buscaSegura}%,cidade.ilike.%${buscaSegura}%`,
+  );
+}
 
-const [{ data: bruto }, { data: paraFiltro }] = await Promise.all([
-  consulta
-    // Equipe com gente dentro primeiro: ordenar por data de cadastro
-    // faria o diretório abrir com as fichas mais vazias.
-    .order("membros", { ascending: false })
-    .order("nome")
-    .limit(180)
-    .returns<EquipeVitrine[]>(),
-  supabase
-    .from("equipe_vitrine")
-    .select("uf,cidade,cidade_slug,recrutando")
-    .returns<
-      {
-        uf: string | null;
-        cidade: string | null;
-        cidade_slug: string | null;
-        recrutando: boolean;
-      }[]
-    >(),
-]);
+/*
+ * As listas que alimentam os filtros são consultadas à parte, e de
+ * propósito não herdam os filtros: escolher PR apagaria os outros
+ * estados do seletor. A de cidades só é buscada quando há estado —
+ * antes disso o seletor nem existe, então ler a tabela inteira para
+ * montá-lo seria trabalho jogado fora a cada visita.
+ */
+const [{ data: bruto, count: totalFiltrado }, { data: ufsBrutas }, { count: recrutandoNoTotal }] =
+  await Promise.all([
+    consulta
+      // Equipe com gente dentro primeiro: ordenar por data de cadastro
+      // faria o diretório abrir com as fichas mais vazias.
+      .order("membros", { ascending: false })
+      .order("nome")
+      .limit(TETO)
+      .returns<EquipeVitrine[]>(),
+    supabase
+      .from("equipe_vitrine")
+      .select("uf")
+      .not("uf", "is", null)
+      .returns<{ uf: string }[]>(),
+    supabase
+      .from("equipe_vitrine")
+      .select("id", { count: "exact", head: true })
+      .eq("recrutando", true),
+  ]);
+
+const { data: cidadesBrutas } = uf
+  ? await supabase
+      .from("equipe_vitrine")
+      .select("cidade,cidade_slug")
+      .eq("uf", uf)
+      .not("cidade_slug", "is", null)
+      .returns<{ cidade: string | null; cidade_slug: string }[]>()
+  : { data: [] as { cidade: string | null; cidade_slug: string }[] };
 
 const equipes = bruto ?? [];
-const universo = paraFiltro ?? [];
+const total = totalFiltrado ?? equipes.length;
+const sobraram = Math.max(0, total - equipes.length);
 
-const estados = [...new Set(universo.map((e) => e.uf).filter(Boolean))].sort() as string[];
+const estados = [...new Set((ufsBrutas ?? []).map((e) => e.uf))].sort();
 
 const cidades = [
   ...new Map(
-    universo
-      .filter((e) => e.cidade_slug && (!uf || e.uf === uf))
-      .map((e) => [e.cidade_slug!, nomeDeCidade(e.cidade)!]),
+    (cidadesBrutas ?? []).map((e) => [e.cidade_slug, nomeDeCidade(e.cidade) ?? e.cidade_slug]),
   ).entries(),
 ].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
 
-const recrutandoNoTotal = universo.filter((e) => e.recrutando).length;
-
-/** Mantém os outros filtros ao trocar um. Trocar de estado zera a cidade. */
-const comFiltro = (mudanca: Record<string, string | null>) => {
-  const p = new URLSearchParams();
-  const atual = { uf, cidade, recrutando: soRecrutando ? "1" : "", ...mudanca };
-  if (atual.uf) p.set("uf", atual.uf.toLowerCase());
-  if (atual.cidade && !("uf" in mudanca)) p.set("cidade", atual.cidade);
-  if (atual.recrutando) p.set("recrutando", "1");
-  const query = p.toString();
-  return query ? `/equipes?${query}` : "/equipes";
-};
+const temFiltro = Boolean(uf || cidade || soRecrutando || busca);
 
 const nomeDaCidadeAtual = cidades.find(([slug]) => slug === cidade)?.[1];
 
@@ -129,10 +182,13 @@ const local = (equipe: EquipeVitrine) =>
       ? (NOME_UF[equipe.uf] ?? equipe.uf)
       : "Região não informada";
 
-const CLASSE_FILTRO =
-  "border px-3 py-1.5 font-dado text-[0.75rem] uppercase tracking-[0.1em] transition-colors duration-150";
-const ATIVO = "border-oliva-700 bg-oliva-050 text-oliva-300";
-const INATIVO = "border-borda text-texto-2 hover:border-oliva-500 hover:text-oliva-300";
+/* Mesmo vocabulário de campo da busca de armeiros e de lojas: o
+   diretório inteiro filtra do mesmo jeito. */
+const CAMPO =
+  "w-full border border-borda-forte bg-fundo px-3 py-2.5 font-display text-base uppercase " +
+  "tracking-[0.03em] text-tinta outline-none transition-colors focus:border-oliva-500 " +
+  "disabled:cursor-not-allowed disabled:border-borda disabled:text-desabilitado";
+const ROTULO = "mb-1.5 block font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400";
 ---
 
 <Base
@@ -146,10 +202,10 @@ const INATIVO = "border-borda text-texto-2 hover:border-oliva-500 hover:text-oli
     dados={[
       {
         icone: "pessoas",
-        texto: `${equipes.length} ${equipes.length === 1 ? "equipe" : "equipes"}`,
+        texto: `${total} ${total === 1 ? "equipe" : "equipes"}`,
       },
       { icone: "pino", texto: `${estados.length} ${estados.length === 1 ? "estado" : "estados"}` },
-      ...(recrutandoNoTotal > 0
+      ...(recrutandoNoTotal
         ? [{ icone: "alvo" as const, texto: `${recrutandoNoTotal} recrutando` }]
         : []),
       { icone: "cadeado", texto: "Consulta livre" },
@@ -167,87 +223,113 @@ const INATIVO = "border-borda text-texto-2 hover:border-oliva-500 hover:text-oli
   </TopoPagina>
 
   <div class="mx-auto max-w-[1240px] px-5 pb-8 pt-2 md:px-12 md:pb-12 md:pt-4">
-    <div class="mt-6 space-y-3">
-      {
-        estados.length > 1 && (
-          <nav aria-label="Filtrar por estado" class="flex flex-wrap items-center gap-2">
-            <span class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
-              Estado
-            </span>
-            <a
-              href={comFiltro({ uf: null, cidade: null })}
-              class:list={[CLASSE_FILTRO, !uf ? ATIVO : INATIVO]}
-            >
-              Todos
-            </a>
+    {/*
+      Filtro como formulário GET, e não como fileiras de atalhos.
+      Enquanto havia duas cidades cadastradas, um atalho por cidade
+      cabia na linha; com o país inteiro dentro vira um paredão que
+      empurra a lista para fora da tela — e o estado, com 27 opções,
+      faz o mesmo. Seletor não cresce: ele rola por dentro.
+
+      GET e não JavaScript: o resultado tem endereço próprio, dá para
+      mandar no grupo, o buscador indexa e a página funciona sem
+      script. `method` padrão é GET, então a URL sai limpa
+      (?uf=rs&cidade=gravatai) — a mesma que os links antigos usavam.
+    */}
+    <form
+      action="/equipes"
+      data-filtro-equipes
+      aria-label="Filtrar equipes"
+      class="moldura-tatica mt-6 border border-borda bg-papel p-5 md:p-6"
+    >
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div class="lg:col-span-2">
+          <label class={ROTULO} for="equipe-q">Nome, sigla ou cidade</label>
+          <input
+            id="equipe-q"
+            type="search"
+            name="q"
+            value={busca}
+            autocomplete="off"
+            maxlength="60"
+            placeholder="R.I.S.E., Nomad, Lobos..."
+            class={`${CAMPO} placeholder:normal-case placeholder:tracking-normal placeholder:text-texto-2/60`}
+          />
+        </div>
+
+        <div>
+          <label class={ROTULO} for="equipe-uf">Estado</label>
+          <select id="equipe-uf" name="uf" class={CAMPO}>
+            <option value="">Todos</option>
             {estados.map((sigla) => (
-              <a
-                href={comFiltro({ uf: sigla, cidade: null })}
-                aria-current={uf === sigla ? "page" : undefined}
-                class:list={[CLASSE_FILTRO, uf === sigla ? ATIVO : INATIVO]}
-              >
-                {sigla}
-              </a>
+              <option value={sigla.toLowerCase()} selected={uf === sigla}>
+                {NOME_UF[sigla] ?? sigla}
+              </option>
             ))}
-          </nav>
-        )
-      }
+          </select>
+        </div>
 
-      {
-        cidades.length > 1 && (
-          <nav aria-label="Filtrar por cidade" class="flex flex-wrap items-center gap-2">
-            <span class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
-              Cidade
-            </span>
-            <a
-              href={comFiltro({ cidade: null })}
-              class:list={[CLASSE_FILTRO, !cidade ? ATIVO : INATIVO]}
-            >
-              Todas
-            </a>
+        <div>
+          <label class={ROTULO} for="equipe-cidade">Cidade</label>
+          {/*
+            Cidade depende do estado: sem ele o seletor fica inerte e
+            diz o porquê, em vez de listar o Brasil inteiro e devolver
+            equipe do estado errado quando dois nomes coincidem.
+          */}
+          <select id="equipe-cidade" name="cidade" class={CAMPO} disabled={!uf}>
+            <option value="">{uf ? "Todas" : "Escolha o estado"}</option>
             {cidades.map(([slug, nome]) => (
-              <a
-                href={comFiltro({ cidade: slug })}
-                aria-current={cidade === slug ? "page" : undefined}
-                class:list={[CLASSE_FILTRO, cidade === slug ? ATIVO : INATIVO]}
-              >
+              <option value={slug} selected={cidade === slug}>
                 {nome}
-              </a>
+              </option>
             ))}
-          </nav>
-        )
-      }
+          </select>
+        </div>
 
-      {
-        recrutandoNoTotal > 0 && (
-          <nav aria-label="Filtrar por recrutamento" class="flex flex-wrap items-center gap-2">
-            <span class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
-              Vagas
+        {recrutandoNoTotal ? (
+          <label
+            class="flex w-fit cursor-pointer items-center gap-2.5 self-end border border-borda-forte bg-fundo px-3 py-2.5 transition-colors hover:border-oliva-500 md:col-span-2"
+          >
+            <input
+              type="checkbox"
+              name="recrutando"
+              value="1"
+              checked={soRecrutando}
+              class="h-4 w-4 shrink-0 accent-oliva-500"
+            />
+            <span class="font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-300">
+              Só quem está recrutando
             </span>
-            <a
-              href={comFiltro({ recrutando: null })}
-              class:list={[CLASSE_FILTRO, !soRecrutando ? ATIVO : INATIVO]}
-            >
-              Todas
-            </a>
-            <a
-              href={comFiltro({ recrutando: "1" })}
-              aria-current={soRecrutando ? "page" : undefined}
-              class:list={[CLASSE_FILTRO, soRecrutando ? ATIVO : INATIVO]}
-            >
-              Recrutando
-            </a>
-          </nav>
-        )
-      }
-    </div>
+          </label>
+        ) : (
+          <div class="hidden md:col-span-2 md:block" />
+        )}
+
+        <button
+          type="submit"
+          class="self-end border border-oliva-500 bg-oliva-500 px-3 py-2.5 font-display text-base font-bold uppercase tracking-[0.06em] text-fundo transition-colors hover:border-oliva-400 hover:bg-oliva-400"
+        >
+          Filtrar
+        </button>
+
+        {temFiltro ? (
+          <a
+            href="/equipes"
+            class="flex items-center justify-center self-end border border-borda-forte px-3 py-2.5 font-display text-base font-bold uppercase tracking-[0.06em] text-oliva-400 transition-colors hover:border-oliva-500 hover:text-oliva-300"
+          >
+            Limpar
+          </a>
+        ) : (
+          <div class="hidden lg:block" />
+        )}
+      </div>
+    </form>
 
     {
       equipes.length === 0 ? (
         <section class="moldura-tatica mt-9 border border-borda bg-papel p-8 md:p-10">
           <p class="rotulo">Lista aberta</p>
           <h2 class="mt-3 font-display text-2xl font-bold uppercase md:text-3xl">
-            {uf || cidade || soRecrutando
+            {temFiltro
               ? "Nenhuma equipe com esses filtros"
               : "O diretório de equipes está começando"}
           </h2>
@@ -258,7 +340,7 @@ const INATIVO = "border-borda text-texto-2 hover:border-oliva-500 hover:text-oli
             lista é construída pelas próprias equipes.
           </p>
           <div class="mt-7 flex flex-wrap gap-3">
-            {(uf || cidade || soRecrutando) && (
+            {temFiltro && (
               <Botao href="/equipes" variante="secundario">
                 Ver todas
               </Botao>
@@ -267,7 +349,28 @@ const INATIVO = "border-borda text-texto-2 hover:border-oliva-500 hover:text-oli
           </div>
         </section>
       ) : (
-        <ul class="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <>
+          {/*
+            Quanto a busca achou, e quanto está na tela. Com o país
+            inteiro cadastrado a lista bate no teto e cala: dizer
+            "60 de 340" é a diferença entre a pessoa refinar o filtro e
+            achar que a equipe dela não está aqui.
+          */}
+          <p class="mt-9 flex flex-wrap items-baseline gap-x-2 border-b border-borda pb-3 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+            <span>
+              {total} {total === 1 ? "equipe" : "equipes"}
+              {ondeEstou ? ` ${ondeEstou}` : ""}
+              {soRecrutando ? " recrutando" : ""}
+            </span>
+            {sobraram > 0 && (
+              <span class="normal-case tracking-normal text-texto-2">
+                mostrando as primeiras {equipes.length} — refine por cidade ou nome
+                para ver o resto.
+              </span>
+            )}
+          </p>
+
+          <ul class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {/*
             Grade com espaço entre os cards, e não a moldura de uma peça
             só (`gap-px` sobre fundo de borda) que o resto do site usa em
@@ -303,6 +406,7 @@ const INATIVO = "border-borda text-texto-2 hover:border-oliva-500 hover:text-oli
             </li>
           ))}
         </ul>
+        </>
       )
     }
 
@@ -324,3 +428,23 @@ const INATIVO = "border-borda text-texto-2 hover:border-oliva-500 hover:text-oli
     }
   </div>
 </Base>
+
+<script>
+  /**
+   * A lista de cidades vem do servidor, então trocar o estado precisa
+   * de uma ida ao servidor para o seletor de cidade parar de ficar
+   * inerte. Com JavaScript isso acontece na hora da troca; sem ele, no
+   * "Filtrar". A cidade antiga é zerada antes de enviar — ela era de
+   * outro estado.
+   */
+  const filtro = document.querySelector<HTMLFormElement>("[data-filtro-equipes]");
+  const estado = filtro?.querySelector<HTMLSelectElement>("#equipe-uf");
+  const cidade = filtro?.querySelector<HTMLSelectElement>("#equipe-cidade");
+
+  if (filtro && estado && cidade) {
+    estado.addEventListener("change", () => {
+      cidade.value = "";
+      filtro.submit();
+    });
+  }
+</script>
