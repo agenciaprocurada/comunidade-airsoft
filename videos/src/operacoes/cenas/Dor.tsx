@@ -98,7 +98,14 @@ export const Dor: React.FC<{
   /** Frames em que cada batida começa. */
   batidas?: { lista: number; perguntas: number };
   telefone?: { x: number; y: number; largura: number; altura: number };
-  legenda?: { x: number; y: number; largura: number; tamanho: number };
+  legenda?: {
+    x: number;
+    y: number;
+    largura: number;
+    tamanho: number;
+    /** Centralizado no 9:16, onde o aparelho também é centralizado. */
+    centro?: boolean;
+  };
 }> = ({
   batidas = { lista: 90, perguntas: 210 },
   telefone = { x: 240, y: 300, largura: 600, altura: 1060 },
@@ -292,6 +299,7 @@ export const Dor: React.FC<{
             lineHeight: 1,
             textTransform: "uppercase",
             color: COR.tinta,
+            textAlign: legenda.centro ? "center" : "left",
             textShadow: "0 4px 24px rgba(0,0,0,0.85)",
             opacity: interpolate(
               frame,
@@ -316,6 +324,7 @@ export const Dor: React.FC<{
             lineHeight: 1,
             textTransform: "uppercase",
             color: COR.tinta,
+            textAlign: legenda.centro ? "center" : "left",
             textShadow: "0 4px 24px rgba(0,0,0,0.85)",
             opacity: surgir(frame, batidas.perguntas + 6, 12),
           }}

@@ -99,7 +99,9 @@ export const Dor: React.FC = () => (
   <DorBase
     batidas={{ lista: 90, perguntas: 210 }}
     telefone={{ x: 240, y: 250, largura: 600, altura: 1130 }}
-    legenda={{ x: 64, y: 1410, largura: 952, tamanho: 72 }}
+    /* Centralizado: o aparelho também é, e texto encostado na
+       esquerda com meia tela vazia à direita fica torto no 9:16. */
+    legenda={{ x: 64, y: 1410, largura: 952, tamanho: 72, centro: true }}
   />
 );
 
@@ -268,12 +270,22 @@ const BATIDAS_LINK = {
   respostas: 196,
 } as const;
 
+/**
+ * As paradas são em coordenadas de TELA, porque o ponteiro é desenhado
+ * fora do `Palco` (que escala o painel em 0,9). Elas foram calculadas
+ * a partir da geometria abaixo — mexer no `topo` do palco ou na altura
+ * da janela do grupo obriga a refazer estas contas:
+ *
+ *   botão "Copiar link": x 178 · y 565 (medido no quadro renderizado)
+ *   campo de mensagem:   x 300 · 860 + 68 + 370 + 41 = 1339
+ *   botão de enviar:     x 981 · mesmo y
+ */
 const PARADAS_LINK: Parada[] = [
-  { frame: 0, x: 540, y: 1560 },
-  { frame: BATIDAS_LINK.copiar, x: 250, y: 690, clique: true },
-  { frame: BATIDAS_LINK.colar, x: 300, y: 1394, clique: true },
-  { frame: BATIDAS_LINK.enviar, x: 950, y: 1394, clique: true },
-  { frame: 240, x: 900, y: 1340 },
+  { frame: 0, x: 540, y: 1600 },
+  { frame: BATIDAS_LINK.copiar, x: 178, y: 565, clique: true },
+  { frame: BATIDAS_LINK.colar, x: 300, y: 1339, clique: true },
+  { frame: BATIDAS_LINK.enviar, x: 981, y: 1339, clique: true },
+  { frame: 240, x: 940, y: 1300 },
 ];
 
 export const LinkNoGrupo: React.FC = () => {
@@ -345,8 +357,10 @@ export const LinkNoGrupo: React.FC = () => {
           position: "absolute",
           left: 64,
           top: 860,
+          // 500 e não 580: a janela terminava em 1440 e batia na
+          // legenda, que mora em 1400. Agora fecha em 1360.
           width: 952,
-          height: 580,
+          height: 500,
           overflow: "hidden",
           border: `1px solid ${COR.borda}`,
           opacity: surgir(frame, 20, 10),
@@ -354,7 +368,7 @@ export const LinkNoGrupo: React.FC = () => {
       >
         <CabecalhoDaConversa nome={GRUPO.nome} membros={GRUPO.membros} />
 
-        <div style={{ position: "relative", height: 436 }}>
+        <div style={{ position: "relative", height: 370 }}>
           <FundoDaConversa />
           <div
             style={{
@@ -467,8 +481,11 @@ export const ConfirmarNoCelular: React.FC = () => {
 
       <Cursor x={cursor.x} y={cursor.y} clique={clique} />
 
-      <Legenda kicker="Do outro lado" titulo={"Ele abre\ne confirma"} entrada={6} saida={120} />
-      <Legenda kicker="Dois toques" titulo={"Entrou\nna lista"} entrada={88} />
+      {/* A segunda legenda só entra DEPOIS que a primeira terminou de
+          sair (saída + 6 frames de fade). Sem essa folga as duas ficam
+          na tela ao mesmo tempo, uma por cima da outra. */}
+      <Legenda kicker="Do outro lado" titulo={"Ele abre\ne confirma"} entrada={6} saida={118} />
+      <Legenda kicker="Dois toques" titulo={"Entrou\nna lista"} entrada={132} />
     </AbsoluteFill>
   );
 };

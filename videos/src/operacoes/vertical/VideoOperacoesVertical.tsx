@@ -121,8 +121,22 @@ export const VideoOperacoesVertical: React.FC = () => {
       <Sequence name="Progresso" durationInFrames={DURACAO}>
         <BarraDeProgresso />
       </Sequence>
+
+      {/*
+        A marca do topo aparece desde o PRIMEIRO frame, inclusive nos
+        10 s de dor: o vídeo circula em print e em grupo, e em metade
+        dessas viagens ele chega sem legenda e sem link — a assinatura
+        no topo é a única coisa que sobra dizendo de onde veio.
+
+        Ela sai só na apresentação e na chamada, onde o logo já está
+        grande no meio da tela e o do topo viraria eco.
+      */}
+      <Sequence name="Marca · dor" durationInFrames={LIMITES.apresentacao}>
+        <Topo />
+        <Rodape />
+      </Sequence>
       <Sequence
-        name="Marca"
+        name="Marca · demonstração"
         from={LIMITES.criar}
         durationInFrames={LIMITES.chamada - LIMITES.criar}
       >
