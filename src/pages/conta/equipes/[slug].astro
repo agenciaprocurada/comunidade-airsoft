@@ -2,14 +2,17 @@
 import Conta from "../../../layouts/Conta.astro";
 import Painel from "../../../components/conta/Painel.astro";
 import Selo from "../../../components/conta/Selo.astro";
+import Modal from "../../../components/conta/Modal.astro";
 import LogoEquipe from "../../../components/LogoEquipe.astro";
 import {
   AJUDA_CAMPO,
+  BOTAO_HUD,
   BOTAO_PRIMARIO,
   BOTAO_SECUNDARIO,
   BOTAO_TEXTO,
   ENTRADA,
   ENTRADA_INVALIDA,
+  ERRO_CAIXA,
   ERRO_CAMPO,
   ROTULO_CAMPO,
   SELECAO,
@@ -71,6 +74,22 @@ const souMembro = vinculoAtual?.status === "ativo";
 let erroDe: Record<string, string> = {};
 let erroGeral = "";
 let avisoConvite = "";
+
+/**
+ * O formulário de edição voltou com problema e precisa reaparecer
+ * aberto. Separado de `erroDe` porque lá também moram erros de outros
+ * formulários da página (o da logo, por exemplo) — e abrir o modal
+ * dos dados por causa de um arquivo grande demais confunde.
+ */
+let edicaoVoltouComErro = false;
+
+/**
+ * O que o líder digitou, guardado para o formulário voltar com o
+ * texto dele e não com o que está no banco. Perder a história inteira
+ * porque o nome ficou curto é o jeito mais rápido de a pessoa não
+ * tentar de novo.
+ */
+let enviadoNaEdicao: Record<string, string> = {};
 
 if (Astro.request.method === "POST") {
   const dados = await Astro.request.formData();
@@ -190,8 +209,8 @@ if (Astro.request.method === "POST") {
   }
 
   // Recrutando é o que torna o diretório útil para quem está
-  // começando. Fica fora da gaveta "Dados da equipe" de propósito: é
-  // uma chave que se liga e desliga toda temporada, não um cadastro.
+  // começando. Fica fora do modal "Editar equipe" de propósito: é uma
+  // chave que se liga e desliga toda temporada, não um cadastro.
   if (souLider && acao === "recrutando") {
     const { error } = await supabase
       .from("equipes")
@@ -202,6 +221,11 @@ if (Astro.request.method === "POST") {
   }
 
   if (souLider && acao === "editar") {
+    edicaoVoltouComErro = true;
+    for (const campo of ["nome", "sigla", "uf", "cidade", "instagram", "whatsapp", "descricao"]) {
+      enviadoNaEdicao[campo] = texto(campo);
+    }
+
     const nome = texto("nome");
     const problema = erroDoNome(nome);
     if (problema) erroDe.nome = problema;
@@ -317,6 +341,17 @@ const salvo = Astro.url.searchParams.get("salvo") === "1";
 const criada = Astro.url.searchParams.get("criada") === "1";
 
 /**
+ * O modal de edição já vem aberto do servidor quando o formulário
+ * voltou com erro ou quando a pessoa chegou por `?editar=1` — que é o
+ * que o botão "Editar equipe" faz sem JavaScript.
+ */
+const edicaoAberta = Astro.url.searchParams.get("editar") === "1" || edicaoVoltouComErro;
+
+/** O que o campo mostra: o que a pessoa digitou vence o que está salvo. */
+const valorEditado = (campo: string, salvoNoBanco: string | null | undefined) =>
+  edicaoVoltouComErro ? (enviadoNaEdicao[campo] ?? "") : (salvoNoBanco ?? "");
+
+/**
  * O que ainda falta para a ficha ser oferecida ao Google. A página
  * pública já existe e já abre para quem tem o link — este aviso é
  * sobre indexação, e o painel diz isso com todas as letras para o
@@ -353,79 +388,172 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
   </p>
 
   <!--
-    A vitrine vem antes da administração: é a página pública que dá
-    motivo para o líder manter isto aqui em dia. Enquanto ela não
-    existia, este painel era só burocracia.
+    A ficha da equipe, na mesma forma da ficha do jogador em /conta:
+    a marca à esquerda, os dados à direita e UM botão de editar no
+    alto. Antes editar a equipe estava partido em três lugares — a
+    logo aqui, o recrutamento aqui, e nome/sigla/cidade/redes numa
+    gaveta fechada 1600px abaixo, depois do elenco, com a mesma cara
+    de "sair desta equipe". Quem cadastrou não achava mais.
   -->
-  <div class="mt-8 flex flex-wrap items-start gap-5 border border-borda bg-papel/60 p-5">
-    <LogoEquipe equipe={equipe} tamanho="grande" />
+  <section
+    class:list={[
+      "moldura-hud mt-8 border bg-fundo/70 p-5 sm:p-7",
+      faltaIndexar.length > 0 && souLider
+        ? "moldura-hud-ativa border-hud/40"
+        : "border-borda",
+    ]}
+  >
+    <div class="flex flex-col items-start gap-6 sm:flex-row sm:gap-8">
+      <div class="flex shrink-0 flex-col items-center gap-3 self-center sm:self-start">
+        <div class="relative">
+          <LogoEquipe equipe={equipe} tamanho="grande" />
+          {
+            souLider && (
+              <span
+                aria-hidden="true"
+                class="absolute bottom-1.5 right-1.5 flex h-8 w-8 items-center justify-center border border-borda-forte bg-fundo/90 text-texto"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
+                  <path d="M3 8h3.5L9 5h6l2.5 3H21v12H3z" stroke-linejoin="miter" />
+                  <circle cx="12" cy="13.5" r="3.5" />
+                </svg>
+              </span>
+            )
+          }
+        </div>
 
-    <div class="min-w-0 flex-1 space-y-4">
-      <div>
-        <p class="rotulo">Página pública</p>
-        <p class="mt-2 text-[0.9375rem] leading-relaxed text-texto-2">
-          É o link que você manda no grupo e coloca na bio do Instagram.
-        </p>
-        <a
-          href={`/equipes/${equipe.slug}`}
-          class="mt-2 inline-block font-dado text-[0.875rem] text-oliva-300 underline transition-colors duration-150 hover:text-hud"
-        >
-          comunidadeairsoft.com.br/equipes/{equipe.slug}
-        </a>
+        {
+          souLider && (
+            /* Escolher o arquivo já envia — igual à foto do perfil, sem
+               um segundo botão de confirmar que ninguém acha. */
+            <form method="POST" enctype="multipart/form-data" data-form-logo>
+              <input type="hidden" name="acao" value="logo" />
+              <label class={`${BOTAO_HUD} cursor-pointer`}>
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
+                  <path d="M3 8h3.5L9 5h6l2.5 3H21v12H3z" stroke-linejoin="miter" />
+                  <circle cx="12" cy="13.5" r="3.5" />
+                </svg>
+                {equipe.logo_url ? "Trocar logo" : "Enviar logo"}
+                <input
+                  type="file"
+                  name="logo"
+                  accept="image/jpeg,image/png,image/webp"
+                  class="sr-only"
+                  data-arquivo-logo
+                />
+              </label>
+              <noscript>
+                <button type="submit" class={`${BOTAO_SECUNDARIO} mt-2`}>Salvar logo</button>
+              </noscript>
+            </form>
+          )
+        }
+        {erroDe.logo && <p class={`${ERRO_CAMPO} max-w-[12rem] text-center`}>{erroDe.logo}</p>}
       </div>
 
-      {
-        souLider && (
-          <div class="flex flex-wrap items-center gap-4 border-t border-borda pt-4">
-            <form method="POST">
-              <input type="hidden" name="acao" value="recrutando" />
-              <input type="hidden" name="valor" value={equipe.recrutando ? "0" : "1"} />
-              <button type="submit" class={equipe.recrutando ? BOTAO_TEXTO : BOTAO_SECUNDARIO}>
-                {equipe.recrutando ? "Parar de recrutar" : "Estamos recrutando"}
-              </button>
-            </form>
-            {equipe.recrutando && (
-              <Selo tom="ok">Aparece no filtro de quem procura equipe</Selo>
-            )}
+      <div class="min-w-0 w-full flex-1">
+        <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+          <div class="min-w-0">
+            <p class="rotulo">Página pública</p>
+            <a
+              href={`/equipes/${equipe.slug}`}
+              class="mt-2 block break-words font-dado text-[0.875rem] text-oliva-300 underline transition-colors duration-150 hover:text-hud"
+            >
+              {/* O <wbr> dá ao navegador um lugar decente para quebrar.
+                  Sem ele o endereço partia no meio do slug ("teste-b /
+                  ravo") no celular. */}
+              comunidadeairsoft.com.br<wbr />/equipes/{equipe.slug}
+            </a>
+            <p class="mt-1.5 text-[0.9375rem] leading-snug text-texto-2">
+              É o link que você manda no grupo e coloca na bio do Instagram.
+            </p>
           </div>
-        )
-      }
 
-      {
-        souLider && (
-          <form method="POST" enctype="multipart/form-data" class="border-t border-borda pt-4">
-            <input type="hidden" name="acao" value="logo" />
-            <label for="logo" class={ROTULO_CAMPO}>
-              {equipe.logo_url ? "Trocar a logo" : "Enviar a logo"}
-            </label>
-            <div class="mt-2 flex flex-wrap items-center gap-3">
-              <input
-                type="file"
-                id="logo"
-                name="logo"
-                accept="image/jpeg,image/png,image/webp"
-                class="max-w-full text-[0.875rem] text-texto-2 file:mr-3 file:border file:border-borda file:bg-papel file:px-3 file:py-1.5 file:font-dado file:text-[0.75rem] file:uppercase file:tracking-[0.1em] file:text-texto"
-              />
-              <button type="submit" class={BOTAO_SECUNDARIO}>Salvar logo</button>
+          {
+            souLider && (
+              /* Sem JavaScript o link recarrega com ?editar=1 e o
+                 servidor entrega o modal já aberto. */
+              <a href="?editar=1#editar" data-abrir-editar class={BOTAO_HUD}>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  class="h-4 w-4"
+                >
+                  <path
+                    d="m14.5 5.5 4 4L8 20H4v-4zM12.5 7.5l4 4"
+                    stroke-linecap="square"
+                    stroke-linejoin="miter"
+                  />
+                </svg>
+                Editar equipe
+              </a>
+            )
+          }
+        </div>
+
+        <!-- O que a página pública mostra. Ver o campo vazio é o que
+             faz o botão de editar querer dizer alguma coisa. -->
+        <dl class="mt-6 grid gap-x-8 gap-y-5 sm:grid-cols-3">
+          <div>
+            <dt class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+              Região
+            </dt>
+            <dd class="mt-1.5 text-[0.9375rem] text-tinta">{regiao ?? "—"}</dd>
+          </div>
+          <div>
+            <dt class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+              Instagram
+            </dt>
+            <dd class="mt-1.5 break-all text-[0.9375rem] text-tinta">
+              {equipe.redes?.instagram ? `@${equipe.redes.instagram}` : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt class="font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-texto-2">
+              WhatsApp
+            </dt>
+            <dd class="mt-1.5 text-[0.9375rem] text-tinta">
+              {equipe.redes?.whatsapp ?? "—"}
+            </dd>
+          </div>
+        </dl>
+
+        {
+          souLider && (
+            <div class="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-borda pt-5">
+              <form method="POST">
+                <input type="hidden" name="acao" value="recrutando" />
+                <input type="hidden" name="valor" value={equipe.recrutando ? "0" : "1"} />
+                <button type="submit" class={equipe.recrutando ? BOTAO_TEXTO : BOTAO_SECUNDARIO}>
+                  {equipe.recrutando ? "Parar de recrutar" : "Estamos recrutando"}
+                </button>
+              </form>
+              {equipe.recrutando && (
+                /* Frase inteira não cabe num selo: `Selo` é `shrink-0`
+                   e estourava a largura da tela no celular. Selo é
+                   dado curto, não legenda. */
+                <p class="text-[0.9375rem] leading-snug text-ok-texto">
+                  Aparece no filtro de quem procura equipe.
+                </p>
+              )}
             </div>
-            <p class={AJUDA_CAMPO}>JPG, PNG ou WebP, até 2 MB. Quadrada fica melhor.</p>
-            {erroDe.logo && <p class={ERRO_CAMPO}>{erroDe.logo}</p>}
-          </form>
-        )
-      }
+          )
+        }
 
-      {
-        souLider && faltaIndexar.length > 0 && (
-          <div class="border-t border-borda pt-4">
-            <p class="text-[0.9375rem] leading-relaxed text-texto-2">
+        {
+          souLider && faltaIndexar.length > 0 && (
+            <p class="mt-5 border-t border-borda pt-5 text-[0.9375rem] leading-relaxed text-texto-2">
               A página já abre para quem tem o link. Para ela também aparecer no
               Google, falta: {faltaIndexar.join("; ")}.
             </p>
-          </div>
-        )
-      }
+          )
+        }
+      </div>
     </div>
-  </div>
+  </section>
 
   {
     criada && (
@@ -455,7 +583,9 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
   }
 
   {
-    erroGeral && (
+    /* Quando o erro é da edição, ele é repetido dentro do modal — que
+       está aberto por cima e esconderia esta linha. */
+    erroGeral && !edicaoVoltouComErro && (
       <p class="mt-8 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">
         {erroGeral}
       </p>
@@ -615,21 +745,23 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
     )
   }
 
+  <!--
+    O formulário vive num modal e o botão da ficha é a única porta —
+    a mesma mecânica de "Editar meus dados" em /conta. Abre sozinho
+    quando volta com erro ou via ?editar=1 (o botão sem JavaScript).
+  -->
   {
     souLider && (
-      <div class="mt-12">
-        <details class="group">
-          <summary class="flex cursor-pointer list-none items-center gap-2 text-[1.0625rem] font-semibold text-tinta transition-colors duration-150 hover:text-oliva-300">
-            <span
-              aria-hidden="true"
-              class="font-dado text-[0.875rem] text-texto-2 transition-transform duration-150 group-open:rotate-90"
-            >
-              &rsaquo;
-            </span>
-            Dados da equipe
-          </summary>
+      <Modal
+        id="editar"
+        titulo="Editar equipe"
+        descricao="Nome, sigla, cidade, redes e a história que aparece na página pública."
+        aberta={edicaoAberta}
+      >
+        <div class="max-w-[62ch]">
+          {erroGeral && <p class={`mb-7 ${ERRO_CAIXA}`}>{erroGeral}</p>}
 
-          <form method="POST" class="mt-5 max-w-[34rem] space-y-5">
+          <form method="POST" class="space-y-5">
             <input type="hidden" name="acao" value="editar" />
 
             <div>
@@ -640,7 +772,7 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
                 name="nome"
                 required
                 maxlength={NOME_MAXIMO}
-                value={equipe.nome}
+                value={valorEditado("nome", equipe.nome)}
                 aria-invalid={erroDe.nome ? "true" : undefined}
                 class={erroDe.nome ? ENTRADA_INVALIDA : ENTRADA}
               />
@@ -658,18 +790,20 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
                 id="sigla"
                 name="sigla"
                 maxlength={SIGLA_MAXIMA}
-                value={equipe.sigla ?? ""}
+                value={valorEditado("sigla", equipe.sigla)}
                 class={ENTRADA}
               />
             </div>
 
             <div class="flex flex-wrap gap-4">
-              <div class="w-[9rem]">
+              <!-- No celular o seletor ocupa a linha inteira: em 9rem
+                   fixos o nome do estado ficava cortado. -->
+              <div class="w-full sm:w-[9rem]">
                 <label for="uf" class={ROTULO_CAMPO}>Estado</label>
                 <select id="uf" name="uf" class={SELECAO}>
                   <option value="">—</option>
                   {ESTADOS.map(([sigla, nome]) => (
-                    <option value={sigla} selected={equipe.uf === sigla}>{nome}</option>
+                    <option value={sigla} selected={valorEditado("uf", equipe.uf) === sigla}>{nome}</option>
                   ))}
                 </select>
               </div>
@@ -679,7 +813,7 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
                   type="text"
                   id="cidade"
                   name="cidade"
-                  value={equipe.cidade ?? ""}
+                  value={valorEditado("cidade", equipe.cidade)}
                   class={ENTRADA}
                 />
               </div>
@@ -692,7 +826,7 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
                   type="text"
                   id="instagram"
                   name="instagram"
-                  value={equipe.redes?.instagram ?? ""}
+                  value={valorEditado("instagram", equipe.redes?.instagram)}
                   placeholder="@equipe"
                   class={ENTRADA}
                 />
@@ -703,7 +837,7 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
                   type="tel"
                   id="whatsapp"
                   name="whatsapp"
-                  value={equipe.redes?.whatsapp ?? ""}
+                  value={valorEditado("whatsapp", equipe.redes?.whatsapp)}
                   placeholder="51 98610 0348"
                   class={ENTRADA}
                 />
@@ -722,7 +856,7 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
                 rows="4"
                 maxlength={DESCRICAO_MAXIMA}
                 class={ENTRADA}
-                set:text={equipe.descricao ?? ""}
+                set:text={valorEditado("descricao", equipe.descricao)}
               />
               <p class={AJUDA_CAMPO}>
                 Quando começou, onde joga, que estilo prefere. É o texto que
@@ -733,8 +867,8 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
 
             <button type="submit" class={BOTAO_PRIMARIO}>Salvar</button>
           </form>
-        </details>
-      </div>
+        </div>
+      </Modal>
     )
   }
 
@@ -758,3 +892,48 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
     }
   </div>
 </Conta>
+
+<script>
+  /**
+   * O formulário de dados vive num modal e o botão da ficha é a porta.
+   * Sem JavaScript o href `?editar=1` faz o servidor entregar o
+   * <dialog> já com `open`, no fluxo da página; aqui esse estado é
+   * promovido a modal de verdade, com fundo escuro e Esc fechando.
+   * Mesma mecânica de "Editar meus dados" em /conta.
+   */
+  const modal = document.querySelector<HTMLDialogElement>("#editar");
+
+  if (modal) {
+    if (modal.open) {
+      modal.close();
+      modal.showModal();
+    }
+
+    for (const atalho of document.querySelectorAll<HTMLAnchorElement>("[data-abrir-editar]")) {
+      atalho.addEventListener("click", (evento) => {
+        evento.preventDefault();
+        modal.showModal();
+      });
+    }
+
+    // Clique no fundo escuro fecha — o alvo só é o próprio dialog
+    // quando o clique cai fora da caixa de conteúdo.
+    modal.addEventListener("click", (evento) => {
+      if (evento.target === modal) modal.close();
+    });
+  }
+
+  /**
+   * "Trocar logo": escolher o arquivo já envia o formulário — sem um
+   * segundo botão de confirmar que ninguém acharia. Sem JavaScript o
+   * <noscript> mostra esse botão.
+   */
+  const formLogo = document.querySelector<HTMLFormElement>("[data-form-logo]");
+  const arquivoLogo = document.querySelector<HTMLInputElement>("[data-arquivo-logo]");
+
+  if (formLogo && arquivoLogo) {
+    arquivoLogo.addEventListener("change", () => {
+      if (arquivoLogo.files?.length) formLogo.submit();
+    });
+  }
+</script>

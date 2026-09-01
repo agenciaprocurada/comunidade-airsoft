@@ -324,10 +324,17 @@ const local = (equipe: Equipe) =>
                     </span>
                   </div>
 
+                  {/*
+                    O sublinhado não é enfeite: sem ele o nome era um
+                    link invisível — mesma cor do texto em volta e a
+                    única pista era o hover, que no celular não existe.
+                    Quem liderava não achava por onde entrar na própria
+                    equipe.
+                  */}
                   <p class="mt-4 text-[1.0625rem] font-semibold leading-snug text-tinta">
                     <a
                       href={`/conta/equipes/${vinculo.equipe.slug}`}
-                      class="transition-colors duration-150 hover:text-hud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hud"
+                      class="underline decoration-borda-forte underline-offset-4 transition-colors duration-150 hover:text-hud hover:decoration-hud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hud"
                     >
                       {vinculo.equipe.nome}
                     </a>
@@ -356,6 +363,27 @@ const local = (equipe: Equipe) =>
                   )}
 
                   <div class="mt-auto flex flex-wrap gap-2 border-t border-borda pt-4">
+                    {/*
+                      Antes a fileira de ações do próprio card só tinha
+                      "tornar principal" e "sair" — a única coisa que
+                      parecia botão na sua equipe era abandoná-la. Quem
+                      lidera entra por aqui para editar e aprovar.
+                    */}
+                    <a href={`/conta/equipes/${vinculo.equipe.slug}`} class={BOTAO_HUD}>
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
+                        <path
+                          d={
+                            vinculo.papel === "lider"
+                              ? "m14.5 5.5 4 4L8 20H4v-4zM12.5 7.5l4 4"
+                              : "M5 12h14M13 6l6 6-6 6"
+                          }
+                          stroke-linecap="square"
+                          stroke-linejoin="miter"
+                        />
+                      </svg>
+                      {vinculo.papel === "lider" ? "Gerenciar" : "Abrir"}
+                    </a>
+
                     {!vinculo.principal && (
                       <form method="POST">
                         <input type="hidden" name="acao" value="principal" />
