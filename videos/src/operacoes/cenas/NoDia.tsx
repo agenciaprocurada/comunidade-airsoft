@@ -19,19 +19,19 @@ import { Chip, GradeTatica, LinhaJogador, Painel, Passo, surgir } from "../pecas
 
 /** Em que frame cada chip acende. `0` = já vem aceso. */
 const ACENDE = {
-  presente: [0, 22, 54, 70, -1],
-  pago: [0, 0, 40, 0, 0],
+  presente: [0, 34, 78, 108, -1],
+  pago: [0, 0, 58, 0, 0],
 } as const;
 
 const LINHA_Y = [311, 389, 467, 545, 623];
 
 const PARADAS: Parada[] = [
   { frame: 0, x: 980, y: 980 },
-  { frame: 22, x: 1660, y: LINHA_Y[1], clique: true },
-  { frame: 40, x: 1490, y: LINHA_Y[2], clique: true },
-  { frame: 54, x: 1660, y: LINHA_Y[2], clique: true },
-  { frame: 70, x: 1660, y: LINHA_Y[3], clique: true },
-  { frame: 96, x: 1640, y: 670 },
+  { frame: 34, x: 1660, y: LINHA_Y[1], clique: true },
+  { frame: 58, x: 1490, y: LINHA_Y[2], clique: true },
+  { frame: 78, x: 1660, y: LINHA_Y[2], clique: true },
+  { frame: 108, x: 1660, y: LINHA_Y[3], clique: true },
+  { frame: 150, x: 1640, y: 670 },
 ];
 
 export const NoDia: React.FC = () => {

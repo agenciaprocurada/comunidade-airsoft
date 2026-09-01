@@ -10,8 +10,8 @@ de terem duas paletas.
 | --- | --- | --- | --- |
 | `VideoGeradorMapa` | 1920×1080 | 15 s | bloco de vídeo da `/criador-de-mapas` |
 | `VideoVertical` | 1080×1920 | 30 s | Reels / TikTok / Shorts do criador de mapas |
-| `VideoOperacoes` | 1920×1080 | 20 s | bloco de vídeo da `/organizador-de-operacoes` |
-| `VideoOperacoesVertical` | 1080×1920 | 26 s | Reels / TikTok / Shorts do organizador |
+| `VideoOperacoes` | 1920×1080 | 52 s | bloco de vídeo da `/organizador-de-operacoes` |
+| `VideoOperacoesVertical` | 1080×1920 | 52 s | Reels / TikTok / Shorts do organizador |
 
 ```
 npm run dev                        # Remotion Studio (todas as composições)
@@ -175,76 +175,68 @@ Não foi corte: o documento é 16:9 e a tela é 9:16, não existe encaixe honest
 
 # Vídeos do Organizador de Operações
 
-## O roteiro, e por que ele não é cronológico
+## O roteiro, e por que ele é assim
 
-A primeira versão contava a história na ordem em que o organizador trabalha:
-logo, formulário, link, lista, portão. Não funcionava, e os motivos são
-nomeáveis:
+Duas versões foram descartadas antes desta, e os motivos valem mais do que o
+resultado:
 
-1. **Gastava os dois segundos mais caros com o logo.** Ninguém assiste um vídeo
-   para ver a sua marca; ela entra no fim, quando já existe motivo para lembrar
-   dela.
-2. **Não tinha dor na tela.** Quem não sente o problema não vê valor na
-   solução. Hoje o 9:16 abre com a lista no bloco de notas e as quatro
-   perguntas de sempre — 4 s inteiros sem mostrar o produto.
-3. **Dava a maior fatia para a parte mais chata.** Seis segundos de formulário
-   sendo preenchido. Preencher formulário é CUSTO, não benefício; a cena foi
-   removida dos dois formatos e virou a promessa "em 1 minuto" no fecho.
-4. **Escondia o melhor argumento.** A lista de espera automática passava em um
-   segundo, como um chip no canto. Agora é cena inteira, com três batidas.
-5. **As legendas descreviam em vez de convencer.** "Abra a operação" é rótulo;
-   "Manda UM link. Uma vez." é argumento.
+1. **A primeira contava na ordem cronológica do produto** — logo, formulário,
+   link, lista, portão. Ordem do produtor, não do espectador.
+2. **A segunda era curta demais** (20 s). Passava por seis funcionalidades em
+   vinte segundos: o espectador via movimento e não entendia o produto.
 
-O 16:9 e o 9:16 têm roteiros DIFERENTES de propósito: quem vê o da landing já
-leu o hero logo acima e precisa de prova, não de dor; quem vê o das redes é
-público frio e decide nos dois primeiros segundos.
+As regras que sobraram, e que valem para o próximo vídeo do site:
 
-## 16:9 — 20 s · 1920×1080 · 30 fps (600 frames)
+- **Não abre com logo.** Os dois primeiros segundos são os únicos garantidos e
+  ninguém assiste um vídeo para ver a sua marca. Ela entra aos 10 s, depois de
+  a pessoa reconhecer o problema — e fica no canto, discreta, o resto todo.
+- **Dez segundos de dor antes de qualquer produto.** Quem não sente o problema
+  não vê valor na solução. O gancho é o anúncio da operação no grupo, a lista
+  numerada na mão (com o time repetido oito vezes e o 💰 marcando quem pagou) e
+  as quatro perguntas de sempre. O formato veio de prints reais.
+- **Cada tela fica tempo de ser LIDA.** O copia-e-cola tem 8 s, o formulário 6,
+  a fila de espera 5. Vídeo de produto não é trailer.
+- **O gesto aparece inteiro.** O link é selecionado, copiado, o ponteiro
+  atravessa para o grupo, o texto CAI no campo de mensagem e só então é
+  enviado. Sem isso sobra a dúvida errada: "o site posta no meu grupo?".
+- **As legendas argumentam, não descrevem.** "Abra a operação" é rótulo;
+  "Manda UM link. Uma vez." é argumento.
+- **A marca fica em todas as telas.** O vídeo circula em print e em grupo, e em
+  metade dessas viagens chega sem legenda e sem link.
+
+Os dois formatos rodam o MESMO roteiro e a mesma duração — muda só o
+enquadramento. Isso é decisão de manutenção: dois roteiros diferentes
+significavam duas coisas para conferir a cada ajuste.
+
+## O roteiro, cena a cena
+
+Vale para os dois formatos (`src/operacoes/VideoOperacoes.tsx` e
+`src/operacoes/vertical/ritmo.ts` têm os MESMOS limites).
+
+| Frames | Tempo | Cena | Arquivo | O que o texto diz |
+| --- | --- | --- | --- | --- |
+| 0–300 | 0–10 s | **O gancho:** o anúncio no grupo, a lista na mão, as perguntas | `cenas/Dor.tsx` | "Sua lista de presença hoje é assim?" → "E você corre atrás de todo mundo. Toda semana." |
+| 300–420 | 10–14 s | Quem somos e o que a ferramenta faz | `cenas/Apresentacao.tsx` | "Organizador de Operações da Comunidade Airsoft" · "Sua vida mais fácil. Veja como." |
+| 420–600 | 14–20 s | Abrir a operação | `cenas/Criar.tsx` | "Abra a operação" → "Os lados e as vagas de cada um" |
+| 600–840 | 20–28 s | **Copiar o link e colar no grupo**, gesto por gesto | `cenas/Link.tsx` | "Manda UM link. Uma vez." → "Você não reenvia nada" |
+| 840–1020 | 28–34 s | Alguém abre o link e confirma | `cenas/Confirmar.tsx` | "Ele abre e confirma" → "Entrou na lista" |
+| 1020–1170 | 34–39 s | A lista se escreve, com o contador subindo | `cenas/Lista.tsx` | "A lista se escreve sozinha" |
+| 1170–1320 | 39–44 s | **O pico:** lotou, entra na fila, a fila anda | `cenas/Espera.tsx` | "O lado lotou" → "Desistiu um? A fila anda." |
+| 1320–1470 | 44–49 s | No portão: pago e presente | `cenas/NoDia.tsx` | "Quem pagou, quem chegou" |
+| 1470–1560 | 49–52 s | Objeções e chamada | `cenas/Chamada.tsx` | "Grátis · Sem taxa · O dinheiro é seu" → "Abra a sua em 1 minuto" |
 
 ```
-npm run render:operacoes   # out/organizador-de-operacoes-1920x1080.mp4
+npm run render:operacoes            # 16:9, out/organizador-de-operacoes-1920x1080.mp4
+npm run render:operacoes-vertical   # 9:16, out/organizador-de-operacoes-1080x1920.mp4
 ```
 
-Composição `VideoOperacoes`; as seis cenas também estão soltas na pasta
-"Cenas-Operacoes" do Studio.
-
-| Frames | Tempo | Cena | Arquivo |
-| --- | --- | --- | --- |
-| 0–90 | 0–3 s | O link vai para o grupo da equipe | `src/operacoes/cenas/Link.tsx` |
-| 84–204 | 3–7 s | Alguém abre o link no celular e confirma | `src/operacoes/cenas/Confirmar.tsx` |
-| 198–318 | 7–11 s | A lista se escreve, com o contador subindo | `src/operacoes/cenas/Lista.tsx` |
-| 312–402 | 11–14 s | **O pico:** lotou, entra na fila, a fila anda | `src/operacoes/cenas/Espera.tsx` |
-| 396–516 | 14–18 s | No portão: pago e presente | `src/operacoes/cenas/NoDia.tsx` |
-| 510–600 | 18–20 s | Chamada e botão | `src/operacoes/cenas/Chamada.tsx` |
-
-As cenas se sobrepõem em 6 frames, então a troca é dissolvência e não corte.
-
-## 9:16 — 26 s · 1080×1920 · 30 fps (780 frames)
-
-```
-npm run render:operacoes-vertical   # out/organizador-de-operacoes-1080x1920.mp4
-```
-
-Sete cenas, cortes SECOS caindo no compasso de 120 BPM
-(`src/operacoes/vertical/ritmo.ts`), mesma regra do vertical do criador de
-mapas. Cenas em `src/operacoes/vertical/cenas.tsx` — um arquivo só, porque cada
-uma delas é uma variante de enquadramento da cena equivalente do 16:9.
-
-| Frames | Tempo | Cena | O que o texto diz |
-| --- | --- | --- | --- |
-| 0–120 | 0–4 s | **O gancho:** a lista no bloco de notas e as perguntas de sempre | "Sua lista de presença hoje" → "E as mesmas 4 perguntas. Toda semana." |
-| 120–210 | 4–7 s | O link vai para o grupo | "Manda UM link. Uma vez." |
-| 210–330 | 7–11 s | Alguém abre e confirma | "Ele abre e confirma" → "Entrou na lista" |
-| 330–450 | 11–15 s | A lista se escreve, contador subindo | "A lista se escreve sozinha" |
-| 450–540 | 15–18 s | **O pico:** lotou, a fila anda | "O lado lotou" → "Desistiu um? A fila anda." |
-| 540–660 | 18–22 s | No portão do campo | "Quem pagou, quem chegou" |
-| 660–780 | 22–26 s | Objeções e chamada | "Grátis · Sem taxa · O dinheiro é seu" |
+No 16:9 as cenas se sobrepõem em 6 frames (dissolvência); no 9:16 os cortes são
+secos e caem no compasso de 120 BPM.
 
 A barra de progresso do 9:16 é LOCAL (dentro de `VideoOperacoesVertical.tsx`) e
 não a de `../../vertical/Moldura`: aquela é calculada sobre os 900 frames do
 vídeo do criador de mapas, e uma barra que chega a 100% antes do fim é pior do
-que barra nenhuma. A marca do topo só entra depois dos 4 s de dor — no gancho a
-tela é do espectador, não nossa.
+que barra nenhuma.
 
 ## A interface é RECRIADA, não gravada
 

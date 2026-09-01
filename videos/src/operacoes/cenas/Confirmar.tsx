@@ -6,6 +6,7 @@ import {
   BarraDeEnvio,
   CabecalhoDaConversa,
   FundoDaConversa,
+  indiceDoNome,
 } from "../conversa";
 import {
   CONVERSA,
@@ -44,14 +45,14 @@ import {
  * batem com as caixas desenhadas abaixo.
  */
 
-const TROCA = 32; // frame em que o link abre a página
+const TROCA = 46; // frame em que o link abre a página
 
 const PARADAS: Parada[] = [
   { frame: 0, x: 1000, y: 980 },
-  { frame: 26, x: 1370, y: 665, clique: true },
-  { frame: 62, x: 1400, y: 704, clique: true },
-  { frame: 86, x: 1400, y: 781, clique: true },
-  { frame: 126, x: 1420, y: 800 },
+  { frame: 38, x: 1370, y: 665, clique: true },
+  { frame: 96, x: 1400, y: 704, clique: true },
+  { frame: 130, x: 1400, y: 781, clique: true },
+  { frame: 180, x: 1420, y: 800 },
 ];
 
 /**
@@ -87,13 +88,13 @@ export const ChatNoCelular: React.FC<{ frame: number; escala?: number }> = ({
       >
         {CONVERSA.map((mensagem, i) => (
           <Balao
-            key={mensagem.de}
+            key={`${mensagem.de}-${i}`}
             mensagem={mensagem}
             eu="Ana"
-            indiceNome={i}
+            indiceNome={indiceDoNome(mensagem.de)}
             escala={escala}
             largura={430 * escala}
-            entrada={surgir(frame, i * 8, 6)}
+            entrada={surgir(frame, i * 12, 7)}
           />
         ))}
       </div>
@@ -283,7 +284,7 @@ export const Confirmar: React.FC = () => {
           lineHeight: 1.7,
           letterSpacing: "0.04em",
           color: COR.texto2,
-          opacity: surgir(frame, 18, 16),
+          opacity: surgir(frame, 20, 16),
         }}
       >
         Do grupo para a lista em dois toques. Escolhe o lado, confirma, e
@@ -295,8 +296,8 @@ export const Confirmar: React.FC = () => {
           position: "absolute",
           left: 110,
           top: 760,
-          opacity: surgir(frame, 92, 12),
-          translate: `0 ${interpolate(surgir(frame, 92, 12), [0, 1], [14, 0])}px`,
+          opacity: surgir(frame, 136, 12),
+          translate: `0 ${interpolate(surgir(frame, 136, 12), [0, 1], [14, 0])}px`,
         }}
       >
         <Chip tom="oliva" tamanho={26} marcavel>
@@ -326,7 +327,7 @@ export const Confirmar: React.FC = () => {
                 translate: `0 ${interpolate(abrindo, [0, 1], [0, 40])}px`,
               }}
             >
-              <PaginaDoEvento frame={frame} militar={62} confirmar={86} />
+              <PaginaDoEvento frame={frame} militar={96} confirmar={130} />
             </div>
           </div>
         </Telefone>

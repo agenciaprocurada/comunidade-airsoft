@@ -8,6 +8,9 @@ import { Revelacao } from "./cenas/Revelacao";
 import { Chamada } from "./cenas/Chamada";
 import { VideoVertical } from "./vertical/VideoVertical";
 import { VideoOperacoes } from "./operacoes/VideoOperacoes";
+import { Dor as DorOp } from "./operacoes/cenas/Dor";
+import { Apresentacao as ApresentacaoOp } from "./operacoes/cenas/Apresentacao";
+import { Criar as CriarOp } from "./operacoes/cenas/Criar";
 import { Link as LinkOp } from "./operacoes/cenas/Link";
 import { Confirmar as ConfirmarOp } from "./operacoes/cenas/Confirmar";
 import { Espera as EsperaOp } from "./operacoes/cenas/Espera";
@@ -17,6 +20,8 @@ import { Chamada as ChamadaOp } from "./operacoes/cenas/Chamada";
 import { VideoOperacoesVertical } from "./operacoes/vertical/VideoOperacoesVertical";
 import {
   Chamada as ChamadaOpV,
+  ApresentacaoVertical as ApresentacaoOpV,
+  CriarVertical as CriarOpV,
   Dor as DorOpV,
   EsperaNaFila as EsperaOpV,
   LinkNoGrupo as LinkOpV,
@@ -54,7 +59,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="VideoOperacoes"
         component={VideoOperacoes}
-        durationInFrames={600}
+        durationInFrames={1560}
         fps={30}
         width={1920}
         height={1080}
@@ -63,29 +68,34 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="VideoOperacoesVertical"
         component={VideoOperacoesVertical}
-        durationInFrames={780}
+        durationInFrames={1560}
         fps={30}
         width={1080}
         height={1920}
       />
 
       <Folder name="Cenas-Operacoes-Vertical">
-        <Composition id="OV1-Dor" component={DorOpV} durationInFrames={120} fps={30} width={1080} height={1920} />
-        <Composition id="OV2-Link" component={LinkOpV} durationInFrames={90} fps={30} width={1080} height={1920} />
-        <Composition id="OV3-Confirmar" component={ConfirmarOpV} durationInFrames={120} fps={30} width={1080} height={1920} />
-        <Composition id="OV4-Lista" component={ListaOpV} durationInFrames={120} fps={30} width={1080} height={1920} />
-        <Composition id="OV5-Espera" component={EsperaOpV} durationInFrames={90} fps={30} width={1080} height={1920} />
-        <Composition id="OV6-NoDia" component={NoDiaOpV} durationInFrames={120} fps={30} width={1080} height={1920} />
-        <Composition id="OV7-Chamada" component={ChamadaOpV} durationInFrames={120} fps={30} width={1080} height={1920} />
+        <Composition id="OV1-Dor" component={DorOpV} durationInFrames={300} fps={30} width={1080} height={1920} />
+        <Composition id="OV2-Apresentacao" component={ApresentacaoOpV} durationInFrames={120} fps={30} width={1080} height={1920} />
+        <Composition id="OV3-Criar" component={CriarOpV} durationInFrames={180} fps={30} width={1080} height={1920} />
+        <Composition id="OV4-Link" component={LinkOpV} durationInFrames={240} fps={30} width={1080} height={1920} />
+        <Composition id="OV5-Confirmar" component={ConfirmarOpV} durationInFrames={180} fps={30} width={1080} height={1920} />
+        <Composition id="OV6-Lista" component={ListaOpV} durationInFrames={150} fps={30} width={1080} height={1920} />
+        <Composition id="OV7-Espera" component={EsperaOpV} durationInFrames={150} fps={30} width={1080} height={1920} />
+        <Composition id="OV8-NoDia" component={NoDiaOpV} durationInFrames={150} fps={30} width={1080} height={1920} />
+        <Composition id="OV9-Chamada" component={ChamadaOpV} durationInFrames={90} fps={30} width={1080} height={1920} />
       </Folder>
 
       <Folder name="Cenas-Operacoes">
-        <Composition id="O1-Link" component={LinkOp} durationInFrames={90} fps={30} width={1920} height={1080} />
-        <Composition id="O2-Confirmar" component={ConfirmarOp} durationInFrames={120} fps={30} width={1920} height={1080} />
-        <Composition id="O3-Lista" component={ListaOp} durationInFrames={120} fps={30} width={1920} height={1080} />
-        <Composition id="O4-Espera" component={EsperaOp} durationInFrames={90} fps={30} width={1920} height={1080} />
-        <Composition id="O5-NoDia" component={NoDiaOp} durationInFrames={120} fps={30} width={1920} height={1080} />
-        <Composition id="O6-Chamada" component={ChamadaOp} durationInFrames={90} fps={30} width={1920} height={1080} />
+        <Composition id="O1-Dor" component={DorOp} durationInFrames={300} fps={30} width={1920} height={1080} />
+        <Composition id="O2-Apresentacao" component={ApresentacaoOp} durationInFrames={120} fps={30} width={1920} height={1080} />
+        <Composition id="O3-Criar" component={CriarOp} durationInFrames={180} fps={30} width={1920} height={1080} />
+        <Composition id="O4-Link" component={LinkOp} durationInFrames={240} fps={30} width={1920} height={1080} />
+        <Composition id="O5-Confirmar" component={ConfirmarOp} durationInFrames={180} fps={30} width={1920} height={1080} />
+        <Composition id="O6-Lista" component={ListaOp} durationInFrames={150} fps={30} width={1920} height={1080} />
+        <Composition id="O7-Espera" component={EsperaOp} durationInFrames={150} fps={30} width={1920} height={1080} />
+        <Composition id="O8-NoDia" component={NoDiaOp} durationInFrames={150} fps={30} width={1920} height={1080} />
+        <Composition id="O9-Chamada" component={ChamadaOp} durationInFrames={90} fps={30} width={1920} height={1080} />
       </Folder>
 
       {/* Versão vertical para Reels / TikTok / Shorts. */}

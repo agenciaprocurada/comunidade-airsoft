@@ -174,7 +174,7 @@ const faq = {
 };
 
 /**
- * Vídeo de demonstração — 20 segundos, do link no grupo à lista
+ * Vídeo de demonstração — 52 segundos, da lista no bloco de notas à lista pronta
  * fechada.
  *
  * O MP4 sai do projeto Remotion em videos/ (composição
@@ -191,15 +191,15 @@ const faq = {
  * O binário do ffmpeg já vem junto com o Remotion, dentro de
  * videos/node_modules/@remotion/compositor-*.
  *
- * O pôster é o quadro dos 10,2 s — a lista JÁ CHEIA, com os dois
+ * O pôster é o quadro dos 36,5 s — a lista JÁ CHEIA, com os dois
  * lados e o selo da espera. O primeiro quadro é a marca sobre fundo
  * preto, que não convida ninguém a apertar o play.
  */
 const VIDEO = {
   arquivo: "/video/organizador-de-operacoes-airsoft.mp4",
   titulo: "Organizador de operações de airsoft — lista de presença num link",
-  duracaoIso: "PT20S",
-  duracaoTexto: "20 segundos",
+  duracaoIso: "PT52S",
+  duracaoTexto: "52 segundos",
   publicadoEm: "2026-09-01",
 };
 
@@ -216,8 +216,9 @@ const video = {
   name: VIDEO.titulo,
   description:
     "Demonstração do Organizador de Operações da Comunidade Airsoft: abrir a " +
-    "link da operação indo para o grupo da equipe, um jogador abrindo esse link e " +
-    "confirmando presença, a lista se enchendo sozinha, a lista de espera andando " +
+    "a lista de presença feita à mão no grupo de WhatsApp, a operação sendo aberta " +
+    "em um minuto, o link sendo copiado e colado no grupo, um jogador abrindo o link " +
+    "e confirmando presença, a lista se enchendo sozinha, a fila de espera andando " +
     "quando alguém desiste e a marcação de pago e presente no dia do jogo.",
   uploadDate: VIDEO.publicadoEm,
   duration: VIDEO.duracaoIso,
@@ -536,10 +537,10 @@ const VISIVEL = [
         id="video-titulo"
         class="mx-auto mt-3 max-w-[22ch] font-display text-3xl font-bold uppercase leading-tight tracking-[0.03em] md:text-4xl lg:text-[2.75rem]"
       >
-        Da operação aberta à lista fechada
+        Do bloco de notas à lista pronta
       </h2>
       <p class="mt-4 text-lg leading-relaxed text-texto-2">
-        Dê play para ver a ferramenta funcionando.
+        Dê play: em menos de um minuto você vê a ferramenta inteira funcionando.
       </p>
 
       {/* Sem `overflow-hidden`: os ticks de canto da moldura tática

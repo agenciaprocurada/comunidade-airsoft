@@ -45,6 +45,18 @@ export const ZAP = {
   sombra: "0 1px 0.5px rgba(11,20,26,0.13)",
 } as const;
 
+/**
+ * A cor do nome é da PESSOA, não da posição na lista: o Léo fala duas
+ * vezes na mesma conversa e trocar de cor no meio quebraria a
+ * ilusão. A ordem aqui é a ordem em que cada um aparece.
+ */
+const PESSOAS = ["Léo", "Ana", "Marcos", "Tiago"];
+
+export const indiceDoNome = (nome: string) => {
+  const i = PESSOAS.indexOf(nome);
+  return i >= 0 ? i : 0;
+};
+
 export interface Mensagem {
   de: string;
   texto: string;
@@ -332,8 +344,20 @@ export const Balao: React.FC<{
   );
 };
 
-/** A barra de digitar, no pé da conversa. */
-export const BarraDeEnvio: React.FC<{ escala?: number }> = ({ escala = 1 }) => (
+/**
+ * A barra de digitar, no pé da conversa.
+ *
+ * `texto` é o que está escrito no campo. Vazio, ela mostra o
+ * placeholder e o microfone; com texto, mostra o link colado e o botão
+ * de enviar — é essa troca que faz o espectador ver o CTRL+V
+ * acontecendo, em vez de a mensagem aparecer por mágica no chat.
+ */
+export const BarraDeEnvio: React.FC<{
+  escala?: number;
+  texto?: string;
+  /** 0 a 1 — o clarão de "acabou de colar". */
+  destaque?: number;
+}> = ({ escala = 1, texto, destaque = 0 }) => (
   <div
     style={{
       display: "flex",
@@ -354,20 +378,30 @@ export const BarraDeEnvio: React.FC<{ escala?: number }> = ({ escala = 1 }) => (
         padding: `0 ${14 * escala}px`,
         borderRadius: 999,
         backgroundColor: "#ffffff",
-        boxShadow: ZAP.sombra,
+        boxShadow: destaque > 0 ? `0 0 0 ${3 * escala * destaque}px rgba(0,168,132,0.55)` : ZAP.sombra,
+        overflow: "hidden",
       }}
     >
-      <svg width={22 * escala} height={22 * escala} viewBox="0 0 24 24" fill="#54656f">
+      <svg
+        width={22 * escala}
+        height={22 * escala}
+        viewBox="0 0 24 24"
+        fill="#54656f"
+        style={{ flexShrink: 0 }}
+      >
         <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-3.5 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM12 18c-2.3 0-4.3-1.4-5.2-3.4h10.4C16.3 16.6 14.3 18 12 18z" />
       </svg>
       <span
         style={{
           fontFamily: FONTE_TEXTO,
           fontSize: 20 * escala,
-          color: ZAP.fraco,
+          color: texto ? ZAP.texto : ZAP.fraco,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
         }}
       >
-        Mensagem
+        {texto || "Mensagem"}
       </span>
     </div>
     <div
@@ -382,8 +416,15 @@ export const BarraDeEnvio: React.FC<{ escala?: number }> = ({ escala = 1 }) => (
         flexShrink: 0,
       }}
     >
+      {/* Microfone quando o campo está vazio, avião quando tem texto —
+          é a troca que o aplicativo faz, e é ela que diz "agora dá
+          para enviar". */}
       <svg width={22 * escala} height={22 * escala} viewBox="0 0 24 24" fill="#ffffff">
-        <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
+        {texto ? (
+          <path d="M2.5 21 23 12 2.5 3v7l14.5 2-14.5 2v7z" />
+        ) : (
+          <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
+        )}
       </svg>
     </div>
   </div>

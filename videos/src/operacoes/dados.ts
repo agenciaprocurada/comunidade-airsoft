@@ -135,6 +135,9 @@ export const totalConfirmado = (entraram: number): number =>
  * uma vez.
  */
 export const CONVERSA = [
+  // A pergunta que puxa o assunto: sem ela o grupo aparece vazio na
+  // tela e o link do organizador vem do nada.
+  { de: "Léo", texto: "E aí, tem jogo domingo?", hora: "08:02" },
   { de: "Rodrigo", texto: "Fechou o domingo. Lista aberta 👇", hora: "08:04", comLink: true },
   { de: "Léo", texto: "Tô dentro! Já confirmei no PMC", hora: "08:06" },
   { de: "Ana", texto: "Vou sim, abrindo o link agora", hora: "08:07" },

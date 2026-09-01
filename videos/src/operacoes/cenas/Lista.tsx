@@ -30,7 +30,7 @@ import { BarraLado, Chip, GradeTatica, LinhaJogador, Painel, Passo, surgir } fro
  * na cena anterior e a lista abre com ela dentro. O último demora — é
  * a virada da cena.
  */
-const ENTRADAS = [0, 14, 30, 46, 62, 78];
+const ENTRADAS = [0, 18, 38, 58, 78, 98];
 
 export const Lista: React.FC = () => {
   const frame = useCurrentFrame();

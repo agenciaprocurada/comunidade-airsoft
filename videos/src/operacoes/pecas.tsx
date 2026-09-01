@@ -347,7 +347,9 @@ export const CaixaLink: React.FC<{
   link: string;
   largura?: number | string;
   entrada?: number;
-}> = ({ rotulo, link, largura = "100%", entrada = 1 }) => (
+  /** 0 a 1 — o texto do link "selecionado", como antes de copiar. */
+  selecionado?: number;
+}> = ({ rotulo, link, largura = "100%", entrada = 1, selecionado = 0 }) => (
   <div
     style={{
       width: largura,
@@ -378,7 +380,15 @@ export const CaixaLink: React.FC<{
         whiteSpace: "nowrap",
       }}
     >
-      {link}
+      <span
+        style={{
+          // A seleção azul de sistema, para o copiar parecer copiar.
+          backgroundColor: selecionado > 0 ? `rgba(63,110,214,${0.55 * selecionado})` : "transparent",
+          boxShadow: selecionado > 0 ? `0 0 0 3px rgba(63,110,214,${0.55 * selecionado})` : undefined,
+        }}
+      >
+        {link}
+      </span>
     </div>
   </div>
 );

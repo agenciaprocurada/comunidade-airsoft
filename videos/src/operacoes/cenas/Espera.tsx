@@ -20,7 +20,7 @@ import { BarraLado, Chip, GradeTatica, LinhaJogador, Painel, surgir } from "../p
  * A terceira é a que vende. Sem ela, "lista de espera" é só uma fila.
  */
 
-const BATIDAS = { lota: 10, espera: 34, desiste: 62, promove: 74 } as const;
+const BATIDAS = { lota: 18, espera: 56, desiste: 100, promove: 118 } as const;
 
 export const Espera: React.FC<{
   /** Onde o painel fica, em coordenadas de tela. */

@@ -3,8 +3,10 @@ import { Audio } from "@remotion/media";
 import { Rodape, Topo } from "../../vertical/Moldura";
 import { COR } from "../../tema";
 import {
+  ApresentacaoVertical,
   Chamada,
   ConfirmarNoCelular,
+  CriarVertical,
   Dor,
   EsperaNaFila,
   LinkNoGrupo,
@@ -14,39 +16,58 @@ import {
 import { DURACAO, LIMITES, TRILHA, duracaoDe } from "./ritmo";
 
 /**
- * 26 s a 30 fps, 1080×1920, para Reels / TikTok / Shorts.
+ * 52 s a 30 fps, 1080×1920, para Reels / TikTok / Shorts.
  *
- * O ROTEIRO, e por que ele é assim:
+ * O RITMO É LENTO DE PROPÓSITO. A versão de 26 s passava por seis
+ * funcionalidades e o espectador via movimento, não entendia o
+ * produto. Aqui cada tela fica tempo suficiente para ser LIDA.
  *
- * 1. Abre na DOR, não na marca. Quem não sente o problema não vê valor
- *    na solução, e os dois primeiros segundos são os únicos garantidos
- *    aqui. A lista no bloco de notas e as quatro perguntas de sempre
- *    fazem o reconhecimento antes de qualquer palavra sobre o produto.
- * 2. A virada é UMA frase: manda um link, uma vez.
- * 3. Três provas, nesta ordem: alguém entra pelo link (é possível), a
- *    lista se escreve (não dá trabalho) e a fila anda sozinha (o bloco
- *    de notas não faz isso de jeito nenhum).
- * 4. As objeções — grátis, sem taxa, o dinheiro é seu — vêm ANTES do
- *    botão, porque são elas que travam o clique.
- * 5. O formulário de criação não aparece. Preencher formulário é
- *    custo, não benefício; a promessa "em 1 minuto" fecha o vídeo e
- *    vale mais do que seis segundos vendo alguém digitar.
+ * A ESTRUTURA:
+ *   0–10 s   a dor: o anúncio no grupo, a lista na mão, as perguntas
+ *   10–14 s  quem somos e o que a ferramenta faz
+ *   14–20 s  abrir a operação
+ *   20–28 s  copiar o link e colar no grupo — o gesto inteiro
+ *   28–34 s  alguém abre e confirma
+ *   34–39 s  a lista se escreve
+ *   39–44 s  lotou, e a fila anda sozinha
+ *   44–49 s  o dia do jogo
+ *   49–52 s  objeções e chamada
  *
- * Os cortes são SECOS e caem no compasso (múltiplos de 30 frames a 120
- * BPM). A continuidade fica por conta da lista: é a mesma operação, os
- * mesmos nomes e os mesmos números do começo ao fim.
+ * A marca (`Topo`) fica em todas as cenas MENOS nos 10 s de dor: ali a
+ * tela é do espectador, e logo em cima de um problema que ele ainda
+ * não sabe que tem solução só atrapalha. Na apresentação e na chamada
+ * ela já está grande no meio da tela, então a do topo sai.
+ *
+ * Os cortes são secos e caem no compasso (múltiplos de 30 frames a
+ * 120 BPM).
  */
 export const VideoOperacoesVertical: React.FC = () => {
   return (
     <AbsoluteFill style={{ backgroundColor: COR.fundo }}>
       {TRILHA ? <Audio src={staticFile(TRILHA)} volume={0.5} /> : null}
 
-      <Sequence name="0-4s · A dor" from={LIMITES.dor} durationInFrames={duracaoDe("dor")}>
+      <Sequence name="0-10s · A dor" from={LIMITES.dor} durationInFrames={duracaoDe("dor")}>
         <Dor />
       </Sequence>
 
       <Sequence
-        name="4-7s · A virada: um link"
+        name="10-14s · O que é a ferramenta"
+        from={LIMITES.apresentacao}
+        durationInFrames={duracaoDe("apresentacao")}
+      >
+        <ApresentacaoVertical />
+      </Sequence>
+
+      <Sequence
+        name="14-20s · Abrir a operação"
+        from={LIMITES.criar}
+        durationInFrames={duracaoDe("criar")}
+      >
+        <CriarVertical />
+      </Sequence>
+
+      <Sequence
+        name="20-28s · Copiar e colar no grupo"
         from={LIMITES.link}
         durationInFrames={duracaoDe("link")}
       >
@@ -54,7 +75,7 @@ export const VideoOperacoesVertical: React.FC = () => {
       </Sequence>
 
       <Sequence
-        name="7-11s · Ele abre e confirma"
+        name="28-34s · Ele abre e confirma"
         from={LIMITES.confirmar}
         durationInFrames={duracaoDe("confirmar")}
       >
@@ -62,7 +83,7 @@ export const VideoOperacoesVertical: React.FC = () => {
       </Sequence>
 
       <Sequence
-        name="11-15s · A lista se escreve"
+        name="34-39s · A lista se escreve"
         from={LIMITES.lista}
         durationInFrames={duracaoDe("lista")}
       >
@@ -70,19 +91,19 @@ export const VideoOperacoesVertical: React.FC = () => {
       </Sequence>
 
       <Sequence
-        name="15-18s · Lotou, a fila anda"
+        name="39-44s · Lotou, a fila anda"
         from={LIMITES.espera}
         durationInFrames={duracaoDe("espera")}
       >
         <EsperaNaFila />
       </Sequence>
 
-      <Sequence name="18-22s · No dia do jogo" from={LIMITES.dia} durationInFrames={duracaoDe("dia")}>
+      <Sequence name="44-49s · No dia do jogo" from={LIMITES.dia} durationInFrames={duracaoDe("dia")}>
         <NoDia />
       </Sequence>
 
       <Sequence
-        name="22-26s · Objeções e chamada"
+        name="49-52s · Objeções e chamada"
         from={LIMITES.chamada}
         durationInFrames={duracaoDe("chamada")}
       >
@@ -94,16 +115,17 @@ export const VideoOperacoesVertical: React.FC = () => {
 
         A barra de progresso é local (e não a de ../../vertical/Moldura)
         porque aquela é calculada sobre os 900 frames do vídeo do
-        criador de mapas — aqui são 780, e uma barra que chega a 100%
+        criador de mapas — aqui são 1560, e uma barra que chega a 100%
         antes do fim é pior do que barra nenhuma.
-
-        A marca só entra DEPOIS da dor: nos primeiros 4 s a tela é do
-        espectador, não nossa.
       */}
       <Sequence name="Progresso" durationInFrames={DURACAO}>
         <BarraDeProgresso />
       </Sequence>
-      <Sequence name="Marca" from={LIMITES.link} durationInFrames={LIMITES.chamada - LIMITES.link}>
+      <Sequence
+        name="Marca"
+        from={LIMITES.criar}
+        durationInFrames={LIMITES.chamada - LIMITES.criar}
+      >
         <Topo />
         <Rodape />
       </Sequence>
@@ -111,7 +133,7 @@ export const VideoOperacoesVertical: React.FC = () => {
   );
 };
 
-/** A barra de progresso deste vídeo — 780 frames, não 900. */
+/** A barra de progresso deste vídeo — 1560 frames, não 900. */
 const BarraDeProgresso: React.FC = () => {
   const frame = useCurrentFrame();
   return (
