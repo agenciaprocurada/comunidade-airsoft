@@ -260,13 +260,29 @@ if (Astro.request.method === "POST") {
 // Leitura
 // ------------------------------------------------------------------
 
-const { data: elencoBruto } = await supabase
-  .from("equipe_elenco")
-  .select("equipe_id,usuario_id,papel,membro_desde,nome,nickname,foto_url")
-  .eq("equipe_id", equipe.id)
-  .returns<MembroDoElenco[]>();
+/*
+ * Esta tela abre para qualquer pessoa logada — é por ela que se pede
+ * entrada numa equipe de que ainda não se faz parte. Por isso a
+ * contagem vem da `equipe_vitrine` e não de `elenco.length`: desde
+ * db/schema-equipes-elenco-privado.sql a view do elenco devolve vazio
+ * para quem não tem vínculo ativo, e contar as linhas daria zero para
+ * uma equipe cheia.
+ */
+const [{ data: elencoBruto }, { data: vitrine }] = await Promise.all([
+  supabase
+    .from("equipe_elenco")
+    .select("equipe_id,usuario_id,papel,membro_desde,nome,nickname,foto_url")
+    .eq("equipe_id", equipe.id)
+    .returns<MembroDoElenco[]>(),
+  supabase
+    .from("equipe_vitrine")
+    .select("membros")
+    .eq("id", equipe.id)
+    .maybeSingle<{ membros: number }>(),
+]);
 
 const elenco = ordenarElenco(elencoBruto ?? []);
+const quantosMembros = vitrine?.membros ?? elenco.length;
 
 /** Vínculo de cada membro, para o líder ter o id na hora de agir. */
 let vinculoPorUsuario: Record<string, VinculoEquipe> = {};
@@ -309,7 +325,7 @@ const criada = Astro.url.searchParams.get("criada") === "1";
 const faltaIndexar = faltaParaIndexar({
   descricao: equipe.descricao,
   logo_url: equipe.logo_url,
-  membros: elenco.length,
+  membros: quantosMembros,
   verificada: equipe.verificada,
 });
 
@@ -485,7 +501,17 @@ const ESTADOS = Object.entries(NOME_UF).sort((a, b) => a[1].localeCompare(b[1], 
   }
 
   <div class="mt-10">
-    <Painel titulo="Elenco" contagem={elenco.length}>
+    <Painel titulo="Elenco" contagem={quantosMembros}>
+      {
+        !souMembro && (
+          <p class="px-4 py-5 text-[0.9375rem] leading-relaxed text-texto-2">
+            {quantosMembros === 0
+              ? "Ninguém da equipe criou conta no site ainda."
+              : "Quem são os membros só aparece para quem é da equipe. Peça para entrar e a lista abre."}
+          </p>
+        )
+      }
+
       <ul class="divide-y divide-borda">
         {
           elenco.map((membro) => (

@@ -554,7 +554,12 @@ create policy equipe_membros_edita_o_proprio on public.equipe_membros
   with check (usuario_id = auth.uid());
 
 -- ------------------------------------------------------------
--- Elenco publico
+-- Elenco
+--
+-- ATENCAO: esta view foi FECHADA depois, em
+-- db/schema-equipes-elenco-privado.sql — quem sao os membros so
+-- aparece para quem tem vinculo ativo. Reaplicar este arquivo sozinho
+-- devolve a versao publica; rode o outro na sequencia.
 --
 -- ATENCAO — esta view e a UNICA do projeto que roda como dono
 -- (`security_invoker = false`), e e de proposito. A RLS de `perfis`

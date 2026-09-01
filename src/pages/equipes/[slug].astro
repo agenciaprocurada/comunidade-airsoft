@@ -10,10 +10,10 @@
  *
  * O que esta página mostra e o que ela NÃO mostra:
  *
- *  - elenco com nome curto e apelido, que é o que a `equipe_elenco`
- *    libera. Estar numa equipe é ato público — ir a uma operação
- *    específica não é, e por isso a lista de presença continua fora
- *    daqui e do resto do site;
+ *  - de fora, SÓ O NÚMERO de gente com conta. Quem são os membros é
+ *    assunto de dentro da equipe: a lista com nome, apelido e foto só
+ *    aparece para quem tem vínculo ativo, e quem garante isso é a
+ *    view `equipe_elenco`, não esta tela;
  *  - contagem de membros com conta, nunca efetivo declarado;
  *  - `noindex` enquanto a ficha for rasa (ver `equipeIndexavel`). A
  *    página abre para quem tem o link desde o primeiro minuto; ela só
@@ -148,6 +148,19 @@ if (!ufDoHub) {
   operacoes = agenda ?? [];
   meuStatus = vinculo?.status ?? null;
 }
+
+/**
+ * Só quem é da equipe vê QUEM são os outros; de fora sai apenas o
+ * número.
+ *
+ * A trava de verdade está no banco: a view `equipe_elenco` filtra por
+ * `e_membro_da_equipe` e devolve vazio para o resto do mundo (ver
+ * db/schema-equipes-elenco-privado.sql). Esta variável existe para a
+ * tela dizer o motivo do vazio, em vez de fingir que a equipe não tem
+ * ninguém — e a contagem continua vindo da `equipe_vitrine`, que é
+ * agregada e não carrega pessoa nenhuma.
+ */
+const souDaEquipe = meuStatus === "ativo";
 
 const pedidoEnviado = Astro.url.searchParams.get("pedido") === "1";
 
@@ -360,11 +373,15 @@ const instagram = equipe?.redes?.instagram ?? null;
           )}
 
           <section class="mt-10">
-            <h2 class="rotulo">
-              Elenco {elenco.length > 0 && `· ${elenco.length}`}
-            </h2>
+            <h2 class="rotulo">Elenco · {equipe!.membros}</h2>
 
-            {elenco.length === 0 ? (
+            {!souDaEquipe ? (
+              <p class="mt-3 max-w-[62ch] leading-relaxed text-texto-2">
+                {equipe!.membros === 0
+                  ? "Ninguém da equipe criou conta no site ainda."
+                  : `${equipe!.membros} ${equipe!.membros === 1 ? "jogador com conta" : "jogadores com conta"} no site. Quem são só aparece para quem é da equipe.`}
+              </p>
+            ) : elenco.length === 0 ? (
               <p class="mt-3 max-w-[62ch] leading-relaxed text-texto-2">
                 Ninguém da equipe criou conta no site ainda. O número aqui conta
                 só quem tem conta — não é o efetivo real da equipe.
