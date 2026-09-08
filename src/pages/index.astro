@@ -1,198 +1,59 @@
 ---
 import { getCollection } from "astro:content";
 import { Image } from "astro:assets";
-import type { ImageMetadata } from "astro";
-import heroDesktop from "../assets/hero-fundo.webp";
-import heroMobile from "../assets/hero-fundo-mobile.webp";
-import fotoIniciante from "../assets/guias/guia-do-iniciante.webp";
 import Base from "../layouts/Base.astro";
-import BuscaCampos from "../components/BuscaCampos.astro";
 import Botao from "../components/Botao.astro";
+import hero from "../assets/home/equipe-em-campo-home-v2.webp";
+import campo from "../assets/home/onde-jogar.webp";
+import loja from "../assets/home/onde-comprar.webp";
+import oficina from "../assets/home/onde-arrumar.webp";
+import iniciante from "../assets/guias/guia-do-iniciante.webp";
+import mapa from "../assets/mapas/exemplo-mapa-tatico-airsoft-satelite.webp";
+import { NOME_UF } from "../lib/uf";
 import { EQUIPES_VISIVEIS } from "../lib/flags";
 
-const campos = await getCollection("campos", ({ data }) => data.status === "publicado");
-const lojas = await getCollection("lojas", ({ data }) => data.status === "publicado");
-const armeiros = await getCollection("armeiros", ({ data }) => data.status === "publicado");
-const guias = await getCollection("guias", ({ data }) => !data.rascunho);
-
-/** Quantos guias a home mostra antes do botao para o catalogo completo. */
-const GUIAS_NA_HOME = 3;
-
-/**
- * A lista do subtitulo do hero segue a flag, nao uma string fixa.
- *
- * Enquanto EQUIPES_VISIVEIS for false nao existe porta de entrada para
- * equipes no site: prometer no hero o que o visitante nao acha e pior do
- * que nao prometer. Ligou a flag, a palavra volta sozinha e ninguem
- * precisa lembrar de vir editar este paragrafo.
- */
-const oQueTem = [
-  "Campos",
-  "operações",
-  "lojas",
-  "armeiros",
-  ...(EQUIPES_VISIVEIS ? ["equipes"] : []),
-  "guias",
-  "ferramentas",
-  "informações",
+const [campos, lojas, armeiros, guias] = await Promise.all([
+  getCollection("campos", ({ data }) => data.status === "publicado"),
+  getCollection("lojas", ({ data }) => data.status === "publicado"),
+  getCollection("armeiros", ({ data }) => data.status === "publicado"),
+  getCollection("guias", ({ data }) => !data.rascunho),
+]);
+const numero = (valor: number) => valor.toLocaleString("pt-BR");
+const estados = [...new Set(campos.map(({ data }) => data.uf))]
+  .map((uf) => ({ uf, nome: NOME_UF[uf] ?? uf, total: campos.filter(({ data }) => data.uf === uf).length }))
+  .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+const estadosDestaque = [...estados].sort((a, b) => b.total - a.total).slice(0, 5);
+const diretorios = [
+  { href: "/campos", titulo: "Seu próximo campo.", categoria: "Onde jogar", texto: "Explore terrenos, estrutura e contatos para escolher onde será o próximo jogo.", foto: campo, total: campos.length, unidade: "campos no diretório", acao: "Encontrar campos", icone: "M12 21s7-6 7-12A7 7 0 0 0 5 9c0 6 7 12 7 12ZM9 9a3 3 0 1 0 6 0 3 3 0 0 0-6 0" },
+  { href: "/lojas", titulo: "O próximo equipamento.", categoria: "Onde comprar", texto: "Encontre lojas físicas e online para pesquisar réplicas, acessórios e consumíveis.", foto: loja, total: lojas.length, unidade: "lojas no diretório", acao: "Explorar lojas", icone: "M4 8h16l-1 13H5L4 8ZM8 8V6a4 4 0 0 1 8 0v2" },
+  { href: "/armeiros", titulo: "Sua réplica em dia.", categoria: "Manutenção e upgrade", texto: "Consulte profissionais, serviços oferecidos e formas de entrar em contato.", foto: oficina, total: armeiros.length, unidade: "armeiros no diretório", acao: "Encontrar armeiros", icone: "M14 3a5 5 0 0 0-5 7L3 16v5h5l6-6a5 5 0 0 0 7-5l-4 2-3-3 2-6Z" },
 ];
-
-const listaHero = `${oQueTem.slice(0, -1).join(", ")} e ${oQueTem.at(-1)}`;
-
-/**
- * Sorteio no build — o mesmo criterio dos campos. Site estatico sorteado so
- * aqui daria os mesmos tres guias para todo visitante ate o proximo deploy,
- * entao o script abaixo do <ul> reembaralha no navegador. O sorteio no build
- * existe para o HTML indexavel tambem variar.
- */
-const sorteioGuias = [...guias];
-for (let i = sorteioGuias.length - 1; i > 0; i--) {
-  const j = Math.floor(Math.random() * (i + 1));
-  [sorteioGuias[i], sorteioGuias[j]] = [sorteioGuias[j], sorteioGuias[i]];
-}
+const prioridades = ["como-escolher-a-primeira-replica-de-airsoft", "baterias-para-airsoft-lipo-e-nimh", "upgrade-de-aeg-por-onde-comecar"];
+const guiasDestaque = [...guias].filter(({ data }) => data.imagem).sort((a, b) => {
+  const ordem = (id: string) => prioridades.includes(id) ? prioridades.indexOf(id) : prioridades.length;
+  return ordem(a.id) - ordem(b.id) || b.data.publicado_em.getTime() - a.data.publicado_em.getTime();
+}).slice(0, 3);
+const whatsapp = "https://chat.whatsapp.com/GbZdm2rFiTD6vLi0FpLpfW";
 
 /**
- * Contagem so vira rotulo quando existe. Diretorio que nasce vazio — o de
- * armeiros e assim — anunciaria "0 armeiros" no cartao, que e pior do que
- * nao dizer numero nenhum.
- */
-const contagem = (total: number, singular: string, plural: string, vazio: string) =>
-  total > 0 ? `${total} ${total === 1 ? singular : plural}` : vazio;
-
-/**
- * Fundos dos cartoes — OPCIONAIS de proposito.
+ * Organization e WebSite ficam no layout Base (src/lib/entidade.ts).
  *
- * Um `import` direto de imagem que nao existe quebra o build inteiro. Como
- * as fotos entram uma de cada vez (e podem nunca entrar), o glob varre a
- * pasta e devolve so o que esta la: cartao sem foto renderiza no fundo
- * escuro e ninguem percebe falta. Basta soltar o .webp com o nome certo em
- * src/assets/home/ que ele aparece no proximo build, sem tocar neste arquivo.
- */
-const arquivosFundo = import.meta.glob<{ default: ImageMetadata }>(
-  "../assets/home/*.webp",
-  { eager: true },
-);
-
-const fundo = (nome: string): ImageMetadata | undefined =>
-  arquivosFundo[`../assets/home/${nome}.webp`]?.default;
-
-/**
- * ==========================================================
- * GATEWAY — as seis portas do site
- * ==========================================================
- * A home nao tenta ser uma das ferramentas: ela pergunta o que o jogador
- * veio fazer e entrega. O criador de mapa vem primeiro porque e a unica
- * coisa aqui que nao existe em nenhum outro lugar.
- *
- * Os rotulos repetem a pergunta do jogador ("onde arrumar"), nao o nome
- * interno da secao ("armeiros"). As URLs, essas, estao congeladas: mudar
- * rotulo e de graca, mudar URL custa ranking.
- */
-const portas = [
-  {
-    href: "/criador-de-mapas",
-    titulo: "Criador de mapa estratégico",
-    descricao:
-      "Desenhe o mapa da sua operação: áreas, símbolos e objetivos sobre o satélite do campo.",
-    dado: "Ferramenta grátis",
-    acao: "Criar mapa",
-    fundo: fundo("criador-de-mapa"),
-    icone: `<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" /><path d="M9 4v14M15 6v14" />`,
-  },
-  {
-    /*
-      Segunda porta de proposito: as duas ferramentas ficam lado a lado.
-      Entrou no lugar de /operacoes, que segue no rodape e na ficha dos
-      campos.
-    */
-    href: "/calculadora-de-fps",
-    titulo: "Calculadora de FPS",
-    descricao:
-      "Converta FPS em joules, veja quanto sua réplica marca com cada BB e confira se passa no limite do campo.",
-    dado: "Ferramenta grátis",
-    acao: "Calcular",
-    fundo: fundo("calculadora-de-fps"),
-    // Cronografo: a caixa com o tunel e o mostrador.
-    icone: `<path d="M3 8h18v9H3z" /><circle cx="15.5" cy="12.5" r="2.5" /><path d="M6 11v3M9 11v3" stroke-linecap="square" />`,
-  },
-  {
-    href: "/campos",
-    titulo: "Onde jogar",
-    descricao:
-      "Encontre campos de airsoft perto de você, com estrutura, preço e contato de cada um.",
-    dado: contagem(campos.length, "campo", "campos", "Diretório nacional"),
-    acao: "Ver campos",
-    fundo: fundo("onde-jogar"),
-    icone: `<circle cx="12" cy="12" r="7" /><path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke-linecap="square" />`,
-  },
-  {
-    href: "/lojas",
-    titulo: "Onde comprar",
-    descricao:
-      "O acervo mais completo de lojas de airsoft do Brasil — online e de porta aberta.",
-    dado: contagem(lojas.length, "loja", "lojas", "Diretório nacional"),
-    acao: "Ver lojas",
-    fundo: fundo("onde-comprar"),
-    icone: `<path d="M4 8h16l-1.2 13H5.2z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" />`,
-  },
-  {
-    href: "/armeiros",
-    titulo: "Onde arrumar",
-    descricao:
-      "A lista dos armeiros do Brasil: quem abre a sua réplica, o que faz e quem recebe pelo correio.",
-    dado: contagem(armeiros.length, "armeiro", "armeiros", "Manutenção e upgrade"),
-    acao: "Ver armeiros",
-    fundo: fundo("onde-arrumar"),
-    icone: `<path d="M15.5 3.5a5 5 0 0 0-6 6.6L3 16.6V21h4.4l6.5-6.5a5 5 0 0 0 6.6-6l-3.1 3.1-2.9-.6-.6-2.9z" />`,
-  },
-  {
-    href: "/guias",
-    titulo: "Guia de airsoft",
-    descricao:
-      "Aprenda do básico ao avançado: primeira réplica, bateria, FPS, manutenção e regras de jogo.",
-    dado: contagem(guias.length, "guia", "guias", "Do básico ao avançado"),
-    acao: "Ver guias",
-    fundo: fundo("guia-de-airsoft"),
-    icone: `<path d="M5 3h11l3 3v15H5z" /><path d="M9 9h7M9 13h7M9 17h4" stroke-linecap="square" />`,
-  },
-];
-
-/**
- * Selos — a barra que fecha o gateway. Promessa do site, nao metrica: o
- * unico numero que aparece ali e "100%", que e figura de linguagem. Numero
- * de verdade envelhece e vira mentira sozinho.
- */
-const selos = [
-  {
-    texto: "Conteúdo confiável e atualizado",
-    icone: `<path d="M12 2.5 4 5.5v6.2c0 4.6 3.3 8.2 8 9.8 4.7-1.6 8-5.2 8-9.8V5.5z" /><path d="m8.6 12 2.4 2.4 4.4-4.6" stroke-linecap="square" />`,
-  },
-  {
-    texto: "Comunidade ativa",
-    icone: `<circle cx="9" cy="8" r="3.2" /><path d="M2.8 20a6.2 6.2 0 0 1 12.4 0" /><path d="M16.2 5.4a3.2 3.2 0 0 1 0 5.2M18 20a6.2 6.2 0 0 0-2.6-5" />`,
-  },
-  {
-    texto: "Focado em jogabilidade e experiência real",
-    icone: `<circle cx="12" cy="12" r="7" /><path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke-linecap="square" />`,
-  },
-  {
-    texto: "100% feito para airsofters",
-    icone: `<path d="M5 10.5h14V21H5z" /><path d="M8.2 10.5V7a3.8 3.8 0 0 1 7.6 0v3.5" />`,
-  },
-];
-
-/**
- * Organization e WebSite nao ficam mais aqui: o layout Base emite a entidade
- * (src/lib/entidade.ts) em toda pagina, com o mesmo @id.
- *
- * O gateway declarado como ItemList e o que da ao Google a chance de montar
- * sitelinks para as seis secoes — sem isso ele escolhe sozinho.
+ * As seções principais declaradas como ItemList dão ao Google a chance de
+ * montar sitelinks — sem isso ele escolhe sozinho.
  */
 const navegacao = {
   "@context": "https://schema.org",
   "@type": "ItemList",
   name: "Ferramentas da Comunidade Airsoft",
-  itemListElement: portas.map((porta, i) => ({
+  itemListElement: [
+    { href: "/campos", titulo: "Onde jogar", descricao: "Campos de airsoft por estado e cidade, com estrutura e contatos." },
+    { href: "/lojas", titulo: "Onde comprar", descricao: "Lojas físicas e online de réplicas, acessórios e consumíveis." },
+    { href: "/armeiros", titulo: "Manutenção e upgrade", descricao: "Armeiros e oficinas para manter a réplica em dia." },
+    { href: "/organizador-de-operacoes", titulo: "Organizador de operações", descricao: "Tire sua operação do grupo de WhatsApp: lista, confirmação e briefing." },
+    { href: "/criador-de-mapas", titulo: "Criador de mapas táticos", descricao: "Marque safe, respawn, rotas e objetivos sobre o satélite e exporte em PNG." },
+    { href: "/calculadora-de-fps", titulo: "Calculadora de FPS", descricao: "Converta FPS e joules e confira o limite do campo." },
+    { href: "/guias", titulo: "Guias de airsoft", descricao: "Conteúdo para começar e evoluir no airsoft." },
+  ].map((porta, i) => ({
     "@type": "ListItem",
     position: i + 1,
     name: porta.titulo,
@@ -202,469 +63,325 @@ const navegacao = {
 };
 ---
 
-<Base
-  titulo="Comunidade Airsoft — campos, lojas, operações e ferramentas de airsoft"
-  descricao="Tudo de airsoft no Brasil em um lugar só: onde jogar, onde comprar, onde arrumar sua réplica, a agenda de operações, os guias e o criador de mapa tático. De graça, sem cadastro para consultar."
-  dadosEstruturados={[navegacao]}
-  headerSobreposto
->
-  <!-- ==========================================================
-       HERO
-       A foto vem de src/assets/hero-fundo.webp (e -mobile.webp).
-       A arte ja vem escurecida de fabrica, entao nao ha vinheta por cima.
-
-       Sem botao de CTA aqui: o gateway logo abaixo E o CTA, e repetir
-       "encontrar um campo" dois blocos seguidos so rouba o clique de si mesmo.
-       ========================================================== -->
-  <section class="relative isolate overflow-hidden bg-fundo">
-    <div class="hero-fundo absolute inset-0 -z-20" aria-hidden="true"></div>
-    <div class="grade-tatica absolute inset-0 -z-10 opacity-30" aria-hidden="true"></div>
-
-    <!-- Radar decorativo — canto superior esquerdo -->
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 200 200"
-      class="pointer-events-none absolute -left-24 top-16 -z-10 hidden h-72 w-72 text-oliva-500/15 lg:block"
-      fill="none"
-      stroke="currentColor"
-    >
-      <circle cx="100" cy="100" r="88" stroke-width="1.5" stroke-dasharray="6 5" />
-      <circle cx="100" cy="100" r="58" stroke-width="1" />
-      <circle cx="100" cy="100" r="28" stroke-width="1" />
-      <path d="M100 4v34M100 162v34M4 100h34M162 100h34" stroke-width="1.5" />
-    </svg>
-
-    <!-- Coordenadas decorativas — canto inferior esquerdo -->
-    <p
-      aria-hidden="true"
-      class="pointer-events-none absolute bottom-6 left-6 -z-10 hidden font-dado text-[11px] leading-6 tracking-[0.18em] text-oliva-400/50 lg:block"
-      set:html={`23&deg; 33' 45&quot; S<br />46&deg; 38' 10&quot; W`}
-    />
-
-    <div
-      class="mx-auto flex max-w-[1240px] items-center px-5 pb-12 pt-64 md:min-h-[760px] md:px-12 md:pb-32 md:pt-44"
-    >
-      <div class="w-full max-w-[880px]">
-        <h1
-          class="desgaste font-display text-[30px] font-extrabold uppercase italic leading-[0.94] tracking-[0.01em] drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)] md:text-[54px] lg:text-[62px]"
-        >
-          A maior plataforma de informações e descoberta do <span class="text-oliva-500">airsoft</span> no Brasil
-        </h1>
-
-        <p class="mt-7 max-w-[62ch] text-lg leading-relaxed text-texto drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)]">
-          {listaHero} para quem joga ou quer começar no airsoft.
-        </p>
+<Base titulo="Comunidade Airsoft — campos, lojas, operações e ferramentas de airsoft" descricao="Encontre campos, lojas e armeiros de airsoft no Brasil. Prepare seu jogo com mapas, ferramentas gratuitas e guias para começar e evoluir." dadosEstruturados={[navegacao]} semConviteWhatsApp>
+  <div class="home-v2">
+    <section class="hero" aria-labelledby="home-title">
+      <div class="hero-photo" aria-hidden="true"><Image src={hero} alt="" widths={[640, 960, 1536]} sizes="100vw" loading="eager" fetchpriority="high" /></div>
+      <div class="wrap hero-content">
+        <p class="eyebrow"><span class="dot" aria-hidden="true"></span> De jogador para jogador / Brasil</p>
+        <h1 id="home-title">O airsoft conecta.<br /><span>O próximo jogo<br />começa aqui.</span></h1>
+        <p class="hero-intro">Encontre onde jogar, prepare seu equipamento e leve um plano para o campo. Tudo em uma comunidade feita para quem vive o airsoft.</p>
+        <div class="actions"><Botao href="#encontre-seu-campo">Encontrar onde jogar <span aria-hidden="true">↗</span></Botao><a href="/primeiro-jogo-de-airsoft" class="text-link">Nunca jogou? Comece aqui <span aria-hidden="true">→</span></a></div>
+        <p class="hero-note">Campos, lojas e guias abertos para consulta. Sem cadastro.</p>
+        <a href="#organize-sua-operacao" class="organizer-shortcut">Organiza jogos? <strong>Tire sua operação do WhatsApp</strong> <span aria-hidden="true">↗</span></a>
       </div>
-    </div>
+      <div class="hero-caption" aria-hidden="true"><span>01 / Conexão em campo</span><span>O melhor do jogo é quem joga com você.</span></div>
+    </section>
 
-    <div class="faixa-perigo absolute inset-x-0 bottom-0" aria-hidden="true"></div>
-  </section>
-
-  <!-- ==========================================================
-       GATEWAY — o bloco principal da home
-       ========================================================== -->
-  <section class="relative isolate overflow-hidden bg-fundo py-16 md:py-24">
-    <div class="grade-tatica absolute inset-0 -z-10 opacity-25" aria-hidden="true"></div>
-
-    <div class="mx-auto max-w-[1240px] px-5 md:px-12">
-      <p class="rotulo flex items-center justify-center gap-3">
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          class="h-3.5 w-3.5 shrink-0 text-oliva-500"
-          fill="currentColor"
-        >
-          <rect x="2" y="2" width="8.5" height="8.5" />
-          <rect x="13.5" y="2" width="8.5" height="8.5" />
-          <rect x="2" y="13.5" width="8.5" height="8.5" />
-          <rect x="13.5" y="13.5" width="8.5" height="8.5" />
-        </svg>
-        Tudo que você precisa
-      </p>
-
-      {/*
-        Os tracos que ladeiam o titulo sao um SVG so, espelhado no eixo X
-        para o lado direito. Decorativo: some abaixo de lg, onde nao ha
-        largura para eles sem espremer o titulo.
-      */}
-      <div class="mt-5 flex items-center justify-center gap-8">
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 168 26"
-          class="hidden h-6 w-[168px] shrink-0 text-oliva-700 lg:block"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="M0 7h104l10 10h54" />
-          <path d="M40 24h64l10-10h54" opacity="0.45" />
-        </svg>
-
-        <h2
-          class="text-center font-display text-[34px] font-extrabold uppercase leading-[0.95] tracking-[0.01em] md:text-[64px]"
-        >
-          O que você veio <span class="text-oliva-500">fazer?</span>
-        </h2>
-
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 168 26"
-          class="hidden h-6 w-[168px] shrink-0 -scale-x-100 text-oliva-700 lg:block"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="M0 7h104l10 10h54" />
-          <path d="M40 24h64l10-10h54" opacity="0.45" />
-        </svg>
+    <section id="encontre-seu-campo" class="finder-section" aria-labelledby="finder-title">
+      <div class="wrap finder">
+        <div class="finder-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5"/></svg><div><p class="eyebrow">Encontre seu lugar no jogo</p><h2 id="finder-title">Por onde você joga?</h2></div></div>
+        <form class="state-form" data-state-form hidden action="/campos" method="get"><div><label for="home-state">Escolha seu estado</label><select id="home-state" name="estado"><option value="">Todo o Brasil</option>{estados.map(({ uf, nome }) => <option value={uf.toLowerCase()}>{nome}</option>)}</select></div><button type="submit">Ver campos <span aria-hidden="true">→</span></button></form>
+        <a class="finder-fallback text-link" data-state-fallback href="/campos">Explorar todos os campos →</a>
+        <div class="state-shortcuts"><span>Explore também</span>{estadosDestaque.map(({ uf, nome }) => <a href={`/campos/${uf.toLowerCase()}`}>{nome}</a>)}<a href="/campos">Todos os estados ↗</a></div>
       </div>
+    </section>
 
-      <p class="mx-auto mt-5 max-w-[64ch] text-center text-lg leading-relaxed text-texto-2">
-        Explore ferramentas, locais, lojas e conteúdos para viver o airsoft ao
-        máximo.
-      </p>
+    <section id="explorar" class="wrap section" aria-labelledby="explore-title">
+      <div class="heading"><div><p class="eyebrow">01 / Encontre o que precisa</p><h2 id="explore-title">Menos procura.<br /><span>Mais tempo de jogo.</span></h2></div><p>Do campo à bancada de manutenção, encontre os contatos que fazem parte da sua rotina de jogador.</p></div>
+      <div class="directory-grid">{diretorios.map((item) => <a href={item.href} class="directory-card"><div class="directory-image"><Image src={item.foto} alt="" widths={[420, 840]} sizes="(min-width: 900px) 33vw, (min-width: 600px) 50vw, 100vw" loading="lazy" /><span class="directory-category"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d={item.icone}/></svg>{item.categoria}</span><span class="card-arrow" aria-hidden="true">↗</span></div><div class="directory-copy"><p class="eyebrow">{item.total > 0 ? `${numero(item.total)} ${item.unidade}` : "Explore o diretório"}</p><h3>{item.titulo}</h3><p>{item.texto}</p><span class="card-action">{item.acao}<span aria-hidden="true">→</span></span></div></a>)}</div>
+      <div class="catalog-note"><span class="dot" aria-hidden="true"></span> Consulta gratuita. O contato é direto com cada campo, loja ou profissional.</div>
+    </section>
 
-      <ul class="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {
-          portas.map((porta) => (
-            <li class="chanfro-moldura group flex bg-borda-forte/70 transition-colors focus-within:bg-oliva-500 hover:bg-oliva-500">
-              <div class="chanfro-miolo relative isolate flex w-full flex-col overflow-hidden bg-papel p-6 md:p-7">
-                {porta.fundo && (
-                  <>
-                    <Image
-                      src={porta.fundo}
-                      alt=""
-                      widths={[420, 840]}
-                      sizes="(min-width: 1024px) 400px, (min-width: 768px) 50vw, 100vw"
-                      class="absolute inset-0 -z-20 h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                    <div class="vinheta-cartao absolute inset-0 -z-10" aria-hidden="true" />
-                  </>
-                )}
-
-                <span class="inline-flex h-14 w-14 shrink-0 items-center justify-center border border-oliva-700 bg-fundo/60 transition-colors group-hover:border-oliva-500">
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 24 24"
-                    class="h-7 w-7 text-oliva-300"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.6"
-                    set:html={porta.icone}
-                  />
-                </span>
-
-                <p class="rotulo mt-6">{porta.dado}</p>
-
-                <h3 class="mt-2 font-display text-[26px] font-bold uppercase leading-[1.05] tracking-[0.02em] [text-shadow:0_2px_12px_rgba(11,13,9,0.95)]">
-                  <a
-                    href={porta.href}
-                    class="transition-colors after:absolute after:inset-0 after:content-[''] hover:text-oliva-300"
-                  >
-                    {porta.titulo}
-                  </a>
-                </h3>
-
-                <p class="mt-3 flex-1 leading-relaxed text-texto-2 [text-shadow:0_1px_9px_rgba(11,13,9,0.98)]">{porta.descricao}</p>
-
-                {/* Decorativo: o ::after do titulo ja faz o cartao inteiro clicavel. */}
-                <span
-                  aria-hidden="true"
-                  class="mt-7 inline-flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.12em] text-oliva-500 transition-colors group-hover:text-oliva-300"
-                >
-                  {porta.acao}
-                  <svg
-                    viewBox="0 0 24 24"
-                    class="h-[1.1em] w-[1.1em] transition-transform group-hover:translate-x-1"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                  >
-                    <path d="M4 12h15m-6-6 6 6-6 6" stroke-linecap="square" />
-                  </svg>
-                </span>
-              </div>
-            </li>
-          ))
-        }
-      </ul>
-
-      <!-- Barra de selos — fecha o gateway -->
-      <div class="chanfro-moldura mt-5 bg-borda-forte/70">
-        <ul
-          class="chanfro-miolo grid gap-y-7 bg-papel/50 px-6 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-4"
-        >
-          {
-            selos.map((selo, i) => (
-              <li
-                class:list={[
-                  "flex items-center gap-4 lg:px-6",
-                  // Divisor so entre colunas, e so onde as quatro estao na
-                  // mesma linha — em duas colunas a linha cairia no meio.
-                  i > 0 && "lg:border-l lg:border-borda",
-                  i === 0 && "lg:pl-0",
-                ]}
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  class="h-7 w-7 shrink-0 text-oliva-300"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  set:html={selo.icone}
-                />
-                <span class="text-[15px] leading-snug text-texto">{selo.texto}</span>
-              </li>
-            ))
-          }
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <!-- ==========================================================
-       PRIMEIRO JOGO — a porta de quem nao sabe o que veio fazer
-       O gateway pergunta "o que voce veio fazer?"; quem nunca jogou
-       nao tem resposta. Esta faixa pega essa pessoa logo depois das
-       seis portas e manda para a landing /primeiro-jogo-de-airsoft.
-       ========================================================== -->
-  <section class="relative isolate overflow-hidden border-y border-borda bg-papel/40">
-    <div class="grade-tatica absolute inset-0 -z-10 opacity-20" aria-hidden="true"></div>
-
-    <div
-      class="mx-auto grid max-w-[1240px] items-center gap-10 px-5 py-16 md:px-12 md:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:gap-14"
-    >
-      <div>
-        <p class="rotulo">Para quem nunca jogou</p>
-
-        <h2
-          class="mt-4 font-display text-[38px] font-extrabold uppercase italic leading-[0.92] md:text-[56px]"
-        >
-          Nunca jogou airsoft?<br />
-          <span class="text-oliva-500">Comece aqui.</span>
-        </h2>
-
-        <p class="mt-5 max-w-[52ch] text-lg leading-relaxed text-texto">
-          O que é, quanto custa, o que vestir, o que levar, se dá para alugar
-          e como funciona o dia de jogo. Tudo explicado do zero, em uma página
-          só, sem palavra difícil.
-        </p>
-
-        <ul class="mt-6 flex flex-wrap gap-2">
-          {
-            [
-              "Sem comprar nada antes",
-              "Dá para alugar no campo",
-              "Primeiro dia por R$ 120 a 360",
-            ].map((ponto) => (
-              <li class="flex items-center gap-2 border border-borda bg-fundo px-3 py-1.5 font-dado text-[11px] uppercase tracking-[0.14em] text-texto">
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  class="h-3.5 w-3.5 shrink-0 text-oliva-400"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"
-                >
-                  <path d="m5 12 5 5 9-10" stroke-linecap="square" />
-                </svg>
-                {ponto}
-              </li>
-            ))
-          }
-        </ul>
-
-        <div class="mt-8 flex flex-wrap items-center gap-5">
-          <Botao href="/primeiro-jogo-de-airsoft">Quero começar no airsoft</Botao>
-          <a
-            href="/guias/guia-do-iniciante"
-            class="font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
-          >
-            Guia do primeiro dia ›
-          </a>
+    <section id="ferramentas" class="tools-section" aria-labelledby="tools-title"><div class="wrap section">
+      <div class="heading"><div><p class="eyebrow">02 / Prepare o próximo jogo</p><h2 id="tools-title">O briefing começa<br /><span>antes de chegar.</span></h2></div><p>Ferramentas gratuitas para transformar as ideias da equipe em um jogo organizado.</p></div>
+      <article id="organize-sua-operacao" class="operation-feature" aria-labelledby="operation-title">
+        <div class="operation-copy">
+          <p class="eyebrow"><span class="dot" aria-hidden="true"></span> Organizador de operações · Gratuito</p>
+          <h3 id="operation-title">Tire sua operação<br />do grupo de<br /><span>WhatsApp.</span></h3>
+          <p>Chega de procurar confirmações no meio das mensagens. Crie a operação, mande um link no grupo e acompanhe as inscrições em um só lugar.</p>
+          <ul><li>Vagas e confirmações por lado</li><li>Lista de espera automática</li><li>Controle de quem pagou e quem chegou</li></ul>
+          <Botao href="/organizador-de-operacoes">Quero organizar minha operação <span aria-hidden="true">↗</span></Botao>
+          <p class="operation-note">Sem mensalidade nem taxa por inscrição. Funciona no celular.</p>
         </div>
-      </div>
-
-      {/* A mesma foto que abre a landing: o iniciante ja reconhece a pagina ao chegar. */}
-      <a
-        href="/primeiro-jogo-de-airsoft"
-        aria-label="Primeiro jogo de airsoft: nunca jogou? Comece aqui"
-        class="moldura-tatica order-first block border border-borda-forte bg-fundo transition-colors hover:border-oliva-500 lg:order-none"
-      >
-        <span
-          class="flex items-center justify-between gap-3 border-b border-borda px-3 py-2 font-dado text-[10px] uppercase tracking-[0.16em] text-texto-2"
-        >
-          <span>Safe zone · Primeiro dia</span>
-          <span class="hidden sm:inline">11 perguntas · 10 min</span>
-        </span>
-        <Image
-          src={fotoIniciante}
-          alt=""
-          widths={[640, 960]}
-          sizes="(min-width: 1024px) 480px, 100vw"
-          class="aspect-[16/10] w-full object-cover object-[60%_center]"
-          loading="lazy"
-        />
-      </a>
-    </div>
-  </section>
-
-  <!-- ==========================================================
-       CAMPOS CADASTRADOS
-       ========================================================== -->
-  <section class="mx-auto max-w-[1240px] border-t border-borda px-5 py-16 md:px-12 md:py-20">
-    <div class="flex items-center gap-4">
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 24 24"
-        class="h-6 w-6 shrink-0 text-oliva-500"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.8"
-      >
-        <circle cx="12" cy="12" r="7" />
-        <path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke-linecap="square" />
-      </svg>
-      <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
-        Encontre um campo
-      </h2>
-      <div class="h-px flex-1 bg-borda"></div>
-      <a
-        href="/campos"
-        class="flex shrink-0 items-center gap-2 font-display text-base font-bold uppercase tracking-[0.08em] text-oliva-500 transition-colors hover:text-oliva-300"
-      >
-        <span aria-hidden="true" class="text-[10px]">&#9673;</span>
-        Ver todos
-      </a>
-    </div>
-
-    <BuscaCampos campos={campos} quantidade={6} />
-  </section>
-
-  <!-- ==========================================================
-       GUIAS
-       ========================================================== -->
-  {
-    guias.length > 0 && (
-      <section class="mx-auto max-w-[1240px] border-t border-borda px-5 py-16 md:px-12 md:py-20">
-        <div class="flex items-center gap-4">
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            class="h-6 w-6 shrink-0 text-oliva-500"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-          >
-            <path d="M5 3h11l3 3v15H5z" /><path d="M9 9h7M9 13h7M9 17h4" stroke-linecap="square" />
-          </svg>
-          <h2 class="font-display text-3xl font-bold uppercase tracking-[0.04em]">
-            Para quem está começando
-          </h2>
-          <div class="h-px flex-1 bg-borda" />
+        <div class="operation-preview" role="img" aria-label="Exemplo ilustrativo do painel: operação com 38 de 40 vagas preenchidas, três pessoas na espera e inscrições organizadas por lado.">
+          <div class="operation-preview-top"><span>Painel do organizador</span><span>Exemplo ilustrativo</span></div>
+          <div class="operation-preview-body">
+            <p class="eyebrow">Próxima missão</p><h4>Operação Fronteira</h4>
+            <div class="operation-stats"><div><strong>38<span>/40</span></strong><span>Vagas preenchidas</span></div><div><strong>03</strong><span>Na espera</span></div></div>
+            <div class="team-row"><span><i class="team-dot" aria-hidden="true"></i> Equipe Alfa</span><strong>18 / 20</strong></div><div class="team-progress" aria-hidden="true"><span style="width:90%"></span></div>
+            <div class="team-row"><span><i class="team-dot bravo" aria-hidden="true"></i> Equipe Bravo</span><strong>20 / 20</strong></div><div class="team-progress bravo" aria-hidden="true"><span style="width:100%"></span></div>
+            <div class="operation-notice"><span aria-hidden="true">✓</span><p>Lado cheio? A próxima inscrição<br />entra na lista de espera.</p></div>
+            <div class="operation-preview-footer"><span>Inscrições</span><span>Pagamentos</span><span>Presenças</span></div>
+          </div>
         </div>
+      </article>
+      <article class="map-feature"><div class="map-copy"><p class="pill">Criador de mapas táticos</p><h3>Seu campo.<br />Sua estratégia.</h3><p>Marque safe, respawn, rotas e objetivos sobre o satélite. Exporte o mapa em PNG e envie no grupo antes da operação.</p><a href="/mapas-v2" class="dark-button">Conhecer o criador de mapas <span aria-hidden="true">↗</span></a><p class="access-note">Para editar: Google, perfil completo e uma réplica cadastrada.</p></div><figure class="map-preview"><div class="preview-bar"><span class="dot" aria-hidden="true"></span> Do terreno ao plano <span>Exemplo de mapa</span></div><a href="/mapas-v2" aria-label="Conhecer o criador de mapas e seus exemplos"><Image src={mapa} alt="Mapa de satélite com grade de setores, setas e áreas de safezone, respawn e CQB demarcadas." widths={[640, 960, 1280]} sizes="(min-width: 900px) 55vw, 100vw" loading="lazy" /></a><figcaption><span>LOCALIZAR</span><span aria-hidden="true">→</span><span>PLANEJAR</span><span aria-hidden="true">→</span><span>COMPARTILHAR</span></figcaption></figure></article>
+      <div class="small-tools"><a href="/calculadora-de-fps"><span class="tool-icon" aria-hidden="true">FPS<span>↔ J</span></span><div><p class="eyebrow">Calculadora de FPS</p><h3>Conheça os números da sua réplica.</h3><p>Converta FPS e joules considerando o peso da BB.</p></div><span class="tool-arrow" aria-hidden="true">↗</span></a></div>
+    </div></section>
 
-        {/*
-          Todos os guias vao para o HTML e o script mostra tres. Parece
-          desperdicio, mas nao e: imagem dentro de elemento oculto nao e
-          baixada pelo navegador, entao o custo real e so markup — e em
-          troca a home linka o catalogo inteiro, o que distribui autoridade
-          interna para os guias.
-        */}
-        <ul data-guias class="mt-9 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {sorteioGuias.map((guia, i) => (
-            <li
-              data-guia
-              class:list={[
-                "moldura-tatica group relative isolate flex flex-col border border-borda bg-papel transition-colors focus-within:border-oliva-500 hover:border-oliva-500",
-                i >= GUIAS_NA_HOME && "hidden",
-              ]}
-            >
-              {guia.data.imagem && (
-                <div class="block" aria-hidden="true">
-                  <Image
-                    src={guia.data.imagem}
-                    alt=""
-                    widths={[400, 800]}
-                    sizes="(min-width: 1024px) 380px, (min-width: 768px) 50vw, 100vw"
-                    class="aspect-[16/9] w-full border-b border-borda object-cover"
-                    loading="lazy"
-                  />
-                </div>
-              )}
-              <div class="flex flex-1 flex-col p-6">
-                <h3 class="font-display text-xl font-bold uppercase leading-tight tracking-[0.02em]">
-                  <a
-                    href={`/guias/${guia.id}`}
-                    class="transition-colors after:absolute after:inset-0 after:content-[''] hover:text-oliva-300"
-                  >
-                    {guia.data.titulo}
-                  </a>
-                </h3>
-                <p class="mt-2 leading-relaxed text-texto-2">{guia.data.resumo}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
+    <section class="wrap section beginner" aria-labelledby="beginner-title"><div class="beginner-photo"><Image src={iniciante} alt="Jogador iniciante recebe orientação de um participante experiente na área de preparação do campo." widths={[480, 800, 1200]} sizes="(min-width: 900px) 50vw, 100vw" loading="lazy" /><div class="photo-label"><span class="dot" aria-hidden="true"></span> Todo jogador já teve um primeiro dia.</div></div><div class="beginner-copy"><p class="eyebrow">03 / Seu primeiro jogo</p><h2 id="beginner-title">Você não precisa<br />chegar sabendo.<br /><span>Só começar.</span></h2><p>O que vestir, o que levar e como funciona uma partida. Entenda o básico antes de escolher o campo e comprar equipamento.</p><ul><li><span aria-hidden="true">01</span> Entenda o dia de jogo</li><li><span aria-hidden="true">02</span> Saiba o que perguntar sobre aluguel</li><li><span aria-hidden="true">03</span> Prepare-se para a primeira experiência</li></ul><Botao href="/primeiro-jogo-de-airsoft">Quero jogar pela primeira vez <span aria-hidden="true">→</span></Botao></div></section>
 
-        <div class="mt-9 flex justify-center">
-          <Botao href="/guias" variante="secundario" seta>
-            Ver mais conteúdos
-          </Botao>
-        </div>
+    {guiasDestaque.length > 0 && <section class="guides-section" aria-labelledby="guides-title"><div class="wrap section"><div class="heading"><div><p class="eyebrow">04 / Repertório para o jogo</p><h2 id="guides-title">Aprenda fora.<br /><span>Aproveite em campo.</span></h2></div><a href="/guias" class="text-link">Explorar os {numero(guias.length)} guias <span aria-hidden="true">↗</span></a></div><div class="guides-grid">{guiasDestaque.map((guia) => <article class="guide-card"><a href={`/guias/${guia.id}`}><div class="guide-image">{guia.data.imagem && <Image src={guia.data.imagem} alt={guia.data.imagem_alt ?? ""} widths={[420, 840]} sizes="(min-width: 900px) 33vw, 100vw" loading="lazy" />}<span class="guide-category">{guia.data.categoria}</span></div><div class="guide-copy"><h3>{guia.data.titulo}</h3><p>{guia.data.resumo}</p><span class="card-action">Ler guia <span aria-hidden="true">↗</span></span></div></a></article>)}</div></div></section>}
 
-        <script is:inline define:vars={{ GUIAS_NA_HOME }}>
-          // Reembaralha os guias a cada visita. Sem este script o visitante ve
-          // os tres sorteados no build, que ja e um resultado correto — por
-          // isso nada aqui e obrigatorio para a pagina funcionar.
-          (() => {
-            const lista = document.querySelector("[data-guias]");
-            if (!lista) return;
-
-            const itens = [...lista.querySelectorAll("[data-guia]")];
-            for (let i = itens.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [itens[i], itens[j]] = [itens[j], itens[i]];
-            }
-
-            // Reordena de verdade no DOM: so trocar a visibilidade deixaria a
-            // ordem de leitura brigando com a ordem visual.
-            lista.append(...itens);
-            itens.forEach((item, i) =>
-              item.classList.toggle("hidden", i >= GUIAS_NA_HOME),
-            );
-          })();
-        </script>
-      </section>
-    )
-  }
+    <section class="community-section" aria-labelledby="community-title"><div class="wrap section community"><div class="community-copy"><p class="eyebrow">A comunidade continua fora do campo</p><h2 id="community-title">O jogo é melhor<br /><span>com gente junto.</span></h2><p>Encontre outros jogadores, troque experiências e acompanhe as conversas da Comunidade Airsoft no grupo oficial.</p><Botao href={whatsapp} target="_blank" rel="noopener noreferrer">Entrar no grupo do WhatsApp <span aria-hidden="true">↗</span></Botao><p class="external-note">Abre o grupo oficial no WhatsApp.</p></div><div class="community-paths">{EQUIPES_VISIVEIS && <a href="/equipes"><span class="path-number" aria-hidden="true">01</span><div><h3>Encontre sua equipe</h3><p>Conheça os times da comunidade e veja quem está recrutando.</p></div><span aria-hidden="true">↗</span></a>}<a href="/enviar-campo"><span class="path-number" aria-hidden="true">02</span><div><h3>Seu campo ainda não está aqui?</h3><p>Envie as informações para avaliação e ajude o diretório a crescer.</p></div><span aria-hidden="true">↗</span></a><a href="/conta"><span class="path-number" aria-hidden="true">03</span><div><h3>Monte sua ficha de jogador</h3><p>Acesse sua conta e as ferramentas da comunidade.</p></div><span aria-hidden="true">↗</span></a></div></div></section>
+  </div>
 </Base>
 
-<style
-  define:vars={{
-    heroDesktop: `url('${heroDesktop.src}')`,
-    heroMobile: `url('${heroMobile.src}')`,
-  }}
->
-  /* A foto do hero e background para receber vinheta e grade por cima sem
-     empilhar mais elementos. Duas artes distintas, nao a mesma reescalada:
-     a de celular e um recorte vertical proprio. */
-  .hero-fundo {
-    background-image: var(--heroMobile);
-    /* min(): trava na largura real da arte e so encolhe se a tela for
-       menor que ela — nunca amplia, que e onde background borra. */
-    background-size: min(450px, 100%) auto;
-    background-position: center top;
-    background-repeat: no-repeat;
+<script>
+  const form = document.querySelector<HTMLFormElement>("[data-state-form]");
+  const select = document.querySelector<HTMLSelectElement>("#home-state");
+  const fallback = document.querySelector<HTMLElement>("[data-state-fallback]");
+  if (form && select) {
+    form.hidden = false;
+    if (fallback) fallback.hidden = true;
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const uf = select.value;
+      window.location.assign(uf ? `/campos/${encodeURIComponent(uf)}` : "/campos");
+    });
   }
+</script>
 
-  @media (min-width: 900px) {
-    .hero-fundo {
-      background-image: var(--heroDesktop);
-      background-size: min(1280px, 100%) auto;
-      background-position: center;
-    }
+<style>
+  .home-v2 { --accent: #bbcd91; --muted: #aab29f; --sand: #e8e3d5; --color-oliva-500: #afc580; --color-oliva-400: #c4d99c; --color-oliva-300: #c4d99c; background: #0d120e; color: #f1f2e9; }
+  .wrap { width: min(1240px, calc(100% - 64px)); margin-inline: auto; }
+  .section { padding-block: 96px; }
+  section[id] { scroll-margin-top: 112px; }
+  .eyebrow { font: 12px/1.5 var(--font-dado); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  .dot { display: inline-block; width: 6px; height: 6px; background: var(--accent); flex-shrink: 0; }
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 700; }
+  h1 { font-size: clamp(62px, 6.7vw, 96px); text-transform: uppercase; line-height: .94; letter-spacing: -.025em; font-weight: 800; margin-top: 26px; }
+  h1 > span, h2 > span { color: var(--accent); }
+  h2 { font-size: clamp(40px, 4.3vw, 60px); line-height: 1; text-transform: uppercase; letter-spacing: -.015em; margin-top: 14px; }
+  h3 { font-size: 28px; line-height: 1.1; }
+  p { color: #d2d8c9; }
+  a, button { -webkit-tap-highlight-color: transparent; }
+  .hero { position: relative; isolation: isolate; overflow: hidden; background: #172014; }
+  .hero-photo { position: absolute; inset: 0; z-index: -2; }
+  .hero-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; }
+  .hero::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgb(7 14 9 / .92), rgb(7 14 9 / .62) 42%, rgb(7 14 9 / .05) 76%), linear-gradient(0deg, #101810, transparent 38%); }
+  .hero-content { padding-block: 88px 92px; }
+  .hero .eyebrow { display: flex; align-items: center; gap: 10px; }
+  .hero-intro { font-size: 19px; max-width: 45ch; line-height: 1.6; margin-top: 26px; }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; margin-top: 32px; }
+  .text-link { display: inline-flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; font-size: 16px; font-weight: 600; text-underline-offset: 5px; }
+  .text-link:hover { color: var(--accent); text-decoration: underline; }
+  .hero-note { font-size: 14px; color: #b8c1ac; margin-top: 18px; }
+  .hero-caption { position: absolute; right: max(32px, calc((100vw - 1240px) / 2)); bottom: 40px; display: grid; gap: 8px; text-align: right; border-right: 2px solid var(--accent); padding-right: 16px; }
+  .hero-caption span:first-child { font: 11px var(--font-dado); letter-spacing: .1em; color: var(--accent); text-transform: uppercase; }
+  .hero-caption span:last-child { font-size: 14px; color: #d4d9ca; }
+  .finder-section { background: #1c2719; border-block: 1px solid #405237; }
+  .finder { display: grid; grid-template-columns: 1fr 1fr; column-gap: 48px; padding-block: 30px 22px; }
+  .finder-title { display: flex; align-items: center; gap: 20px; }
+  .finder-title > svg { width: 40px; height: 40px; color: var(--accent); }
+  .finder h2 { font-size: 32px; text-transform: none; margin-top: 5px; }
+  .state-form { display: flex; gap: 12px; align-items: end; }
+  .state-form[hidden], [data-state-fallback][hidden] { display: none; }
+  .state-form > div { flex: 1; }
+  .state-form label { display: block; font-size: 13px; color: #c4ceb9; margin-bottom: 6px; }
+  .state-form select { width: 100%; height: 50px; padding: 0 38px 0 15px; background: #111a0f; border: 1px solid #78876a; color: #e9eedf; font-size: 16px; }
+  .state-form button { height: 50px; display: flex; align-items: center; gap: 22px; padding-inline: 22px; background: var(--accent); color: #131c0c; font: 700 18px var(--font-display); text-transform: uppercase; cursor: pointer; }
+  .state-form button:hover { background: #d0e0ad; }
+  .state-shortcuts { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; margin-top: 22px; border-top: 1px solid #39462f; padding-top: 14px; }
+  .state-shortcuts > span { color: #a0ae91; font-size: 13px; margin-right: 4px; }
+  .state-shortcuts a { min-height: 36px; display: inline-flex; align-items: center; font-size: 14px; color: #d1dbc4; text-underline-offset: 4px; }
+  .state-shortcuts a:hover { text-decoration: underline; color: white; }
+  .heading { display: flex; align-items: end; justify-content: space-between; gap: 36px; margin-bottom: 40px; }
+  .heading > p { max-width: 38ch; color: var(--muted); }
+  .directory-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+  .directory-card { display: flex; flex-direction: column; border: 1px solid #34422a; background: #151d12; transition: border-color .2s; }
+  .directory-card:hover { border-color: var(--accent); }
+  .directory-image { position: relative; overflow: hidden; }
+  .directory-image::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, #151d12, transparent 55%); pointer-events: none; }
+  .directory-image img { width: 100%; aspect-ratio: 1.5; object-fit: cover; object-position: center 55%; transition: transform .4s; }
+  .directory-card:hover img { transform: scale(1.035); }
+  .directory-category { position: absolute; bottom: 18px; left: 24px; z-index: 1; display: flex; align-items: center; gap: 10px; font: 700 24px var(--font-display); text-transform: uppercase; }
+  .directory-category svg { width: 22px; height: 22px; color: var(--accent); }
+  .card-arrow { position: absolute; right: 14px; top: 14px; width: 36px; height: 36px; display: grid; place-items: center; background: #10170ed9; border: 1px solid #697c50; color: var(--accent); font-size: 22px; }
+  .directory-copy { padding: 8px 24px 24px; flex: 1; display: flex; flex-direction: column; }
+  .directory-copy .eyebrow { font-size: 11px; }
+  .directory-copy h3 { margin-top: 14px; }
+  .directory-copy > p:not(.eyebrow) { color: var(--muted); font-size: 16px; margin-top: 12px; margin-bottom: 24px; }
+  .card-action { display: flex; justify-content: space-between; align-items: center; gap: 16px; font: 700 18px var(--font-display); text-transform: uppercase; color: var(--accent); margin-top: auto; padding-top: 18px; border-top: 1px solid #34422a; }
+  .catalog-note { display: flex; align-items: center; justify-content: center; gap: 10px; color: #aab79e; font-size: 14px; margin-top: 24px; }
+  .tools-section { --accent: #4e6332; --muted: #526147; background: var(--sand); color: #202c1b; }
+  .tools-section .heading h2 > span { color: #536d35; }
+  .map-feature { display: grid; grid-template-columns: .82fr 1.18fr; gap: 40px; align-items: center; background: #d8ddc9; border: 1px solid #aab998; padding: 40px; overflow: hidden; }
+  .pill { display: inline-block; padding: 6px 10px; border: 1px solid #879c6c; color: #425a2b; font: 11px var(--font-dado); text-transform: uppercase; letter-spacing: .05em; }
+  .map-copy h3 { font-size: 52px; text-transform: uppercase; margin-block: 20px; line-height: .98; }
+  .map-copy > p:not(.pill) { color: #46563b; }
+  .dark-button { display: inline-flex; justify-content: center; align-items: center; gap: 20px; padding: 15px 20px; background: #27351e; color: #eff3e6; font: 700 18px var(--font-display); text-transform: uppercase; margin-top: 24px; }
+  .dark-button:hover { background: #3c512d; }
+  .map-copy .access-note { font-size: 13px; margin-top: 14px; }
+  .map-preview { background: #131b0f; border: 1px solid #607246; box-shadow: 10px 10px 0 #b7c2a6; transform: rotate(-2deg); }
+  .preview-bar { display: flex; align-items: center; gap: 8px; padding: 16px; font: 10px var(--font-dado); color: #c1d19f; text-transform: uppercase; }
+  .preview-bar .dot { background: #bdd38b; }
+  .preview-bar > span:last-child { margin-left: auto; color: #9fae8d; }
+  .map-preview img { width: 100%; height: auto; }
+  .map-preview a { display: block; }
+  .map-preview figcaption { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 20px 16px; font: 10px var(--font-dado); letter-spacing: .08em; color: #bed28f; }
+  .small-tools { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 24px; }
+  .small-tools > a { display: flex; gap: 20px; align-items: center; padding: 24px; border: 1px solid #b2bca2; transition: background .2s; }
+  .small-tools > a:hover { background: #d8ddc9; }
+  .small-tools .eyebrow { font-size: 10px; }
+  .small-tools h3 { font-size: 24px; margin-block: 8px; }
+  .small-tools p:not(.eyebrow) { font-size: 15px; color: #526147; }
+  .tool-icon { width: 54px; flex-shrink: 0; font: 25px var(--font-dado); color: #677b4f; }
+  .tool-icon > span { display: block; font-size: 16px; }
+  .tool-icon svg { width: 44px; height: 44px; }
+  .tool-arrow { font-size: 24px; margin-left: auto; color: #596d40; }
+  .beginner { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+  .beginner-photo { position: relative; border: 1px solid #465739; }
+  .beginner-photo img { width: 100%; aspect-ratio: 1; object-fit: cover; object-position: 57% center; }
+  .photo-label { position: absolute; bottom: 0; left: 0; right: 0; background: #152011ed; padding: 20px; display: flex; gap: 10px; align-items: center; color: #cedabb; font-size: 14px; }
+  .beginner-copy > p:not(.eyebrow) { color: var(--muted); margin-top: 24px; max-width: 46ch; }
+  .beginner-copy ul { list-style: none; padding: 0; margin-block: 24px 30px; }
+  .beginner-copy li { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #303e26; padding-block: 12px; color: #d2dcc7; font-size: 16px; }
+  .beginner-copy li span { font: 12px var(--font-dado); color: var(--accent); }
+  .guides-section { background: #151d12; border-block: 1px solid #303e26; }
+  .guides-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+  .guide-card > a { height: 100%; display: flex; flex-direction: column; }
+  .guide-image { position: relative; overflow: hidden; }
+  .guide-image img { width: 100%; aspect-ratio: 16/10; object-fit: cover; transition: transform .4s; }
+  .guide-card a:hover img { transform: scale(1.035); }
+  .guide-category { position: absolute; bottom: 0; left: 0; padding: 8px 12px; background: #d9dfca; color: #304321; font: 11px var(--font-dado); text-transform: uppercase; }
+  .guide-copy { display: flex; flex-direction: column; flex: 1; padding-top: 24px; }
+  .guide-copy h3 { font-size: 28px; }
+  .guide-copy p { font-size: 16px; color: var(--muted); margin-block: 14px 24px; }
+  .guide-card:hover h3 { color: var(--accent); }
+  .community-section { background: radial-gradient(ellipse at 10% 70%, #2b3920, transparent 70%), #11190f; }
+  .community { display: grid; grid-template-columns: 1fr .9fr; gap: 100px; align-items: center; }
+  .community-copy > p:not(.eyebrow) { max-width: 44ch; color: #b2bfa5; margin-block: 24px; }
+  .community-copy .external-note { font-size: 13px; margin-top: 12px; }
+  .community-paths a { display: flex; align-items: start; gap: 18px; padding-block: 26px; border-bottom: 1px solid #435437; }
+  .community-paths a:first-child { border-top: 1px solid #435437; }
+  .community-paths a:hover h3 { color: var(--accent); }
+  .path-number { font: 12px var(--font-dado); color: var(--accent); padding-top: 5px; }
+  .community-paths h3 { font-size: 26px; }
+  .community-paths p { font-size: 16px; color: #aab99c; margin-top: 10px; }
+  .community-paths a > span:last-child { margin-left: auto; color: var(--accent); font-size: 23px; }
+  .organizer-shortcut { display: inline-flex; flex-wrap: wrap; gap: 5px 8px; align-items: center; min-height: 44px; font-size: 14px; color: #c3ccb7; margin-top: 12px; }
+  .organizer-shortcut strong { color: #d2e4ac; font-weight: 500; text-decoration: underline; text-underline-offset: 4px; }
+  .organizer-shortcut:hover strong { color: white; }
+  .operation-feature { --accent: #c4d99c; display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; padding: 48px; margin-bottom: 32px; background: radial-gradient(ellipse at 100% 0%, #34472a, transparent 65%), #14200f; border: 1px solid #718455; border-top: 4px solid #adc780; color: #f1f2e9; scroll-margin-top: 112px; }
+  .operation-copy .eyebrow { display: flex; gap: 9px; align-items: center; font-size: 11px; }
+  .operation-copy h3 { font-size: clamp(48px, 4.8vw, 68px); line-height: .97; text-transform: uppercase; margin-block: 24px; font-weight: 800; }
+  .operation-copy h3 > span { color: #c4d99c; }
+  .operation-copy > p:not(.eyebrow) { color: #c6d1b9; max-width: 45ch; }
+  .operation-copy ul { padding: 0; list-style: none; margin-block: 24px 30px; display: grid; gap: 10px; }
+  .operation-copy li { font-size: 16px; color: #d9e2cd; }
+  .operation-copy li::before { content: '✓'; margin-right: 12px; color: #b9d689; }
+  .operation-copy .operation-note { font-size: 13px; margin-top: 16px; }
+  .operation-preview { background: #0d140b; border: 1px solid #607748; box-shadow: 12px 12px 0 rgb(8 15 6 / .3); transform: rotate(1.5deg); }
+  .operation-preview-top { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 16px; background: #24301d; border-bottom: 1px solid #465a32; font: 10px var(--font-dado); text-transform: uppercase; color: #b7c7a4; }
+  .operation-preview-body { padding: 28px; }
+  .operation-preview h4 { font: 700 34px/1.1 var(--font-display); text-transform: uppercase; margin-top: 10px; }
+  .operation-stats { display: grid; grid-template-columns: 1.3fr 1fr; margin-block: 26px; padding-block: 22px; border-block: 1px solid #354729; }
+  .operation-stats > div { display: grid; gap: 6px; }
+  .operation-stats > div + div { border-left: 1px solid #354729; padding-left: 24px; }
+  .operation-stats strong { font: 42px/1 var(--font-dado); color: #c4d99c; }
+  .operation-stats strong > span { font-size: 22px; color: #8f9d81; }
+  .operation-stats div > span { font-size: 12px; color: #b2c1a2; }
+  .team-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
+  .team-row > span { display: flex; align-items: center; gap: 9px; }
+  .team-row strong { font: 13px var(--font-dado); color: #b9c8a8; }
+  .team-dot { width: 7px; height: 7px; background: #b2cc7f; }
+  .team-dot.bravo { background: #cba467; }
+  .team-progress { background: #27351c; height: 5px; margin-block: 10px 22px; }
+  .team-progress > span { display: block; height: 100%; background: #b2cc7f; }
+  .team-progress.bravo > span { background: #cba467; }
+  .operation-notice { display: flex; gap: 12px; align-items: center; padding: 14px; background: #1e2d16; border: 1px solid #3b5229; }
+  .operation-notice > span { color: #b7d58b; }
+  .operation-notice p { font-size: 13px; color: #c1d0b2; line-height: 1.5; }
+  .operation-preview-footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 24px; font: 10px var(--font-dado); text-transform: uppercase; color: #9bab8b; }
+  @media (prefers-reduced-motion: no-preference) { .hero-content { animation: appear .7s ease-out both; } @keyframes appear { from { opacity: .4; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } } }
+  @media (max-width: 1100px) {
+    .hero-caption { display: none; }
+    .hero-content { padding-block: 64px 72px; }
+    .hero-photo img { object-position: 60% 25%; }
+    .finder { column-gap: 24px; }
+    .map-feature { gap: 28px; padding: 28px; }
+    .beginner, .community { gap: 40px; }
+    .small-tools > a { gap: 14px; padding: 20px; }
+    .tool-icon { width: 42px; }
   }
+  @media (max-width: 899px) {
+    .operation-feature { grid-template-columns: 1fr; gap: 32px; padding: 32px; }
+    .operation-preview { transform: none; }
+    .wrap { width: calc(100% - 40px); }
+    .section { padding-block: 64px; }
+    .finder { grid-template-columns: 1fr; row-gap: 22px; }
+    .state-shortcuts { margin-top: 0; }
+    .directory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .directory-card:last-child { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
+    .directory-card:last-child .directory-image img { height: 100%; }
+    .directory-card:last-child .directory-copy { padding-top: 24px; }
+    .map-feature, .beginner, .community { grid-template-columns: 1fr; }
+    .map-feature { padding: 32px; gap: 36px; }
+    .map-preview { transform: none; }
+    .map-copy > p:not(.pill) { max-width: 55ch; }
+    .small-tools { grid-template-columns: 1fr; }
+    .heading { gap: 24px; }
+    .heading > p { max-width: 30ch; }
+    .beginner-copy { order: -1; }
+    .beginner-photo img { aspect-ratio: 16/10; }
+    .guides-grid { gap: 20px; }
+    .guide-copy h3 { font-size: 24px; }
+    .community { gap: 36px; }
+  }
+  @media (max-width: 599px) {
+    .operation-feature { padding: 24px; }
+    .operation-copy h3 { font-size: clamp(40px, 10vw, 52px); }
+    .operation-preview-body { padding: 20px; }
+    .operation-preview h4 { font-size: 29px; }
+    .operation-preview-top { padding: 12px; font-size: 9px; }
+    .operation-stats strong { font-size: 34px; }
+    .operation-stats > div + div { padding-left: 16px; }
+    .operation-preview-footer { font-size: 8px; }
+    h1 { font-size: clamp(48px, 11.3vw, 66px); line-height: .98; }
+    h2 { font-size: 42px; }
+    .hero-content { padding-block: 44px 48px; }
+    .hero-photo img { object-position: 69% center; }
+    .hero::after { background: linear-gradient(90deg, rgb(7 14 9 / .92), rgb(7 14 9 / .7)), linear-gradient(0deg, #101810, transparent); }
+    .hero .eyebrow { font-size: 10px; }
+    .hero-intro { font-size: 18px; margin-top: 24px; }
+    .actions { display: grid; gap: 16px; }
+    .actions .text-link { justify-content: center; }
+    .hero-note { font-size: 13px; }
+    .finder-title { gap: 14px; }
+    .finder-title > svg { width: 32px; height: 32px; }
+    .finder-title .eyebrow { font-size: 10px; }
+    .finder h2 { font-size: 30px; }
+    .state-form { gap: 10px; }
+    .state-form > div { min-width: 0; }
+    .state-form button { padding-inline: 15px; gap: 12px; font-size: 17px; }
+    .state-shortcuts { gap: 4px 16px; }
+    .state-shortcuts > span { flex-basis: 100%; }
+    .heading { display: block; margin-bottom: 30px; }
+    .heading > p { max-width: none; margin-top: 20px; }
+    .heading > a { margin-top: 20px; }
+    .directory-grid, .guides-grid { grid-template-columns: 1fr; gap: 28px; }
+    .directory-card:last-child { display: flex; grid-column: auto; }
+    .directory-card:last-child .directory-image img { height: auto; }
+    .directory-card:last-child .directory-copy { padding-top: 8px; }
+    .catalog-note { align-items: start; justify-content: start; font-size: 13px; line-height: 1.6; }
+    .catalog-note .dot { margin-top: 7px; }
+    .map-feature { padding: 24px; }
+    .map-copy h3 { font-size: 46px; }
+    .preview-bar { padding: 12px; font-size: 9px; }
+    .preview-bar > span:last-child { display: none; }
+    .map-preview figcaption { font-size: 8px; letter-spacing: 0; padding: 14px 10px; }
+    .small-tools > a { flex-wrap: wrap; gap: 16px; }
+    .small-tools > a > div { flex: 1; min-width: 0; }
+    .tool-icon { width: 36px; font-size: 20px; }
+    .tool-icon svg { width: 32px; height: 32px; }
+    .small-tools h3 { font-size: 23px; }
+    .small-tools .tool-arrow { display: none; }
+    .photo-label { font-size: 12px; padding: 14px; }
+    .guide-copy h3 { font-size: 29px; }
+    .guide-copy { padding-top: 20px; }
+    .community-paths h3 { font-size: 25px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .directory-image img, .directory-card, .guide-image img, .small-tools > a { transition: none; } }
 </style>

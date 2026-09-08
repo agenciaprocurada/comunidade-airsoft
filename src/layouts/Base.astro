@@ -24,6 +24,8 @@ interface Props {
    * navegação; head, fontes e analytics continuam daqui.
    */
   semCasca?: boolean;
+  /** Landing pages podem priorizar sua ação principal sem convite flutuante. */
+  semConviteWhatsApp?: boolean;
 }
 
 /**
@@ -44,6 +46,7 @@ const {
   imagem = OG_PADRAO,
   headerSobreposto = false,
   semCasca = false,
+  semConviteWhatsApp = false,
 } = Astro.props;
 
 const urlCanonica = canonica ?? new URL(Astro.url.pathname, Astro.site).href;
@@ -70,14 +73,14 @@ const todosDados = [entidade, ...dadosEstruturados];
  * Convite flutuante do WhatsApp: em toda página com casca, menos na área
  * logada, que já convida na barra lateral (Conta.astro).
  */
-const comChamadaWhatsApp = !semCasca && !Astro.url.pathname.startsWith("/conta");
+const comChamadaWhatsApp = !semCasca && !semConviteWhatsApp && !Astro.url.pathname.startsWith("/conta");
 
 /**
  * Faixa de apoiadores: fecha toda página pública, acima do rodapé. Fora
  * da área logada — quem está gerenciando a própria conta não é público
  * de parceiro.
  */
-const comApoiadores = comChamadaWhatsApp;
+const comApoiadores = !semCasca && !Astro.url.pathname.startsWith("/conta");
 ---
 
 <!doctype html>

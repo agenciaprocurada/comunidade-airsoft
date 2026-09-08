@@ -26,6 +26,8 @@ const FORA_DO_SITEMAP = [
   '/enviar-campo',
   '/armeiros/cadastrar',
   '/entrar',
+  '/mapas-v2', // Versão de avaliação da landing page, sem indexação.
+  '/home-old', // Home anterior, mantida só para comparação.
   // Indice em texto puro para modelos de linguagem. E um mapa, nao um
   // destino de leitura: nao deve ser anunciado como pagina indexavel.
   '/llms.txt',
