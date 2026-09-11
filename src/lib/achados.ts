@@ -184,30 +184,75 @@ export function ehUrl(texto: string): boolean {
 }
 
 // ------------------------------------------------------------
+// O lote do dia — o que alimenta os carrosséis
+// ------------------------------------------------------------
+
+/** Quantos produtos o carrossel mostra por vez. */
+export const CARROSSEL_MOSTRA = 5;
+/** Teto do lote embutido na página: HTML a mais por card escondido. */
+export const CARROSSEL_LOTE = 30;
+
+/**
+ * O lote é "o último dia": todos os produtos cadastrados no dia do
+ * cadastro mais recente (até CARROSSEL_LOTE). Não "as últimas 24 horas" — num dia sem
+ * cadastro o carrossel ficaria vazio. O dia é o de São Paulo, porque
+ * uma leva às 23h30 não pode virar dois dias por causa do UTC.
+ *
+ * Com menos de CARROSSEL_MOSTRA no dia, completa com os anteriores:
+ * carrossel de dois cards parece defeito.
+ *
+ * Quem sorteia os 5 que aparecem é o navegador (CarrosselAchados),
+ * a cada visita. A página só carrega o lote.
+ *
+ * `lista` chega ordenada do mais recente para o mais antigo.
+ */
+export function loteDoDia(lista: Achado[], max = CARROSSEL_LOTE, min = CARROSSEL_MOSTRA): Achado[] {
+  const comOferta = lista.filter((a) => a.achado_ofertas.length > 0);
+  if (comOferta.length === 0) return [];
+
+  const dia = (iso: string) =>
+    new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const ultimoDia = dia(comOferta[0].criado_em);
+
+  const doDia = comOferta.filter((a) => dia(a.criado_em) === ultimoDia).slice(0, max);
+  if (doDia.length >= min) return doDia;
+
+  const resto = comOferta.filter((a) => !doDia.includes(a));
+  return [...doDia, ...resto].slice(0, Math.max(min, doDia.length));
+}
+
+/** Embaralha (Fisher-Yates) sem mexer no original. */
+export function embaralhar<T>(lista: T[]): T[] {
+  const copia = [...lista];
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia;
+}
+
+// ------------------------------------------------------------
 // Leitura em página SSR
 // ------------------------------------------------------------
 
 /**
- * Os últimos achados publicados, para página servida por requisição
- * (a ficha da equipe). A versão de BUILD, para página estática, está
- * em achados-build.ts — mesma regra: só publicado e com oferta.
+ * O lote do dia para página servida por requisição (a ficha da
+ * equipe). A versão de BUILD, para página estática, está em
+ * achados-build.ts — mesma regra (`loteDoDia`).
  *
  * `supabase` é o cliente de `Astro.locals`; a RLS já corta o rascunho.
  * Falhou o banco, volta lista vazia e a faixa some — não derruba a ficha.
  */
-export async function ultimosAchados(
-  supabase: { from: (t: string) => any },
-  quantos: number,
-): Promise<Achado[]> {
+export async function loteAchados(supabase: { from: (t: string) => any }): Promise<Achado[]> {
   const { data, error } = await supabase
     .from("achados")
     .select(COLUNAS_ACHADO)
     .eq("status", "publicado")
-    .order("atualizado_em", { ascending: false })
-    .limit(quantos * 3);
+    .order("criado_em", { ascending: false })
+    .limit(CARROSSEL_LOTE * 2);
   if (error) {
     console.error("Falha ao carregar os achados:", error);
     return [];
   }
-  return ((data ?? []) as Achado[]).filter((a) => a.achado_ofertas.length > 0).slice(0, quantos);
+  return loteDoDia((data ?? []) as Achado[]);
 }

@@ -11,7 +11,7 @@ import iniciante from "../assets/guias/guia-do-iniciante.webp";
 import mapa from "../assets/mapas/exemplo-mapa-tatico-airsoft-satelite.webp";
 import { NOME_UF } from "../lib/uf";
 import { EQUIPES_VISIVEIS } from "../lib/flags";
-import { carregarUltimosAchados } from "../lib/achados-build";
+import { carregarLoteAchados } from "../lib/achados-build";
 import CarrosselAchados from "../components/CarrosselAchados.astro";
 
 const [campos, lojas, armeiros, guias, achados] = await Promise.all([
@@ -20,7 +20,7 @@ const [campos, lojas, armeiros, guias, achados] = await Promise.all([
   getCollection("armeiros", ({ data }) => data.status === "publicado"),
   getCollection("guias", ({ data }) => !data.rascunho),
   // Lidos no build: a faixa muda no próximo deploy (ver achados-build.ts).
-  carregarUltimosAchados(5),
+  carregarLoteAchados(),
 ]);
 const numero = (valor: number) => valor.toLocaleString("pt-BR");
 const estados = [...new Set(campos.map(({ data }) => data.uf))]

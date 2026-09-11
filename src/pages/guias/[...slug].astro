@@ -6,7 +6,7 @@ import Trilha from "../../components/Trilha.astro";
 import { NOME, refOrganizacao, refSite } from "../../lib/entidade";
 import CarrosselAchados from "../../components/CarrosselAchados.astro";
 import ConteudoComCarrossel from "../../components/ConteudoComCarrossel.astro";
-import { carregarUltimosAchados } from "../../lib/achados-build";
+import { carregarLoteAchados } from "../../lib/achados-build";
 
 export async function getStaticPaths() {
   const guias = await getCollection("guias", ({ data }) => !data.rascunho);
@@ -17,7 +17,7 @@ export async function getStaticPaths() {
 
   // Uma consulta para todos os guias, no build: os mesmos 5 achados
   // entram em cada artigo (início, meio e fim). Ver achados-build.ts.
-  const achados = await carregarUltimosAchados(5);
+  const achados = await carregarLoteAchados();
 
   return guias.map((guia) => ({
     params: { slug: guia.id },

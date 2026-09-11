@@ -21,8 +21,24 @@
  * coluna da ficha de campo e na largura toda da ficha da equipe. Até
  * 384px: 2 e um pedaço; até 768px: 3 e um pedaço; acima: os 5. O
  * "pedaço" é o que avisa que dá para rolar.
+ *
+ * SORTEIO A CADA VISITA. `achados` é o LOTE do dia (até 20, ver
+ * loteDoDia), não os 5 que aparecem. Todos entram no HTML; 5 sorteados
+ * no servidor ficam visíveis e o resto vai com `hidden`. Um script
+ * inline logo depois do trilho sorteia de novo no navegador — inline e
+ * ali mesmo para rodar antes da primeira pintura, senão os cards
+ * trocariam na frente da pessoa. Sem JavaScript, vale o sorteio do
+ * servidor (que nas páginas estáticas é o do build).
  */
-import { EM_LOJA, formatarPreco, linkAfiliado, ordenarOfertas, type Achado } from "../lib/achados";
+import {
+  CARROSSEL_MOSTRA,
+  EM_LOJA,
+  embaralhar,
+  formatarPreco,
+  linkAfiliado,
+  ordenarOfertas,
+  type Achado,
+} from "../lib/achados";
 
 interface Props {
   achados: Achado[];
@@ -40,6 +56,9 @@ const ofertaDestaque = (a: Achado) =>
   );
 
 const idTitulo = `achados-${posicao}`;
+
+/** Os que aparecem sem JavaScript. */
+const visiveis = new Set(embaralhar(achados).slice(0, CARROSSEL_MOSTRA).map((a) => a.id));
 ---
 
 {
@@ -63,7 +82,7 @@ const idTitulo = `achados-${posicao}`;
                 ? Math.round((1 - o.preco / o.preco_cheio) * 100)
                 : 0;
             return (
-              <li class="w-[42%] shrink-0 snap-start @sm:w-[30%] @3xl:w-[19%]">
+              <li class="w-[42%] shrink-0 snap-start @sm:w-[30%] @3xl:w-[19%]" hidden={!visiveis.has(a.id)}>
                 <a
                   {...linkAfiliado(o.url)}
                   class="group flex h-full flex-col bg-white !text-[#1f2a19] !no-underline shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_6px_16px_rgba(0,0,0,0.18)]"
@@ -103,6 +122,29 @@ const idTitulo = `achados-${posicao}`;
             );
           })}
         </ul>
+
+        {/*
+          Sorteia os 5 desta visita. `is:inline` e repetido por carrossel
+          de propósito: precisa rodar aqui, no meio do HTML, antes de o
+          navegador pintar o bloco. A função é definida uma vez só.
+        */}
+        <script is:inline data-sorteio={CARROSSEL_MOSTRA}>
+          (function () {
+            var s = document.currentScript;
+            var trilho = s.previousElementSibling;
+            var n = Number(s.dataset.sorteio);
+            var itens = Array.prototype.slice.call(trilho.children);
+            for (var i = itens.length - 1; i > 0; i--) {
+              var j = Math.floor(Math.random() * (i + 1));
+              var t = itens[i]; itens[i] = itens[j]; itens[j] = t;
+            }
+            itens.forEach(function (li, k) {
+              li.hidden = k >= n;
+              // Reordena o DOM: os sorteados na frente, na ordem do sorteio.
+              trilho.appendChild(li);
+            });
+          })();
+        </script>
 
         {/* Setas: só com script, só em container de 384px+ (no celular é dedo). */}
         <button

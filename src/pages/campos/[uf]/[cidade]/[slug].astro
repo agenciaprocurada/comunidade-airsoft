@@ -9,7 +9,7 @@ import CapaFicha from "../../../../components/CapaFicha.astro";
 import { linkExterno } from "../../../../lib/link-externo";
 import MapaLocal from "../../../../components/MapaLocal.astro";
 import CarrosselAchados from "../../../../components/CarrosselAchados.astro";
-import { carregarUltimosAchados } from "../../../../lib/achados-build";
+import { carregarLoteAchados } from "../../../../lib/achados-build";
 import {
   NOME_UF,
   ROTULO_TERRENO,
@@ -23,7 +23,7 @@ export async function getStaticPaths() {
   const campos = await getCollection("campos", ({ data }) => data.status === "publicado");
 
   // Uma consulta para todas as fichas, no build (ver achados-build.ts).
-  const achados = await carregarUltimosAchados(5);
+  const achados = await carregarLoteAchados();
 
   return campos.map((campo) => ({
     params: {

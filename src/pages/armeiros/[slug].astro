@@ -17,7 +17,7 @@
 import { getCollection } from "astro:content";
 import FichaArmeiro from "../../components/FichaArmeiro.astro";
 import HubArmeirosUf from "../../components/HubArmeirosUf.astro";
-import { carregarUltimosAchados } from "../../lib/achados-build";
+import { carregarLoteAchados } from "../../lib/achados-build";
 
 export async function getStaticPaths() {
   const armeiros = await getCollection(
@@ -31,7 +31,7 @@ export async function getStaticPaths() {
   const totalEnvioNacional = armeiros.filter((a) => a.data.atende_envio).length;
 
   // Uma consulta para todas as fichas, no build (ver achados-build.ts).
-  const achados = await carregarUltimosAchados(5);
+  const achados = await carregarLoteAchados();
 
   const fichas = armeiros.map((armeiro) => ({
     params: { slug: armeiro.id },
