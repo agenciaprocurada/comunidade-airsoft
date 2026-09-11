@@ -1,0 +1,52 @@
+---
+/**
+ * Corpo do guia partido ao meio, com o carrossel de achados no corte.
+ *
+ * Os guias são Markdown puro (.md): não dá para pôr um componente no
+ * meio do texto pelo próprio arquivo. Então o `<Content />` entra aqui
+ * como slot, vira HTML (`Astro.slots.render`, no build) e é partido no
+ * `<h2>` mais perto da metade. Cortar em título, e não em parágrafo,
+ * é o que faz o carrossel parecer uma pausa entre seções e não um
+ * anúncio no meio de uma frase.
+ *
+ * Cada metade vai numa `.conteudo` própria: os estilos de leitura
+ * (parágrafo, imagem, link) valem dentro dela e NÃO alcançam o card.
+ *
+ * Guia sem `<h2>` fica inteiro, sem carrossel no meio.
+ *
+ * Uso:
+ *   <ConteudoComCarrossel classe="conteudo ..." classeCarrossel="...">
+ *     <Content />
+ *     <CarrosselAchados slot="carrossel" ... />
+ *   </ConteudoComCarrossel>
+ */
+interface Props {
+  /** Classes do embrulho de cada metade. */
+  classe: string;
+  /** Classes do embrulho do carrossel — a mesma coluna, sem os estilos de leitura. */
+  classeCarrossel: string;
+}
+
+const { classe, classeCarrossel } = Astro.props;
+
+const html = await Astro.slots.render("default");
+const carrossel = Astro.slots.has("carrossel") ? await Astro.slots.render("carrossel") : "";
+
+/** Início de cada `<h2` no HTML. Em Markdown o h2 é sempre de primeiro nível. */
+const titulos = [...html.matchAll(/<h2[\s>]/g)].map((m) => m.index!);
+const metade = html.length / 2;
+const corte = titulos.length
+  ? titulos.reduce((melhor, i) => (Math.abs(i - metade) < Math.abs(melhor - metade) ? i : melhor))
+  : -1;
+
+const partes = corte > 0 && carrossel ? [html.slice(0, corte), html.slice(corte)] : [html];
+---
+
+{
+  partes.map((parte, i) => (
+    <>
+      {i > 0 && <div class={classeCarrossel} set:html={carrossel} />}
+      <div class={classe} set:html={parte} />
+    </>
+  ))
+}

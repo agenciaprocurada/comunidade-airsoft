@@ -1,0 +1,167 @@
+---
+/**
+ * Carrossel dos últimos achados — a faixa de produtos dentro dos guias.
+ *
+ * Aparece três vezes por guia (início, meio e fim), sempre com os mesmos
+ * produtos: os dados vêm do build (achados-build.ts), como na home.
+ *
+ * Rola na horizontal com scroll-snap, sem JavaScript. As setas são
+ * enfeite para quem usa mouse — sem script elas nem aparecem; no
+ * celular a pessoa arrasta com o dedo. Cada card leva direto ao link
+ * de afiliado, pela oferta mais barata.
+ *
+ * Quantos cabem na tela: 2 e um pedaço no celular, 3 e um pedaço a
+ * partir de 640px. O "pedaço" é o que avisa que dá para rolar.
+ */
+import { EM_LOJA, formatarPreco, linkAfiliado, ordenarOfertas, type Achado } from "../lib/achados";
+
+interface Props {
+  achados: Achado[];
+  /** Só para os ids serem únicos quando o carrossel repete na página. */
+  posicao: string;
+}
+
+const { achados, posicao } = Astro.props;
+
+const ofertaDestaque = (a: Achado) =>
+  ordenarOfertas(a.achado_ofertas).reduce((m, o) =>
+    o.preco != null && (m.preco == null || o.preco < m.preco) ? o : m,
+  );
+
+const idTitulo = `achados-${posicao}`;
+---
+
+{
+  achados.length > 0 && (
+    <aside class="carrossel-achados my-10 border-y border-borda py-6" aria-labelledby={idTitulo}>
+      <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p id={idTitulo} class="font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+          Achados da comunidade
+        </p>
+        <a
+          href="/achados"
+          class="font-display text-[15px] font-bold uppercase tracking-[0.06em] !text-oliva-300 !no-underline hover:!text-oliva-100"
+        >
+          Ver todos <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+
+      <div class="relative mt-4">
+        <ul class="trilho flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1" data-trilho>
+          {achados.map((a) => {
+            const o = ofertaDestaque(a);
+            const preco = formatarPreco(o.preco);
+            const cheio = formatarPreco(o.preco_cheio);
+            return (
+              <li class="w-[42%] shrink-0 snap-start sm:w-[30%]">
+                <a
+                  {...linkAfiliado(o.url)}
+                  class="group flex h-full flex-col border border-borda bg-papel !text-tinta !no-underline transition-colors hover:border-oliva-500"
+                >
+                  <div class="relative aspect-square w-full overflow-hidden border-b border-borda bg-fundo">
+                    <span
+                      aria-hidden="true"
+                      class="absolute inset-0 grid place-items-center p-3 text-center font-display text-[13px] font-bold uppercase leading-tight text-oliva-400/60"
+                    >
+                      {a.nome}
+                    </span>
+                    {a.imagem_url && (
+                      <img
+                        src={a.imagem_url}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        referrerpolicy="no-referrer"
+                        onerror="this.remove()"
+                        class="absolute inset-0 h-full w-full bg-white object-contain transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none"
+                      />
+                    )}
+                  </div>
+                  <div class="flex flex-1 flex-col p-3">
+                    <p class="line-clamp-2 font-display text-[14px] font-bold uppercase leading-tight tracking-[0.02em] sm:text-[15px]">
+                      {a.nome}
+                    </p>
+                    <p class="mt-2 flex flex-wrap items-baseline gap-x-2 font-dado leading-tight">
+                      {cheio && <s class="text-[11px] text-texto-2">{cheio}</s>}
+                      <span class="text-[15px] text-tinta">{preco ?? "Ver preço"}</span>
+                    </p>
+                    <p class="mt-auto pt-2 text-[12px] text-texto-2">{EM_LOJA[o.loja]}</p>
+                  </div>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* Setas: só com script, só a partir de 640px (no celular é dedo). */}
+        <button
+          type="button"
+          data-seta="-1"
+          hidden
+          aria-label="Produtos anteriores"
+          class="absolute left-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center border border-borda-forte bg-fundo/90 text-oliva-300 hover:border-oliva-500 sm:flex"
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          data-seta="1"
+          hidden
+          aria-label="Próximos produtos"
+          class="absolute right-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center border border-borda-forte bg-fundo/90 text-oliva-300 hover:border-oliva-500 sm:flex"
+        >
+          ›
+        </button>
+      </div>
+
+      <p class="mt-3 text-[12px] leading-snug !text-texto-2">
+        Links de afiliado: a loja paga comissão ao site, você não paga a mais. Preço é referência; o final é o da loja.
+      </p>
+    </aside>
+  )
+}
+
+<style>
+  /* Barra de rolagem some: o card cortado na borda já diz que rola. */
+  .trilho {
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .trilho::-webkit-scrollbar {
+    display: none;
+  }
+  /* O `hidden` do HTML perde para o `sm:flex` do Tailwind; aqui ele ganha. */
+  .carrossel-achados button[hidden] {
+    display: none;
+  }
+</style>
+
+<script>
+  /*
+   * Setas do carrossel: rolam uma "tela" por clique e somem na ponta.
+   * Roda para todos os carrosséis da página (são três por guia).
+   */
+  for (const caixa of document.querySelectorAll<HTMLElement>(".carrossel-achados")) {
+    const trilho = caixa.querySelector<HTMLElement>("[data-trilho]");
+    const setas = caixa.querySelectorAll<HTMLButtonElement>("[data-seta]");
+    if (!trilho || setas.length === 0) continue;
+
+    const atualizar = () => {
+      const fim = trilho.scrollLeft + trilho.clientWidth >= trilho.scrollWidth - 2;
+      const rola = trilho.scrollWidth > trilho.clientWidth + 2;
+      for (const seta of setas) {
+        const sentido = Number(seta.dataset.seta);
+        seta.hidden = !rola || (sentido < 0 ? trilho.scrollLeft <= 2 : fim);
+      }
+    };
+
+    for (const seta of setas) {
+      seta.addEventListener("click", () => {
+        trilho.scrollBy({ left: Number(seta.dataset.seta) * trilho.clientWidth * 0.9, behavior: "smooth" });
+      });
+    }
+    trilho.addEventListener("scroll", atualizar, { passive: true });
+    window.addEventListener("resize", atualizar);
+    atualizar();
+  }
+</script>
