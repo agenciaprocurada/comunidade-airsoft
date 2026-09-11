@@ -28,9 +28,11 @@ interface Props {
   achados: Achado[];
   /** Só para os ids serem únicos quando o carrossel repete na página. */
   posicao: string;
+  /** Rótulo pequeno em cima dos cards. */
+  titulo?: string;
 }
 
-const { achados, posicao } = Astro.props;
+const { achados, posicao, titulo = "Achados da comunidade" } = Astro.props;
 
 const ofertaDestaque = (a: Achado) =>
   ordenarOfertas(a.achado_ofertas).reduce((m, o) =>
@@ -47,7 +49,7 @@ const idTitulo = `achados-${posicao}`;
       aria-labelledby={idTitulo}
     >
       <p id={idTitulo} class="font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-700">
-        Achados da comunidade
+        {titulo}
       </p>
 
       <div class="relative mt-3">
