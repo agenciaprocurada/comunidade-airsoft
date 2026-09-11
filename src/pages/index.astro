@@ -11,13 +11,25 @@ import iniciante from "../assets/guias/guia-do-iniciante.webp";
 import mapa from "../assets/mapas/exemplo-mapa-tatico-airsoft-satelite.webp";
 import { NOME_UF } from "../lib/uf";
 import { EQUIPES_VISIVEIS } from "../lib/flags";
+import { carregarUltimosAchados } from "../lib/achados-build";
+import { EM_LOJA, formatarPreco, linkAfiliado, ordenarOfertas } from "../lib/achados";
 
-const [campos, lojas, armeiros, guias] = await Promise.all([
+const [campos, lojas, armeiros, guias, achados] = await Promise.all([
   getCollection("campos", ({ data }) => data.status === "publicado"),
   getCollection("lojas", ({ data }) => data.status === "publicado"),
   getCollection("armeiros", ({ data }) => data.status === "publicado"),
   getCollection("guias", ({ data }) => !data.rascunho),
+  // Lidos no build: a faixa muda no próximo deploy (ver achados-build.ts).
+  carregarUltimosAchados(4),
 ]);
+/**
+ * O card da home leva direto para a loja, pela oferta mais barata — o
+ * achado não tem página própria, e "ver mais" já cobre quem quer a
+ * vitrine inteira.
+ */
+const ofertaDestaque = (a: (typeof achados)[number]) =>
+  ordenarOfertas(a.achado_ofertas).reduce((m, o) =>
+    o.preco != null && (m.preco == null || o.preco < m.preco) ? o : m);
 const numero = (valor: number) => valor.toLocaleString("pt-BR");
 const estados = [...new Set(campos.map(({ data }) => data.uf))]
   .map((uf) => ({ uf, nome: NOME_UF[uf] ?? uf, total: campos.filter(({ data }) => data.uf === uf).length }))
@@ -77,6 +89,13 @@ const navegacao = {
       </div>
       <div class="hero-caption" aria-hidden="true"><span>01 / Conexão em campo</span><span>O melhor do jogo é quem joga com você.</span></div>
     </section>
+
+
+    {achados.length > 0 && <section id="achados" class="deals-section" aria-labelledby="deals-title"><div class="wrap">
+      <div class="heading deals-heading"><div><p class="eyebrow">Achados da comunidade</p><h2 id="deals-title">Últimos <span>achadinhos.</span></h2></div><a href="/achados" class="text-link">Ver mais <span aria-hidden="true">↗</span></a></div>
+      <ul class="deals-grid">{achados.map((a) => { const o = ofertaDestaque(a); return <li class="deal-card"><a {...linkAfiliado(o.url)}><div class="deal-image"><span class="deal-fallback" aria-hidden="true">{a.nome}</span>{a.imagem_url && <img src={a.imagem_url} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()" />}</div><div class="deal-copy"><h3>{a.nome}</h3><p class="deal-price">{o.preco_cheio != null && <s>{formatarPreco(o.preco_cheio)}</s>}{o.preco != null ? <strong>{formatarPreco(o.preco)}</strong> : <strong>Ver preço</strong>}</p><p class="deal-store">{EM_LOJA[o.loja]}</p><span class="card-action">Comprar<span aria-hidden="true">↗</span></span></div></a></li>; })}</ul>
+      <p class="deals-note">Links de afiliado: a loja paga uma comissão ao site e você não paga nada a mais. Preço é referência; o valor final é o da loja.</p>
+    </div></section>}
 
     <section id="encontre-seu-campo" class="finder-section" aria-labelledby="finder-title">
       <div class="wrap finder">
@@ -171,6 +190,27 @@ const navegacao = {
   .hero-caption { position: absolute; right: max(32px, calc((100vw - 1240px) / 2)); bottom: 40px; display: grid; gap: 8px; text-align: right; border-right: 2px solid var(--accent); padding-right: 16px; }
   .hero-caption span:first-child { font: 11px var(--font-dado); letter-spacing: .1em; color: var(--accent); text-transform: uppercase; }
   .hero-caption span:last-child { font-size: 14px; color: #d4d9ca; }
+  .deals-section { background: #121a10; border-bottom: 1px solid #303e26; }
+  .deals-section .wrap { padding-block: 56px 48px; }
+  .deals-heading { margin-bottom: 28px; }
+  .deals-heading h2 { font-size: clamp(32px, 3.4vw, 44px); }
+  .deals-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+  .deal-card > a { height: 100%; display: flex; flex-direction: column; border: 1px solid #34422a; background: #151d12; transition: border-color .2s; }
+  .deal-card > a:hover { border-color: var(--accent); }
+  .deal-image { position: relative; aspect-ratio: 1; background: #fff; overflow: hidden; }
+  /* Fundo na própria <img>: a foto da loja raramente é quadrada, e a sobra ficava transparente, mostrando o texto de reserva por trás. */
+  .deal-image img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; transition: transform .4s; }
+  .deal-card > a:hover img { transform: scale(1.035); }
+  /* Fica atrás da foto: se o <img> da loja falhar e se remover, o nome aparece. */
+  .deal-fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; font: 700 18px/1.15 var(--font-display); text-transform: uppercase; color: #8a9a72; background: #101710; }
+  .deal-copy { display: flex; flex-direction: column; flex: 1; padding: 16px 18px 18px; }
+  .deal-copy h3 { font-size: 18px; line-height: 1.2; text-transform: uppercase; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .deal-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-top: 10px; font-family: var(--font-dado); }
+  .deal-price s { font-size: 13px; color: #8a9a72; }
+  .deal-price strong { font-size: 20px; color: #f1f2e9; font-weight: 500; }
+  .deal-store { margin-top: 4px; font-size: 13px; color: #8f9c83; }
+  .deal-copy .card-action { font-size: 15px; padding-top: 14px; margin-top: 14px; }
+  .deals-note { margin-top: 20px; font-size: 13px; color: #8f9c83; }
   .finder-section { background: #1c2719; border-block: 1px solid #405237; }
   .finder { display: grid; grid-template-columns: 1fr 1fr; column-gap: 48px; padding-block: 30px 22px; }
   .finder-title { display: flex; align-items: center; gap: 20px; }
@@ -328,6 +368,8 @@ const navegacao = {
     .beginner-photo img { aspect-ratio: 16/10; }
     .guides-grid { gap: 20px; }
     .guide-copy h3 { font-size: 24px; }
+    .deals-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .deals-section .wrap { padding-block: 44px 36px; }
     .community { gap: 36px; }
   }
   @media (max-width: 599px) {
@@ -362,6 +404,11 @@ const navegacao = {
     .heading > p { max-width: none; margin-top: 20px; }
     .heading > a { margin-top: 20px; }
     .directory-grid, .guides-grid { grid-template-columns: 1fr; gap: 28px; }
+    .deals-grid { gap: 12px; }
+    .deal-copy { padding: 12px 12px 14px; }
+    .deal-copy h3 { font-size: 15px; }
+    .deal-price strong { font-size: 17px; }
+    .deal-copy .card-action { font-size: 13px; }
     .directory-card:last-child { display: flex; grid-column: auto; }
     .directory-card:last-child .directory-image img { height: auto; }
     .directory-card:last-child .directory-copy { padding-top: 8px; }
@@ -383,5 +430,5 @@ const navegacao = {
     .guide-copy { padding-top: 20px; }
     .community-paths h3 { font-size: 25px; }
   }
-  @media (prefers-reduced-motion: reduce) { .directory-image img, .directory-card, .guide-image img, .small-tools > a { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .directory-image img, .directory-card, .guide-image img, .deal-image img, .deal-card > a, .small-tools > a { transition: none; } }
 </style>

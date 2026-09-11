@@ -39,6 +39,7 @@ const links = [
   { href: "/organizador-de-operacoes", texto: "Operações" },
   { href: "/calculadora-de-fps", texto: "Calculadora" },
   { href: "/guias", texto: "Guias" },
+  { href: "/achados", texto: "Achados" },
 ];
 
 const atual = Astro.url.pathname;
@@ -77,9 +78,14 @@ const linkConta = { href: "/conta", texto: "Minha conta" };
       O respiro entre os itens ENCOLHE no xl em vez de crescer: a partir
       de 1280px a fonte sobe para text-lg, e com gap-8 a linha passava
       23px do container. Medido, não estimado.
+
+      Com "Achados" (set/2026) o respiro apertou de novo: gap-5/gap-6
+      passava 58px em 1024 e 33px em 1280. gap-3/gap-4 cabe nos dois,
+      medido no navegador. O próximo item do menu não cabe mais aqui —
+      vai ter que tirar um ou encurtar rótulo.
     */}
     <nav aria-label="Principal" class="hidden lg:block">
-      <ul class="flex items-center gap-5 xl:gap-6">
+      <ul class="flex items-center gap-3 xl:gap-4">
         {
           links.map((link) => {
             const ativo = atual === link.href || atual.startsWith(link.href + "/");

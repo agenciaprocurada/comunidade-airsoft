@@ -1,0 +1,236 @@
+---
+/**
+ * /achados — produtos que o site indica, com link de afiliado.
+ *
+ * O site não vende: mostra o produto e manda para a loja (Mercado
+ * Livre, Shopee, AliExpress...). A comissão vem do link, e o visitante
+ * é avisado disso logo no topo — é exigência do Google (`sponsored`)
+ * e do CDC, e é o que separa indicação de propaganda escondida.
+ *
+ * SSR como /equipes: cadastrou no admin, apareceu. A vitrine muda com
+ * o estoque de achados, não com o deploy.
+ *
+ * Preço é referência com mês: "R$ 189,90 · visto em set/26". O card
+ * nunca promete o valor — quem promete é a loja.
+ */
+import Base from "../../layouts/Base.astro";
+import TopoPagina from "../../components/TopoPagina.astro";
+import Botao from "../../components/Botao.astro";
+import {
+  COLUNAS_ACHADO,
+  EM_LOJA,
+  formatarPreco,
+  linkAfiliado,
+  mesDoPreco,
+  ordenarOfertas,
+  type Achado,
+} from "../../lib/achados";
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+
+/** Quantos a vitrine mostra de uma vez. */
+const TETO = 60;
+
+const { data: bruto, error } = await supabase
+  .from("achados")
+  .select(COLUNAS_ACHADO)
+  .eq("status", "publicado")
+  .order("atualizado_em", { ascending: false })
+  .limit(TETO)
+  .returns<Achado[]>();
+
+if (error) console.error("Falha ao carregar os achados:", error);
+
+/* Produto publicado sem nenhum link é card sem botão: fica de fora. */
+const achados = (bruto ?? []).filter((a) => a.achado_ofertas.length > 0);
+
+const lojasPresentes = new Set(achados.flatMap((a) => a.achado_ofertas.map((o) => o.loja)));
+
+const titulo = "Achados de airsoft";
+const descricao =
+  "Produtos de airsoft que valem a pena, com link direto para a loja: proteção, " +
+  "acessórios, baterias, BBs e o que mais a comunidade testou e indica.";
+
+/**
+ * ItemList com Product dentro: diz ao buscador que é uma lista de
+ * produtos indicados, não uma loja. Sem `offers` de propósito — o
+ * preço aqui é referência, e anunciar oferta em schema sem garantir o
+ * valor rende aviso no Search Console.
+ */
+const dadoEstruturado = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: titulo,
+  numberOfItems: achados.length,
+  itemListElement: achados.map((a, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    item: {
+      "@type": "Product",
+      name: a.nome,
+      ...(a.descricao ? { description: a.descricao } : {}),
+      ...(a.imagem_url ? { image: a.imagem_url } : {}),
+    },
+  })),
+};
+
+---
+
+<Base
+  titulo={titulo}
+  descricao={descricao}
+  semIndexar={achados.length === 0}
+  dadosEstruturados={achados.length ? [dadoEstruturado] : []}
+>
+  <TopoPagina
+    trilha={[{ texto: "Achados" }]}
+    dados={[
+      { icone: "caixa", texto: `${achados.length} ${achados.length === 1 ? "produto" : "produtos"}` },
+      { icone: "loja", texto: `${lojasPresentes.size} ${lojasPresentes.size === 1 ? "loja" : "lojas"}` },
+      { icone: "selo", texto: "Escolhidos a dedo" },
+    ]}
+    codigo="09"
+  >
+    Achados de<br />airsoft
+    <Fragment slot="descricao">
+      <p>{descricao}</p>
+      <p class="text-base text-texto-2">
+        Os links são de afiliado: se você comprar por eles, a loja paga uma
+        comissão ao site e você não paga nada a mais. É isso que mantém a
+        Comunidade Airsoft de pé.
+      </p>
+    </Fragment>
+  </TopoPagina>
+
+  <div class="mx-auto max-w-[1240px] px-5 pb-8 pt-2 md:px-12 md:pb-12 md:pt-4">
+    {
+      achados.length === 0 ? (
+        <section class="moldura-tatica mt-6 border border-borda bg-papel p-8 md:p-10">
+          <p class="rotulo">Em preparação</p>
+          <h2 class="mt-3 font-display text-2xl font-bold uppercase md:text-3xl">
+            Os primeiros achados estão chegando
+          </h2>
+          <p class="mt-4 max-w-[62ch] leading-relaxed text-texto-2">
+            Estamos separando o que vale a pena indicar. Enquanto isso, o
+            diretório de lojas mostra onde comprar na sua cidade.
+          </p>
+          <div class="mt-7">
+            <Botao href="/lojas">Ver onde comprar</Botao>
+          </div>
+        </section>
+      ) : (
+        <>
+          <p class="mt-6 border-b border-borda pb-3 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+            {achados.length} {achados.length === 1 ? "produto indicado" : "produtos indicados"}
+            <span class="normal-case tracking-normal text-texto-2"> · preço é referência do mês em que foi visto; o valor final é o da loja</span>
+          </p>
+
+          <ul class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {achados.map((a) => {
+              const ofertas = ordenarOfertas(a.achado_ofertas);
+              const precos = a.achado_ofertas.map((o) => o.preco).filter((p): p is number => p != null);
+              const menor = precos.length ? Math.min(...precos) : null;
+              const comPreco = precos.length;
+              return (
+                <li class="moldura-tatica flex flex-col border border-borda bg-papel transition-colors hover:border-oliva-500">
+                  {/*
+                    A imagem é URL colada da loja e pode sumir. O quadro
+                    fica atrás dela com o nome do produto: se o <img>
+                    falhar, ele se remove e o quadro aparece — sem
+                    ícone quebrado e sem JavaScript de verdade.
+                  */}
+                  <div class="relative aspect-[4/3] w-full overflow-hidden border-b border-borda bg-fundo">
+                    <div class="absolute inset-0 flex items-center justify-center p-6 text-center font-display text-lg font-bold uppercase leading-tight text-oliva-400/60">
+                      {a.nome}
+                    </div>
+                    {a.imagem_url && (
+                      <img
+                        src={a.imagem_url}
+                        alt={a.nome}
+                        loading="lazy"
+                        decoding="async"
+                        referrerpolicy="no-referrer"
+                        onerror="this.remove()"
+                        class="absolute inset-0 h-full w-full bg-white object-contain"
+                      />
+                    )}
+                  </div>
+
+                  <div class="flex flex-1 flex-col p-5">
+                    <h2 class="font-display text-xl font-bold uppercase leading-tight tracking-[0.02em] text-tinta">
+                      {a.nome}
+                    </h2>
+
+                    {menor != null && (
+                      <p class="mt-2 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+                        {comPreco > 1 && "a partir de "}
+                        <span class="text-[1.0625rem] normal-case tracking-normal text-tinta">
+                          {formatarPreco(menor)}
+                        </span>
+                      </p>
+                    )}
+
+                    {a.descricao && (
+                      <p class="mt-3 leading-relaxed text-texto-2 line-clamp-4">{a.descricao}</p>
+                    )}
+
+                    {/*
+                      Uma linha por loja, e a linha inteira é o link. O
+                      preço fica à direita em duas alturas (valor em cima,
+                      mês embaixo): "Comprar no Mercado Livre — R$ 1.189,90
+                      · set/26" numa linha só não cabe em card de 3 colunas.
+                    */}
+                    <p class="mt-auto pt-5 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
+                      Comprar
+                    </p>
+                    <ul class="mt-2 flex flex-col gap-2">
+                      {ofertas.map((o) => {
+                        const preco = formatarPreco(o.preco);
+                        const cheio = formatarPreco(o.preco_cheio);
+                        const mes = mesDoPreco(o.preco_visto_em);
+                        return (
+                          <li>
+                            <a
+                              {...linkAfiliado(o.url)}
+                              class="group flex items-center justify-between gap-3 border border-oliva-500 px-4 py-2 text-oliva-300 transition-colors hover:bg-oliva-500 hover:text-fundo"
+                            >
+                              <span class="font-display text-base font-bold uppercase leading-tight tracking-[0.06em]">
+                                {EM_LOJA[o.loja]}
+                              </span>
+                              <span class="flex shrink-0 items-center gap-2">
+                                <span class="text-right font-dado text-[0.8125rem] leading-tight">
+                                  {preco ? (
+                                    <>
+                                      {cheio && (
+                                        <span class="block whitespace-nowrap text-[0.6875rem] line-through opacity-70">
+                                          {cheio}
+                                        </span>
+                                      )}
+                                      <span class="block whitespace-nowrap">{preco}</span>
+                                      {mes && (
+                                        <span class="block text-[0.6875rem] opacity-70">visto {mes}</span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    "ver preço"
+                                  )}
+                                </span>
+                                <span aria-hidden="true" class="font-display text-lg font-bold leading-none">›</span>
+                              </span>
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )
+    }
+  </div>
+</Base>

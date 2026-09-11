@@ -1,0 +1,464 @@
+---
+/**
+ * /conta/admin/achados/[id] — cadastrar e editar um achado.
+ *
+ * `id = novo` cria; qualquer outro id abre para editar. Um formulário
+ * só para os dois casos, senão o campo novo entra em um e falta no
+ * outro.
+ *
+ * As ofertas são uma linha fixa por loja (URL + preço), sem botão de
+ * "adicionar": a chave única do banco é (produto, loja), então não há
+ * segunda oferta na mesma loja para adicionar. URL vazia = não vende
+ * lá; se existia, a oferta é apagada.
+ *
+ * A data do preço anda sozinha: mudou o preço, a data vira hoje. Para
+ * dizer "conferi e continua igual" existe a caixa "Conferi todos os
+ * preços hoje" — sem ela o admin teria que digitar o mesmo número de
+ * novo só para renovar a data.
+ */
+import Conta from "../../../../layouts/Conta.astro";
+import Selo from "../../../../components/conta/Selo.astro";
+import {
+  AJUDA_CAMPO,
+  BOTAO_PERIGO,
+  BOTAO_PRIMARIO,
+  BOTAO_SECUNDARIO,
+  BOTAO_TEXTO,
+  CAIXA,
+  ENTRADA,
+  ENTRADA_INVALIDA,
+  ERRO_CAMPO,
+  LINHA_CAIXA,
+  ROTULO_CAMPO,
+  SELECAO,
+} from "../../../../lib/estilos-form";
+import {
+  COLUNAS_ACHADO,
+  LOJAS,
+  STATUS_ACHADO,
+  DIAS_PRECO_VELHO,
+  diasDesde,
+  ehUrl,
+  formatarPreco,
+  hojeIso,
+  lerPreco,
+  precoVelho,
+  type Achado,
+  type Loja,
+  type Oferta,
+  type StatusAchado,
+} from "../../../../lib/achados";
+
+export const prerender = false;
+
+const { supabase, usuario } = Astro.locals;
+const { id } = Astro.params;
+const novo = id === "novo";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+if (!novo && !UUID.test(id ?? "")) {
+  const r = await Astro.rewrite("/404");
+  return new Response(r.body, { status: 404, headers: r.headers });
+}
+
+let erroGeral = "";
+let erroDe: Record<string, string> = {};
+/** O que foi digitado, para não perder o trabalho quando der erro. */
+let enviado: Record<string, string> | null = null;
+const salvo = Astro.url.searchParams.get("salvo") === "1";
+
+if (Astro.request.method === "POST") {
+  const dados = await Astro.request.formData();
+  const texto = (nome: string) => (dados.get(nome)?.toString() ?? "").trim();
+
+  // ---- Apagar -------------------------------------------------
+  if (!novo && texto("acao") === "apagar") {
+    const { error } = await supabase.from("achados").delete().eq("id", id!);
+    if (error) {
+      console.error(`Falha ao apagar achado ${id}:`, error);
+      erroGeral = "Não conseguimos apagar agora. Tente de novo em instantes.";
+    } else {
+      return Astro.redirect("/conta/admin/achados?apagado=1", 303);
+    }
+  } else {
+    // ---- Salvar -----------------------------------------------
+    enviado = {};
+    for (const [chave, valor] of dados.entries()) {
+      if (typeof valor === "string") enviado[chave] = valor;
+    }
+
+    const nome = texto("nome");
+    const descricao = texto("descricao");
+    const imagemUrl = texto("imagem_url");
+    const statusBruto = texto("status");
+    const conferiPrecos = dados.get("conferi_precos") === "on";
+
+    if (nome.length < 2 || nome.length > 120) erroDe.nome = "Entre 2 e 120 letras.";
+    if (descricao.length > 600) erroDe.descricao = "No máximo 600 letras.";
+    if (imagemUrl && !ehUrl(imagemUrl)) erroDe.imagem_url = "Cole o endereço completo, começando com https://";
+    const status: StatusAchado = STATUS_ACHADO.some((s) => s.valor === statusBruto)
+      ? (statusBruto as StatusAchado)
+      : "rascunho";
+
+    /* Cada loja: URL e preço. Preço sem link não faz sentido — o
+       visitante veria um número sem ter onde clicar. */
+    const ofertas: { loja: Loja; url: string; preco: number | null; preco_cheio: number | null }[] = [];
+    for (const { valor: loja, rotulo } of LOJAS) {
+      const url = texto(`url_${loja}`);
+      const precoTexto = texto(`preco_${loja}`);
+      const cheioTexto = texto(`cheio_${loja}`);
+      const preco = lerPreco(precoTexto);
+      const cheio = lerPreco(cheioTexto);
+
+      if (!url) {
+        if (precoTexto || cheioTexto) erroDe[`url_${loja}`] = `Tem preço mas não tem link da ${rotulo}.`;
+        continue;
+      }
+      if (!ehUrl(url)) erroDe[`url_${loja}`] = "Cole o link completo, começando com https://";
+      if (Number.isNaN(preco)) erroDe[`preco_${loja}`] = "Não entendi o valor. Ex.: 189,90";
+      // O cheio é o "de": sem o "por" não tem o que riscar, e menor que
+      // o "por" seria anunciar desconto ao contrário.
+      if (Number.isNaN(cheio)) erroDe[`cheio_${loja}`] = "Não entendi o valor. Ex.: 229,90";
+      else if (cheio != null && preco == null) erroDe[`cheio_${loja}`] = "Preço cheio precisa do preço atual ao lado.";
+      else if (cheio != null && preco != null && cheio <= preco) erroDe[`cheio_${loja}`] = "Tem que ser maior que o preço atual.";
+
+      ofertas.push({
+        loja,
+        url,
+        preco: Number.isNaN(preco) ? null : preco,
+        preco_cheio: Number.isNaN(cheio) ? null : cheio,
+      });
+    }
+
+    if (Object.keys(erroDe).length > 0) {
+      erroGeral = "Confira os campos marcados.";
+    } else {
+      // Produto primeiro: a oferta precisa do id dele.
+      let achadoId = id!;
+      const ficha = { nome, descricao: descricao || null, imagem_url: imagemUrl || null, status };
+
+      const gravacao = novo
+        ? await supabase
+            .from("achados")
+            .insert({ ...ficha, criado_por: usuario?.id ?? null })
+            .select("id")
+            .single<{ id: string }>()
+        : await supabase.from("achados").update(ficha).eq("id", id!).select("id").single<{ id: string }>();
+
+      if (gravacao.error || !gravacao.data) {
+        console.error(`Falha ao salvar achado ${id}:`, gravacao.error);
+        erroGeral = "Não conseguimos salvar agora. Tente de novo em instantes.";
+      } else {
+        achadoId = gravacao.data.id;
+
+        /* Ofertas: compara com o que já existe para decidir a data do
+           preço e o que apagar. */
+        const { data: existentes } = await supabase
+          .from("achado_ofertas")
+          .select("id,loja,url,preco,preco_cheio,preco_visto_em")
+          .eq("achado_id", achadoId)
+          .returns<Oferta[]>();
+        const anterior = new Map((existentes ?? []).map((o) => [o.loja, o]));
+
+        const hoje = hojeIso();
+        const linhas = ofertas.map((o) => {
+          const antes = anterior.get(o.loja);
+          const mesmoPreco =
+            antes != null && antes.preco === o.preco && antes.preco_cheio === o.preco_cheio;
+          const precoVistoEm =
+            o.preco == null ? null : mesmoPreco && !conferiPrecos ? antes!.preco_visto_em : hoje;
+          return {
+            achado_id: achadoId,
+            loja: o.loja,
+            url: o.url,
+            preco: o.preco,
+            preco_cheio: o.preco_cheio,
+            preco_visto_em: precoVistoEm,
+          };
+        });
+
+        const sobrando = (existentes ?? [])
+          .filter((o) => !ofertas.some((n) => n.loja === o.loja))
+          .map((o) => o.id);
+
+        const [gravaOfertas, apagaOfertas] = await Promise.all([
+          linhas.length
+            ? supabase.from("achado_ofertas").upsert(linhas, { onConflict: "achado_id,loja" })
+            : Promise.resolve({ error: null }),
+          sobrando.length
+            ? supabase.from("achado_ofertas").delete().in("id", sobrando)
+            : Promise.resolve({ error: null }),
+        ]);
+
+        if (gravaOfertas.error || apagaOfertas.error) {
+          console.error(`Falha ao salvar ofertas do achado ${achadoId}:`, gravaOfertas.error ?? apagaOfertas.error);
+          erroGeral = "O produto foi salvo, mas as ofertas não. Confira os links e salve de novo.";
+          if (novo) return Astro.redirect(`/conta/admin/achados/${achadoId}?ofertas=erro`, 303);
+        } else {
+          return Astro.redirect(`/conta/admin/achados/${achadoId}?salvo=1`, 303);
+        }
+      }
+    }
+  }
+}
+
+if (Astro.url.searchParams.get("ofertas") === "erro") {
+  erroGeral = "O produto foi salvo, mas as ofertas não. Confira os links e salve de novo.";
+}
+
+// ---- Carrega a ficha para a tela ----------------------------------
+let achado: Achado | null = null;
+if (!novo) {
+  const { data } = await supabase
+    .from("achados")
+    .select(COLUNAS_ACHADO)
+    .eq("id", id!)
+    .maybeSingle<Achado>();
+  if (!data) {
+    const r = await Astro.rewrite("/404");
+    return new Response(r.body, { status: 404, headers: r.headers });
+  }
+  achado = data;
+}
+
+const ofertaDe = (loja: Loja) => achado?.achado_ofertas.find((o) => o.loja === loja);
+
+/** Valor do campo: o que foi digitado tem prioridade sobre o banco. */
+const valor = (campo: string, doBanco: string | number | null | undefined) =>
+  enviado?.[campo] ?? (doBanco == null ? "" : String(doBanco));
+
+/** Número do banco no formato que a pessoa digita: "189,90". */
+const naTela = (valor: number | null | undefined) =>
+  valor == null ? "" : valor.toFixed(2).replace(".", ",");
+
+const publicado = achado?.status === "publicado";
+const titulo = novo ? "Novo achado" : achado!.nome;
+
+const formatarData = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+---
+
+<Conta
+  titulo={titulo}
+  descricao={novo ? "Cadastrar um produto indicado." : "Editar um produto indicado."}
+  resumo={novo ? "Preencha o produto e cole o link de afiliado de cada loja em que ele está." : undefined}
+>
+  {
+    achado && (
+      <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2">
+        <Selo tom={publicado ? "ok" : "atencao"}>{achado.status}</Selo>
+        <span>salvo em {formatarData(achado.atualizado_em)}</span>
+      </p>
+    )
+  }
+
+  {
+    salvo && (
+      <p class="entrada-suave mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border border-ok bg-ok-bg px-4 py-3 text-[0.9375rem] text-ok-texto">
+        <Selo tom="ok">Salvo</Selo>
+        {publicado ? "Já está no ar em /achados." : "Gravado como rascunho — não aparece no site até publicar."}
+      </p>
+    )
+  }
+
+  {erroGeral && <p class="mt-8 border border-alerta bg-alerta-bg px-4 py-3 text-[0.9375rem] text-alerta-texto">{erroGeral}</p>}
+
+  <div class="mt-6 flex flex-wrap items-center gap-4">
+    <a href="/conta/admin/achados" class={BOTAO_TEXTO}>← Voltar para a lista</a>
+    {publicado && <a href="/achados" class={BOTAO_TEXTO}>Ver a vitrine no site</a>}
+  </div>
+
+  <form method="POST" class="mt-8 max-w-[46rem] space-y-10">
+    <fieldset>
+      <legend class="font-display text-[1.125rem] font-bold uppercase text-tinta">O produto</legend>
+
+      <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="sm:col-span-2">
+          <label for="nome" class={ROTULO_CAMPO}>
+            Nome <span class="font-normal text-alerta-texto" aria-hidden="true">*</span>
+          </label>
+          <input
+            type="text"
+            id="nome"
+            name="nome"
+            value={valor("nome", achado?.nome)}
+            required
+            maxlength="120"
+            aria-invalid={erroDe.nome ? "true" : undefined}
+            class={erroDe.nome ? ENTRADA_INVALIDA : ENTRADA}
+          />
+          <p class={AJUDA_CAMPO}>Como o jogador chama o produto, não o título de 200 letras da loja.</p>
+          {erroDe.nome && <p class={ERRO_CAMPO}>{erroDe.nome}</p>}
+        </div>
+
+        <div class="sm:col-span-2">
+          <label for="descricao" class={ROTULO_CAMPO}>Descrição</label>
+          <textarea
+            id="descricao"
+            name="descricao"
+            rows="3"
+            maxlength="600"
+            class={erroDe.descricao ? ENTRADA_INVALIDA : ENTRADA}
+            set:text={valor("descricao", achado?.descricao)}
+          />
+          <p class={AJUDA_CAMPO}>Uma ou duas frases: para quem serve e por que vale. Até 600 letras.</p>
+          {erroDe.descricao && <p class={ERRO_CAMPO}>{erroDe.descricao}</p>}
+        </div>
+
+        <div class="sm:col-span-2">
+          <label for="imagem_url" class={ROTULO_CAMPO}>Endereço da imagem</label>
+          <div class="mt-2 flex flex-wrap items-start gap-4">
+            {achado?.imagem_url && !enviado && (
+              <img
+                src={achado.imagem_url}
+                alt=""
+                width="96"
+                height="96"
+                referrerpolicy="no-referrer"
+                class="h-24 w-24 shrink-0 border border-borda bg-papel object-cover"
+              />
+            )}
+            <div class="min-w-[16rem] flex-1">
+              <input
+                type="url"
+                id="imagem_url"
+                name="imagem_url"
+                value={valor("imagem_url", achado?.imagem_url)}
+                placeholder="https://..."
+                aria-invalid={erroDe.imagem_url ? "true" : undefined}
+                class:list={[erroDe.imagem_url ? ENTRADA_INVALIDA : ENTRADA, "!mt-0"]}
+              />
+              <p class={AJUDA_CAMPO}>
+                Clique com o botão direito na foto do anúncio e "copiar endereço da imagem".
+                Se a loja trocar o endereço, o card fica sem foto — vale conferir de tempos em tempos.
+              </p>
+              {erroDe.imagem_url && <p class={ERRO_CAMPO}>{erroDe.imagem_url}</p>}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label for="status" class={ROTULO_CAMPO}>Situação</label>
+          <select id="status" name="status" class={SELECAO}>
+            {STATUS_ACHADO.map((s) => (
+              <option value={s.valor} selected={valor("status", achado?.status ?? "rascunho") === s.valor}>
+                {s.rotulo}
+              </option>
+            ))}
+          </select>
+          <p class={AJUDA_CAMPO}>Só "publicado" aparece em /achados.</p>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend class="font-display text-[1.125rem] font-bold uppercase text-tinta">Onde comprar</legend>
+      <p class="mt-1.5 text-[0.9375rem] leading-relaxed text-texto-2">
+        Uma linha por loja. Deixe a URL vazia onde o produto não está. O preço é
+        referência: a vitrine mostra o mês em que foi visto, e a lista avisa
+        quando passa de {DIAS_PRECO_VELHO} dias.
+      </p>
+
+      <div class="mt-4 divide-y divide-borda border border-borda bg-papel/60">
+        {
+          LOJAS.map(({ valor: loja, rotulo }) => {
+            const o = ofertaDe(loja);
+            const dias = diasDesde(o?.preco_visto_em);
+            const velho = o ? precoVelho(o) : false;
+            return (
+              <div class="grid grid-cols-1 gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_8.5rem_8.5rem]">
+                <div>
+                  <label for={`url_${loja}`} class={ROTULO_CAMPO}>
+                    {rotulo}
+                  </label>
+                  <input
+                    type="url"
+                    id={`url_${loja}`}
+                    name={`url_${loja}`}
+                    value={valor(`url_${loja}`, o?.url)}
+                    placeholder="Link de afiliado"
+                    aria-invalid={erroDe[`url_${loja}`] ? "true" : undefined}
+                    class={erroDe[`url_${loja}`] ? ENTRADA_INVALIDA : ENTRADA}
+                  />
+                  {erroDe[`url_${loja}`] && <p class={ERRO_CAMPO}>{erroDe[`url_${loja}`]}</p>}
+                </div>
+                <div>
+                  <label for={`preco_${loja}`} class={ROTULO_CAMPO}>
+                    Preço
+                  </label>
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    id={`preco_${loja}`}
+                    name={`preco_${loja}`}
+                    value={valor(`preco_${loja}`, naTela(o?.preco))}
+                    placeholder="189,90"
+                    aria-invalid={erroDe[`preco_${loja}`] ? "true" : undefined}
+                    class={erroDe[`preco_${loja}`] ? ENTRADA_INVALIDA : ENTRADA}
+                  />
+                  {o?.preco != null && (
+                    <p class:list={[AJUDA_CAMPO, velho && "text-latao"]}>
+                      {formatarPreco(o.preco)} visto há {dias} {dias === 1 ? "dia" : "dias"}
+                      {velho && " — confira"}
+                    </p>
+                  )}
+                  {erroDe[`preco_${loja}`] && <p class={ERRO_CAMPO}>{erroDe[`preco_${loja}`]}</p>}
+                </div>
+                <div>
+                  <label for={`cheio_${loja}`} class={ROTULO_CAMPO}>
+                    De (cheio)
+                  </label>
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    id={`cheio_${loja}`}
+                    name={`cheio_${loja}`}
+                    value={valor(`cheio_${loja}`, naTela(o?.preco_cheio))}
+                    placeholder="229,90"
+                    aria-invalid={erroDe[`cheio_${loja}`] ? "true" : undefined}
+                    class={erroDe[`cheio_${loja}`] ? ENTRADA_INVALIDA : ENTRADA}
+                  />
+                  <p class={AJUDA_CAMPO}>Só em promoção. Aparece riscado.</p>
+                  {erroDe[`cheio_${loja}`] && <p class={ERRO_CAMPO}>{erroDe[`cheio_${loja}`]}</p>}
+                </div>
+              </div>
+            );
+          })
+        }
+      </div>
+
+      {
+        achado && achado.achado_ofertas.some((o) => o.preco != null) && (
+          <label class:list={[LINHA_CAIXA, "mt-4"]}>
+            <input type="checkbox" name="conferi_precos" class={CAIXA} />
+            <span class="text-[0.9375rem] leading-snug text-texto">
+              Conferi todos os preços hoje
+              <span class="mt-0.5 block text-[0.8125rem] text-texto-2">
+                Renova a data dos preços que continuam iguais. Preço que você mudou já ganha a data de hoje sozinho.
+              </span>
+            </span>
+          </label>
+        )
+      }
+    </fieldset>
+
+    <div class="sticky bottom-4 flex flex-wrap items-center gap-4 border-t border-borda bg-fundo/95 pt-4">
+      <button type="submit" class={BOTAO_PRIMARIO}>{novo ? "Cadastrar" : "Salvar"}</button>
+      <a href="/conta/admin/achados" class={BOTAO_SECUNDARIO}>Cancelar</a>
+    </div>
+  </form>
+
+  {
+    achado && (
+      <form
+        method="POST"
+        class="mt-12 border-t border-borda pt-6"
+        onsubmit="return confirm('Apagar este produto e todos os links dele? Não dá para desfazer.')"
+      >
+        <input type="hidden" name="acao" value="apagar" />
+        <button type="submit" class={BOTAO_PERIGO}>Apagar este achado</button>
+        <p class="mt-2 text-[0.8125rem] text-texto-2">Some do site na hora. Para tirar do ar sem perder o cadastro, mude a situação para rascunho.</p>
+      </form>
+    )
+  }
+</Conta>

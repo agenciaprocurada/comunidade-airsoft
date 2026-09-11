@@ -1,0 +1,173 @@
+---
+/**
+ * /conta/admin/achados — a lista dos produtos indicados.
+ *
+ * Duas coisas que a lista precisa deixar na cara, além de "abrir para
+ * editar":
+ *  - o que está em rascunho (cadastrou e esqueceu de publicar);
+ *  - qual preço está velho (mais de DIAS_PRECO_VELHO sem conferir).
+ * Preço velho é o defeito silencioso da vitrine: ninguém reclama, a
+ * pessoa só clica, vê outro valor e não volta.
+ */
+import Conta from "../../../../layouts/Conta.astro";
+import Painel from "../../../../components/conta/Painel.astro";
+import Selo from "../../../../components/conta/Selo.astro";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, ENTRADA, ROTULO_CAMPO, SELECAO } from "../../../../lib/estilos-form";
+import {
+  COLUNAS_ACHADO,
+  DIAS_PRECO_VELHO,
+  ROTULO_LOJA,
+  formatarPreco,
+  ordenarOfertas,
+  precoVelho,
+  type Achado,
+} from "../../../../lib/achados";
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+const parametros = Astro.url.searchParams;
+
+/* Vírgula e parêntese viram outro filtro no `or` do PostgREST. */
+const busca = (parametros.get("q") ?? "")
+  .replace(/[,()*%\\"']/g, " ")
+  .replace(/\s+/g, " ")
+  .trim()
+  .slice(0, 60);
+const situacao = parametros.get("status") ?? "";
+const soVelhos = parametros.get("velhos") === "1";
+
+let consulta = supabase
+  .from("achados")
+  .select(COLUNAS_ACHADO)
+  .order("atualizado_em", { ascending: false })
+  .limit(200);
+
+if (busca) consulta = consulta.ilike("nome", `%${busca}%`);
+if (situacao) consulta = consulta.eq("status", situacao);
+
+const { data: linhas, error } = await consulta.returns<Achado[]>();
+if (error) console.error("Falha ao listar os achados:", error);
+
+let lista = linhas ?? [];
+
+/* O filtro de preço velho é feito aqui e não no banco: é conta de
+   data sobre 200 linhas no máximo, e evita uma função só para isso. */
+const temPrecoVelho = (a: Achado) => a.achado_ofertas.some(precoVelho);
+if (soVelhos) lista = lista.filter(temPrecoVelho);
+
+const quantosVelhos = (linhas ?? []).filter(temPrecoVelho).length;
+const truncou = (linhas ?? []).length === 200;
+
+const formatarData = (iso: string) =>
+  new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+---
+
+<Conta
+  titulo="Achados"
+  descricao="Produtos indicados com link de afiliado."
+  resumo="Cada achado é um produto com até um link por loja. Só o que está publicado aparece em /achados — e aparece na hora, sem deploy."
+>
+  <form method="GET" class="mt-8 flex flex-wrap items-end gap-3">
+    <div class="min-w-[16rem] flex-1">
+      <label for="q" class={ROTULO_CAMPO}>Nome do produto</label>
+      <input type="search" id="q" name="q" value={busca} class={ENTRADA} />
+    </div>
+
+    <div class="w-[13rem]">
+      <label for="status" class={ROTULO_CAMPO}>Situação</label>
+      <select id="status" name="status" class={SELECAO}>
+        <option value="">Todas</option>
+        <option value="publicado" selected={situacao === "publicado"}>Publicado</option>
+        <option value="rascunho" selected={situacao === "rascunho"}>Rascunho</option>
+      </select>
+    </div>
+
+    <label class="flex cursor-pointer items-center gap-2.5 self-end border border-borda bg-papel/50 px-3 py-2.5 text-[0.875rem] text-texto">
+      <input type="checkbox" name="velhos" value="1" checked={soVelhos} class="h-4 w-4 accent-oliva-500" />
+      Só preço velho
+      {quantosVelhos > 0 && (
+        <span class="font-dado text-[0.75rem] text-latao">({quantosVelhos})</span>
+      )}
+    </label>
+
+    <button type="submit" class={BOTAO_SECUNDARIO}>Filtrar</button>
+  </form>
+
+  <div class="mt-8">
+    <Painel
+      titulo="Produtos"
+      contagem={truncou ? "200+" : lista.length}
+      descricao={
+        truncou
+          ? "Mostrando os 200 mais recentes. Use a busca para chegar no produto certo."
+          : `Preço com mais de ${DIAS_PRECO_VELHO} dias sem conferir fica marcado em amarelo.`
+      }
+    >
+      <a slot="acao" href="/conta/admin/achados/novo" class={BOTAO_PRIMARIO}>Novo achado</a>
+
+      {
+        lista.length === 0 ? (
+          <p class="px-4 py-6 text-[0.9375rem] leading-relaxed text-texto-2">
+            {busca || situacao || soVelhos
+              ? "Nenhum produto com esses filtros."
+              : "Nenhum produto cadastrado ainda. Comece pelo botão acima."}
+          </p>
+        ) : (
+          <ul class="divide-y divide-borda">
+            {lista.map((achado) => (
+              <li class="flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3.5">
+                {achado.imagem_url ? (
+                  <img
+                    src={achado.imagem_url}
+                    alt=""
+                    width="56"
+                    height="56"
+                    loading="lazy"
+                    referrerpolicy="no-referrer"
+                    class="h-14 w-14 shrink-0 border border-borda bg-papel object-cover"
+                  />
+                ) : (
+                  <div class="flex h-14 w-14 shrink-0 items-center justify-center border border-dashed border-borda-forte text-[0.6875rem] uppercase text-texto-2">
+                    sem foto
+                  </div>
+                )}
+
+                <div class="min-w-0 flex-1">
+                  <p class="flex flex-wrap items-center gap-2 text-[0.9375rem] font-semibold leading-tight text-tinta">
+                    <a
+                      href={`/conta/admin/achados/${achado.id}`}
+                      class="transition-colors duration-150 hover:text-oliva-300"
+                    >
+                      {achado.nome}
+                    </a>
+                    <Selo tom={achado.status === "publicado" ? "ok" : "atencao"}>{achado.status}</Selo>
+                  </p>
+
+                  <p class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-dado text-[0.75rem] uppercase tracking-[0.08em] text-texto-2">
+                    {achado.achado_ofertas.length === 0 && (
+                      <span class="text-alerta-texto">sem oferta — não tem link de compra</span>
+                    )}
+                    {ordenarOfertas(achado.achado_ofertas).map((o) => (
+                      <span class:list={[precoVelho(o) && "text-latao"]}>
+                        {ROTULO_LOJA[o.loja]}
+                        {o.preco != null ? ` ${formatarPreco(o.preco)}` : " · sem preço"}
+                        {precoVelho(o) && " ⚠"}
+                      </span>
+                    ))}
+                    <span aria-hidden="true" class="text-borda-forte">/</span>
+                    <span>{formatarData(achado.atualizado_em)}</span>
+                  </p>
+                </div>
+
+                <a href={`/conta/admin/achados/${achado.id}`} class={BOTAO_SECUNDARIO}>
+                  Editar
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </Painel>
+  </div>
+</Conta>
