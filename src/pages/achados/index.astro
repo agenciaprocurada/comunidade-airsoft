@@ -127,22 +127,34 @@ const dadoEstruturado = {
             <span class="normal-case tracking-normal text-texto-2"> · preço é referência do mês em que foi visto; o valor final é o da loja</span>
           </p>
 
-          <ul class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/*
+            Cards no padrão da vitrine do Mercado Livre — brancos, com o
+            preço em destaque — sobre o fundo escuro da página. 2 por
+            linha no celular, 4 no desktop. Mesmo vocabulário do
+            CarrosselAchados: quem viu o carrossel reconhece a vitrine.
+          */}
+          <ul class="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 lg:gap-4">
             {achados.map((a) => {
               const ofertas = ordenarOfertas(a.achado_ofertas);
-              const precos = a.achado_ofertas.map((o) => o.preco).filter((p): p is number => p != null);
-              const menor = precos.length ? Math.min(...precos) : null;
-              const comPreco = precos.length;
+              const melhor = ofertas.reduce((m, o) =>
+                o.preco != null && (m.preco == null || o.preco < m.preco) ? o : m,
+              );
+              const preco = formatarPreco(melhor.preco);
+              const cheio = formatarPreco(melhor.preco_cheio);
+              const desconto =
+                melhor.preco != null && melhor.preco_cheio != null
+                  ? Math.round((1 - melhor.preco / melhor.preco_cheio) * 100)
+                  : 0;
+              const comPreco = ofertas.filter((o) => o.preco != null).length;
               return (
-                <li class="moldura-tatica flex flex-col border border-borda bg-papel transition-colors hover:border-oliva-500">
+                <li class="flex flex-col bg-white text-[#1f2a19] shadow-[0_1px_2px_rgba(0,0,0,0.25)] transition-shadow hover:shadow-[0_8px_20px_rgba(0,0,0,0.45)]">
                   {/*
                     A imagem é URL colada da loja e pode sumir. O quadro
                     fica atrás dela com o nome do produto: se o <img>
-                    falhar, ele se remove e o quadro aparece — sem
-                    ícone quebrado e sem JavaScript de verdade.
+                    falhar, ele se remove e o quadro aparece.
                   */}
-                  <div class="relative aspect-[4/3] w-full overflow-hidden border-b border-borda bg-fundo">
-                    <div class="absolute inset-0 flex items-center justify-center p-6 text-center font-display text-lg font-bold uppercase leading-tight text-oliva-400/60">
+                  <div class="relative aspect-square w-full overflow-hidden bg-white">
+                    <div class="absolute inset-0 flex items-center justify-center p-4 text-center font-display text-[15px] font-bold uppercase leading-tight text-[#9aa58a]">
                       {a.nome}
                     </div>
                     {a.imagem_url && (
@@ -153,73 +165,47 @@ const dadoEstruturado = {
                         decoding="async"
                         referrerpolicy="no-referrer"
                         onerror="this.remove()"
-                        class="absolute inset-0 h-full w-full bg-white object-contain"
+                        class="absolute inset-0 h-full w-full bg-white object-contain p-3"
                       />
                     )}
                   </div>
 
-                  <div class="flex flex-1 flex-col p-5">
-                    <h2 class="font-display text-xl font-bold uppercase leading-tight tracking-[0.02em] text-tinta">
+                  <div class="flex flex-1 flex-col border-t border-[#eef1e6] p-3 md:p-4">
+                    <h2 class="line-clamp-2 text-[14px] leading-snug text-[#33402b] md:text-[15px]">
                       {a.nome}
                     </h2>
 
-                    {menor != null && (
-                      <p class="mt-2 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
-                        {comPreco > 1 && "a partir de "}
-                        <span class="text-[1.0625rem] normal-case tracking-normal text-tinta">
-                          {formatarPreco(menor)}
-                        </span>
-                      </p>
-                    )}
+                    {cheio && <s class="mt-2 text-[12px] leading-none text-[#8a9480]">{cheio}</s>}
+                    <p class="mt-1 flex flex-wrap items-baseline gap-x-2 leading-none">
+                      {comPreco > 1 && <span class="text-[11px] text-[#6b7460]">a partir de</span>}
+                      <span class="text-[20px] font-semibold md:text-[22px]">{preco ?? "Ver preço"}</span>
+                      {desconto > 0 && <span class="text-[12px] font-semibold text-[#3d7a2a]">{desconto}% OFF</span>}
+                    </p>
 
                     {a.descricao && (
-                      <p class="mt-3 leading-relaxed text-texto-2 line-clamp-4">{a.descricao}</p>
+                      <p class="mt-2 line-clamp-3 text-[12px] leading-snug text-[#6b7460] md:text-[13px]">{a.descricao}</p>
                     )}
 
-                    {/*
-                      Uma linha por loja, e a linha inteira é o link. O
-                      preço fica à direita em duas alturas (valor em cima,
-                      mês embaixo): "Comprar no Mercado Livre — R$ 1.189,90
-                      · set/26" numa linha só não cabe em card de 3 colunas.
-                    */}
-                    <p class="mt-auto pt-5 font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
-                      Comprar
-                    </p>
-                    <ul class="mt-2 flex flex-col gap-2">
+                    <ul class="mt-auto flex flex-col gap-1.5 pt-3">
                       {ofertas.map((o) => {
-                        const preco = formatarPreco(o.preco);
-                        const cheio = formatarPreco(o.preco_cheio);
+                        const p = formatarPreco(o.preco);
                         const mes = mesDoPreco(o.preco_visto_em);
                         return (
                           <li>
                             <a
                               {...linkAfiliado(o.url)}
-                              class="group flex items-center justify-between gap-3 border border-oliva-500 px-4 py-2 text-oliva-300 transition-colors hover:bg-oliva-500 hover:text-fundo"
+                              class="flex items-center justify-between gap-2 bg-[#27351e] px-3 py-2 text-[12px] font-semibold text-[#eff3e6] transition-colors hover:bg-[#3c512d] md:text-[13px]"
                             >
-                              <span class="font-display text-base font-bold uppercase leading-tight tracking-[0.06em]">
-                                {EM_LOJA[o.loja]}
+                              {/* No celular o card tem ~150px: "Comprar no Mercado Livre" quebrava em duas linhas. */}
+                              <span class="font-display uppercase tracking-[0.04em]">
+                                Comprar<span class="hidden md:inline"> {EM_LOJA[o.loja]}</span>
                               </span>
-                              <span class="flex shrink-0 items-center gap-2">
-                                <span class="text-right font-dado text-[0.8125rem] leading-tight">
-                                  {preco ? (
-                                    <>
-                                      {cheio && (
-                                        <span class="block whitespace-nowrap text-[0.6875rem] line-through opacity-70">
-                                          {cheio}
-                                        </span>
-                                      )}
-                                      <span class="block whitespace-nowrap">{preco}</span>
-                                      {mes && (
-                                        <span class="block text-[0.6875rem] opacity-70">visto {mes}</span>
-                                      )}
-                                    </>
-                                  ) : (
-                                    "ver preço"
-                                  )}
-                                </span>
-                                <span aria-hidden="true" class="font-display text-lg font-bold leading-none">›</span>
-                              </span>
+                              {ofertas.length > 1 && p && <span class="shrink-0 font-dado font-normal opacity-80">{p}</span>}
                             </a>
+                            <span class="mt-0.5 block text-[10px] leading-snug text-[#8a9480]">
+                              <span class="md:hidden">{EM_LOJA[o.loja]}{mes && " · "}</span>
+                              {mes && `preço visto ${mes}`}
+                            </span>
                           </li>
                         );
                       })}
