@@ -182,3 +182,32 @@ export function ehUrl(texto: string): boolean {
     return false;
   }
 }
+
+// ------------------------------------------------------------
+// Leitura em página SSR
+// ------------------------------------------------------------
+
+/**
+ * Os últimos achados publicados, para página servida por requisição
+ * (a ficha da equipe). A versão de BUILD, para página estática, está
+ * em achados-build.ts — mesma regra: só publicado e com oferta.
+ *
+ * `supabase` é o cliente de `Astro.locals`; a RLS já corta o rascunho.
+ * Falhou o banco, volta lista vazia e a faixa some — não derruba a ficha.
+ */
+export async function ultimosAchados(
+  supabase: { from: (t: string) => any },
+  quantos: number,
+): Promise<Achado[]> {
+  const { data, error } = await supabase
+    .from("achados")
+    .select(COLUNAS_ACHADO)
+    .eq("status", "publicado")
+    .order("atualizado_em", { ascending: false })
+    .limit(quantos * 3);
+  if (error) {
+    console.error("Falha ao carregar os achados:", error);
+    return [];
+  }
+  return ((data ?? []) as Achado[]).filter((a) => a.achado_ofertas.length > 0).slice(0, quantos);
+}

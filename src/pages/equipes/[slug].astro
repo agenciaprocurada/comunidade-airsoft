@@ -24,6 +24,8 @@ import Trilha from "../../components/Trilha.astro";
 import Botao from "../../components/Botao.astro";
 import Etiqueta from "../../components/Etiqueta.astro";
 import LogoEquipe from "../../components/LogoEquipe.astro";
+import CarrosselAchados from "../../components/CarrosselAchados.astro";
+import { ultimosAchados, type Achado } from "../../lib/achados";
 import {
   COLUNAS_VITRINE,
   equipeIndexavel,
@@ -236,6 +238,9 @@ const dadoEstruturado: Record<string, unknown> = ufDoHub
  * `nomeCurto` já devolve nome abreviado terminado em ponto ("Vinicius
  * K."), e a frase saía com dois seguidos.
  */
+// Página SSR: aqui os achados vêm na requisição, não no build.
+const achados: Achado[] = equipe ? await ultimosAchados(supabase, 5) : [];
+
 const lideres = elenco.filter((m) => m.papel === "lider");
 const whatsapp = equipe?.redes?.whatsapp ?? null;
 const instagram = equipe?.redes?.instagram ?? null;
@@ -450,6 +455,8 @@ const instagram = equipe?.redes?.instagram ?? null;
               </ul>
             </section>
           )}
+
+          <CarrosselAchados achados={achados} posicao="ficha" />
 
           <section class="mt-12 border-t border-borda pt-8">
             <h2 class="font-display text-xl font-bold uppercase text-tinta">

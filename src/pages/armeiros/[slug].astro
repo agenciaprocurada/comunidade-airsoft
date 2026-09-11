@@ -17,6 +17,7 @@
 import { getCollection } from "astro:content";
 import FichaArmeiro from "../../components/FichaArmeiro.astro";
 import HubArmeirosUf from "../../components/HubArmeirosUf.astro";
+import { carregarUltimosAchados } from "../../lib/achados-build";
 
 export async function getStaticPaths() {
   const armeiros = await getCollection(
@@ -29,6 +30,9 @@ export async function getStaticPaths() {
 
   const totalEnvioNacional = armeiros.filter((a) => a.data.atende_envio).length;
 
+  // Uma consulta para todas as fichas, no build (ver achados-build.ts).
+  const achados = await carregarUltimosAchados(5);
+
   const fichas = armeiros.map((armeiro) => ({
     params: { slug: armeiro.id },
     props: {
@@ -38,6 +42,7 @@ export async function getStaticPaths() {
       loja: armeiro.data.loja_id
         ? (lojaPorId.get(armeiro.data.loja_id) ?? null)
         : null,
+      achados,
       sigla: null,
       armeirosDoEstado: [],
       totalEnvioNacional,
@@ -55,6 +60,7 @@ export async function getStaticPaths() {
     props: {
       armeiro: null,
       loja: null,
+      achados: [],
       sigla: uf,
       armeirosDoEstado: lista,
       totalEnvioNacional,
@@ -64,12 +70,12 @@ export async function getStaticPaths() {
   return [...fichas, ...hubs];
 }
 
-const { armeiro, loja, sigla, armeirosDoEstado, totalEnvioNacional } = Astro.props;
+const { armeiro, loja, achados, sigla, armeirosDoEstado, totalEnvioNacional } = Astro.props;
 ---
 
 {
   armeiro ? (
-    <FichaArmeiro armeiro={armeiro} loja={loja} />
+    <FichaArmeiro armeiro={armeiro} loja={loja} achados={achados} />
   ) : (
     <HubArmeirosUf
       sigla={sigla}

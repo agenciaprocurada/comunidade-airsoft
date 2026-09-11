@@ -1,6 +1,7 @@
 ---
 /**
- * Carrossel dos últimos achados — a faixa de produtos dentro dos guias.
+ * Carrossel dos últimos achados — a faixa de produtos nos guias e nas
+ * fichas de campo, armeiro e equipe.
  *
  * Aparece três vezes por guia (início, meio e fim), sempre com os mesmos
  * produtos: os dados vêm do build (achados-build.ts), como na home.
@@ -10,8 +11,11 @@
  * celular a pessoa arrasta com o dedo. Cada card leva direto ao link
  * de afiliado, pela oferta mais barata.
  *
- * Quantos cabem na tela: 2 e um pedaço no celular, 3 e um pedaço a
- * partir de 640px. O "pedaço" é o que avisa que dá para rolar.
+ * Quantos cabem: depende da largura do CONTAINER, não da tela (container
+ * query) — o mesmo componente vive numa coluna de 68ch nos guias, na
+ * coluna da ficha de campo e na largura toda da ficha da equipe. Até
+ * 384px: 2 e um pedaço; até 768px: 3 e um pedaço; acima: os 5. O
+ * "pedaço" é o que avisa que dá para rolar.
  */
 import { EM_LOJA, formatarPreco, linkAfiliado, ordenarOfertas, type Achado } from "../lib/achados";
 
@@ -33,7 +37,7 @@ const idTitulo = `achados-${posicao}`;
 
 {
   achados.length > 0 && (
-    <aside class="carrossel-achados my-10 border-y border-borda py-6" aria-labelledby={idTitulo}>
+    <aside class="carrossel-achados @container my-10 border-y border-borda py-6" aria-labelledby={idTitulo}>
       <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p id={idTitulo} class="font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
           Achados da comunidade
@@ -53,7 +57,7 @@ const idTitulo = `achados-${posicao}`;
             const preco = formatarPreco(o.preco);
             const cheio = formatarPreco(o.preco_cheio);
             return (
-              <li class="w-[42%] shrink-0 snap-start sm:w-[30%]">
+              <li class="w-[42%] shrink-0 snap-start @sm:w-[30%] @3xl:w-[19%]">
                 <a
                   {...linkAfiliado(o.url)}
                   class="group flex h-full flex-col border border-borda bg-papel !text-tinta !no-underline transition-colors hover:border-oliva-500"
@@ -93,13 +97,13 @@ const idTitulo = `achados-${posicao}`;
           })}
         </ul>
 
-        {/* Setas: só com script, só a partir de 640px (no celular é dedo). */}
+        {/* Setas: só com script, só em container de 384px+ (no celular é dedo). */}
         <button
           type="button"
           data-seta="-1"
           hidden
           aria-label="Produtos anteriores"
-          class="absolute left-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center border border-borda-forte bg-fundo/90 text-oliva-300 hover:border-oliva-500 sm:flex"
+          class="absolute left-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center border border-borda-forte bg-fundo/90 text-oliva-300 hover:border-oliva-500 @sm:flex"
         >
           ‹
         </button>
@@ -108,7 +112,7 @@ const idTitulo = `achados-${posicao}`;
           data-seta="1"
           hidden
           aria-label="Próximos produtos"
-          class="absolute right-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center border border-borda-forte bg-fundo/90 text-oliva-300 hover:border-oliva-500 sm:flex"
+          class="absolute right-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center border border-borda-forte bg-fundo/90 text-oliva-300 hover:border-oliva-500 @sm:flex"
         >
           ›
         </button>
@@ -122,15 +126,24 @@ const idTitulo = `achados-${posicao}`;
 }
 
 <style>
-  /* Barra de rolagem some: o card cortado na borda já diz que rola. */
+  /*
+   * Barra de rolagem some: o card cortado na borda já diz que rola.
+   *
+   * `width: 0; min-width: 100%`: um flex sem quebra "pede" a soma dos
+   * cinco cards como largura mínima, e uma coluna de grade (as fichas
+   * de campo e armeiro) obedece e estoura a tela no celular. Com a
+   * largura intrínseca zerada o trilho ocupa a coluna que existir.
+   */
   .trilho {
+    width: 0;
+    min-width: 100%;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
   }
   .trilho::-webkit-scrollbar {
     display: none;
   }
-  /* O `hidden` do HTML perde para o `sm:flex` do Tailwind; aqui ele ganha. */
+  /* O `hidden` do HTML perde para o `@sm:flex` do Tailwind; aqui ele ganha. */
   .carrossel-achados button[hidden] {
     display: none;
   }

@@ -8,6 +8,8 @@ import Trilha from "../../../../components/Trilha.astro";
 import CapaFicha from "../../../../components/CapaFicha.astro";
 import { linkExterno } from "../../../../lib/link-externo";
 import MapaLocal from "../../../../components/MapaLocal.astro";
+import CarrosselAchados from "../../../../components/CarrosselAchados.astro";
+import { carregarUltimosAchados } from "../../../../lib/achados-build";
 import {
   NOME_UF,
   ROTULO_TERRENO,
@@ -20,17 +22,20 @@ import {
 export async function getStaticPaths() {
   const campos = await getCollection("campos", ({ data }) => data.status === "publicado");
 
+  // Uma consulta para todas as fichas, no build (ver achados-build.ts).
+  const achados = await carregarUltimosAchados(5);
+
   return campos.map((campo) => ({
     params: {
       uf: campo.data.uf.toLowerCase(),
       cidade: campo.data.cidade_slug,
       slug: campo.id,
     },
-    props: { campo },
+    props: { campo, achados },
   }));
 }
 
-const { campo } = Astro.props;
+const { campo, achados } = Astro.props;
 const d = campo.data;
 
 const nomeUf = NOME_UF[d.uf] ?? d.uf;
@@ -228,6 +233,8 @@ const temContato = Object.values(d.contato).some(Boolean);
             </section>
           )
         }
+
+        <CarrosselAchados achados={achados} posicao="ficha" />
       </div>
 
       <aside class="lg:sticky lg:top-8 lg:self-start">

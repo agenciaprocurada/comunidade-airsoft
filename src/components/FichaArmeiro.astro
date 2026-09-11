@@ -28,14 +28,18 @@ import {
   comoAtende,
   linkWhatsapp,
 } from "../lib/uf";
+import CarrosselAchados from "./CarrosselAchados.astro";
+import type { Achado } from "../lib/achados";
 
 interface Props {
   armeiro: any;
   /** Ficha da loja onde ele atende, quando `loja_id` aponta para uma. */
   loja?: { id: string; data: { nome: string } } | null;
+  /** Últimos achados, lidos no build pela página. */
+  achados?: Achado[];
 }
 
-const { armeiro, loja = null } = Astro.props;
+const { armeiro, loja = null, achados = [] } = Astro.props;
 const d = armeiro.data;
 
 const nomeUf = NOME_UF[d.uf] ?? d.uf;
@@ -368,6 +372,8 @@ const temCondicoes =
             </section>
           )
         }
+
+        <CarrosselAchados achados={achados} posicao="ficha" />
       </div>
 
       <aside class="lg:sticky lg:top-8 lg:self-start">
