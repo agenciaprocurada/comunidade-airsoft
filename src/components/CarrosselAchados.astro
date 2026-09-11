@@ -6,6 +6,11 @@
  * Aparece três vezes por guia (início, meio e fim), sempre com os mesmos
  * produtos: os dados vêm do build (achados-build.ts), como na home.
  *
+ * Visual de vitrine, como o carrossel de produtos do Mercado Livre: bloco
+ * verde-claro (oliva-100, da paleta) com cards BRANCOS — de propósito um
+ * corpo estranho na página escura, para o produto saltar. Embaixo, o
+ * botão "Ver mais achadinhos" leva à vitrine.
+ *
  * Rola na horizontal com scroll-snap, sem JavaScript. As setas são
  * enfeite para quem usa mouse — sem script elas nem aparecem; no
  * celular a pessoa arrasta com o dedo. Cada card leva direto ao link
@@ -37,35 +42,34 @@ const idTitulo = `achados-${posicao}`;
 
 {
   achados.length > 0 && (
-    <aside class="carrossel-achados @container my-10 border-y border-borda py-6" aria-labelledby={idTitulo}>
-      <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <p id={idTitulo} class="font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-400">
-          Achados da comunidade
-        </p>
-        <a
-          href="/achados"
-          class="font-display text-[15px] font-bold uppercase tracking-[0.06em] !text-oliva-300 !no-underline hover:!text-oliva-100"
-        >
-          Ver todos <span aria-hidden="true">↗</span>
-        </a>
-      </div>
+    <aside
+      class="carrossel-achados @container my-10 bg-oliva-100 px-4 py-5 text-[#1f2a19] sm:px-5"
+      aria-labelledby={idTitulo}
+    >
+      <p id={idTitulo} class="font-dado text-[11px] uppercase tracking-[0.16em] text-oliva-700">
+        Achados da comunidade
+      </p>
 
-      <div class="relative mt-4">
+      <div class="relative mt-3">
         <ul class="trilho flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1" data-trilho>
           {achados.map((a) => {
             const o = ofertaDestaque(a);
             const preco = formatarPreco(o.preco);
             const cheio = formatarPreco(o.preco_cheio);
+            const desconto =
+              o.preco != null && o.preco_cheio != null
+                ? Math.round((1 - o.preco / o.preco_cheio) * 100)
+                : 0;
             return (
               <li class="w-[42%] shrink-0 snap-start @sm:w-[30%] @3xl:w-[19%]">
                 <a
                   {...linkAfiliado(o.url)}
-                  class="group flex h-full flex-col border border-borda bg-papel !text-tinta !no-underline transition-colors hover:border-oliva-500"
+                  class="group flex h-full flex-col bg-white !text-[#1f2a19] !no-underline shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_6px_16px_rgba(0,0,0,0.18)]"
                 >
-                  <div class="relative aspect-square w-full overflow-hidden border-b border-borda bg-fundo">
+                  <div class="relative aspect-square w-full overflow-hidden bg-white p-2">
                     <span
                       aria-hidden="true"
-                      class="absolute inset-0 grid place-items-center p-3 text-center font-display text-[13px] font-bold uppercase leading-tight text-oliva-400/60"
+                      class="absolute inset-0 grid place-items-center p-3 text-center font-display text-[13px] font-bold uppercase leading-tight text-[#9aa58a]"
                     >
                       {a.nome}
                     </span>
@@ -77,19 +81,20 @@ const idTitulo = `achados-${posicao}`;
                         decoding="async"
                         referrerpolicy="no-referrer"
                         onerror="this.remove()"
-                        class="absolute inset-0 h-full w-full bg-white object-contain transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none"
+                        class="absolute inset-0 h-full w-full bg-white object-contain p-2 transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none"
                       />
                     )}
                   </div>
-                  <div class="flex flex-1 flex-col p-3">
-                    <p class="line-clamp-2 font-display text-[14px] font-bold uppercase leading-tight tracking-[0.02em] sm:text-[15px]">
+                  <div class="flex flex-1 flex-col border-t border-[#eef1e6] p-3">
+                    <p class="line-clamp-2 text-[13px] leading-snug text-[#33402b] sm:text-[14px]">
                       {a.nome}
                     </p>
-                    <p class="mt-2 flex flex-wrap items-baseline gap-x-2 font-dado leading-tight">
-                      {cheio && <s class="text-[11px] text-texto-2">{cheio}</s>}
-                      <span class="text-[15px] text-tinta">{preco ?? "Ver preço"}</span>
+                    {cheio && <s class="mt-2 text-[11px] leading-none text-[#8a9480]">{cheio}</s>}
+                    <p class="mt-1 flex flex-wrap items-baseline gap-x-2 leading-none">
+                      <span class="text-[18px] font-semibold text-[#1f2a19]">{preco ?? "Ver preço"}</span>
+                      {desconto > 0 && <span class="text-[12px] font-semibold text-[#3d7a2a]">{desconto}% OFF</span>}
                     </p>
-                    <p class="mt-auto pt-2 text-[12px] text-texto-2">{EM_LOJA[o.loja]}</p>
+                    <p class="mt-auto pt-2 text-[12px] text-[#6b7460]">{EM_LOJA[o.loja]}</p>
                   </div>
                 </a>
               </li>
@@ -103,7 +108,7 @@ const idTitulo = `achados-${posicao}`;
           data-seta="-1"
           hidden
           aria-label="Produtos anteriores"
-          class="absolute left-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center border border-borda-forte bg-fundo/90 text-oliva-300 hover:border-oliva-500 @sm:flex"
+          class="absolute -left-2 top-[38%] hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white text-[20px] text-[#1f2a19] shadow-[0_2px_6px_rgba(0,0,0,0.25)] hover:bg-[#f3f6ea] @sm:flex"
         >
           ‹
         </button>
@@ -112,12 +117,20 @@ const idTitulo = `achados-${posicao}`;
           data-seta="1"
           hidden
           aria-label="Próximos produtos"
-          class="absolute right-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center border border-borda-forte bg-fundo/90 text-oliva-300 hover:border-oliva-500 @sm:flex"
+          class="absolute -right-2 top-[38%] hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white text-[20px] text-[#1f2a19] shadow-[0_2px_6px_rgba(0,0,0,0.25)] hover:bg-[#f3f6ea] @sm:flex"
         >
           ›
         </button>
       </div>
 
+      <div class="mt-4 @sm:text-center">
+        <a
+          href="/achados"
+          class="flex w-full items-center justify-center gap-2 bg-[#27351e] px-4 py-3 font-display text-[15px] font-bold uppercase tracking-[0.06em] !text-[#eff3e6] !no-underline transition-colors hover:bg-[#3c512d] @sm:inline-flex @sm:w-auto @sm:px-8"
+        >
+          Ver mais achadinhos <span aria-hidden="true">↗</span>
+        </a>
+      </div>
     </aside>
   )
 }
