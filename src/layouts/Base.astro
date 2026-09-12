@@ -6,6 +6,12 @@ import ChamadaWhatsApp from "../components/ChamadaWhatsApp.astro";
 import Apoiadores from "../components/Apoiadores.astro";
 import { organizacao, website } from "../lib/entidade";
 
+interface ImagemSocial {
+  src: string;
+  largura: number;
+  altura: number;
+}
+
 interface Props {
   titulo: string;
   descricao: string;
@@ -15,7 +21,11 @@ interface Props {
   semIndexar?: boolean;
   /** Objetos schema.org injetados como JSON-LD. */
   dadosEstruturados?: Record<string, unknown>[];
-  imagem?: string;
+  /**
+   * Imagem de compartilhamento. Uma string é só a URL; o objeto traz o
+   * tamanho, que vira og:image:width/height (ver comentário na tag).
+   */
+  imagem?: string | ImagemSocial;
   /** Header flutua por cima do primeiro bloco (usado só na home). */
   headerSobreposto?: boolean;
   /**
@@ -35,7 +45,7 @@ interface Props {
  * acima de ~300 KB o WhatsApp desiste do preview grande. WebP nao serve: varios
  * scrapers de rede social nao leem o formato.
  */
-const OG_PADRAO = "/og-padrao.jpg";
+const OG_PADRAO: ImagemSocial = { src: "/og-padrao.jpg", largura: 1200, altura: 630 };
 
 const {
   titulo,
@@ -50,7 +60,9 @@ const {
 } = Astro.props;
 
 const urlCanonica = canonica ?? new URL(Astro.url.pathname, Astro.site).href;
-const urlImagem = new URL(imagem, Astro.site).href;
+const imagemSocial: ImagemSocial | { src: string; largura?: undefined; altura?: undefined } =
+  typeof imagem === "string" ? { src: imagem } : imagem;
+const urlImagem = new URL(imagemSocial.src, Astro.site).href;
 
 // O título da home não repete o nome do site.
 const tituloCompleto =
@@ -109,14 +121,15 @@ const comApoiadores = !semCasca && !Astro.url.pathname.startsWith("/conta");
       para descobrir o tamanho e, no meio disso, costuma cair no preview
       pequeno. Com elas, ele ja monta o cartao grande.
 
-      So valem para a imagem padrao — anunciar 1200x630 para uma capa de outro
-      tamanho e pior do que nao anunciar nada, porque o scraper acredita.
+      So valem quando o tamanho e conhecido (imagem padrao e capas geradas
+      no build) — anunciar 1200x630 para uma foto de outro tamanho e pior do
+      que nao anunciar nada, porque o scraper acredita.
     */}
     {
-      imagem === OG_PADRAO && (
+      imagemSocial.largura && imagemSocial.altura && (
         <>
-          <meta property="og:image:width" content="1200" />
-          <meta property="og:image:height" content="630" />
+          <meta property="og:image:width" content={String(imagemSocial.largura)} />
+          <meta property="og:image:height" content={String(imagemSocial.altura)} />
         </>
       )
     }
