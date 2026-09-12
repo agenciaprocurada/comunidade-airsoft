@@ -31,7 +31,7 @@ export const prerender = false;
 const { supabase } = Astro.locals;
 
 /** Quantos a vitrine mostra de uma vez. */
-const TETO = 60;
+const TETO = 200;
 
 const { data: bruto, error } = await supabase
   .from("achados")
