@@ -1,0 +1,196 @@
+---
+import { Image } from "astro:assets";
+import Base from "../layouts/Base.astro";
+import TopoPagina from "../components/TopoPagina.astro";
+import Etiqueta from "../components/Etiqueta.astro";
+import eventosBrutos from "../data/agenda.json";
+
+/**
+ * Agenda de eventos. A lista vive em src/data/agenda.json: para subir um
+ * evento novo, acrescente um item lá e coloque a arte (WebP) em
+ * src/assets/agenda/<imagem>.webp. Eventos já passados são escondidos no
+ * navegador (a página é estática), então não precisa apagar nada.
+ */
+const imagens = import.meta.glob<{ default: ImageMetadata }>(
+  "../assets/agenda/*.webp",
+  { eager: true },
+);
+
+const fmtDia = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", timeZone: "UTC" });
+const fmtMes = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" });
+const fmtSemana = new Intl.DateTimeFormat("pt-BR", { weekday: "short", timeZone: "UTC" });
+const fmtMesLongo = new Intl.DateTimeFormat("pt-BR", {
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+const eventos = [...(eventosBrutos as any[])]
+  .sort((a, b) => a.data.localeCompare(b.data))
+  .map((e) => {
+    const inicio = new Date(`${e.data}T00:00:00Z`);
+    const fim = e.dataFim ? new Date(`${e.dataFim}T00:00:00Z`) : inicio;
+    return {
+      ...e,
+      fimIso: e.dataFim ?? e.data,
+      dia: fmtDia.format(inicio),
+      mes: fmtMes.format(inicio).replace(".", ""),
+      semana: fmtSemana.format(inicio).replace(".", ""),
+      diaFim: e.dataFim ? fmtDia.format(fim) : null,
+      grupoMes: fmtMesLongo.format(inicio),
+      arte: imagens[`../assets/agenda/${e.imagem}.webp`]?.default,
+    };
+  });
+
+const meses = [...new Set(eventos.map((e) => e.grupoMes))];
+
+const listaEstruturada = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  name: "Agenda de airsoft",
+  description: "Próximos jogos, operações e torneios de airsoft no Sul do Brasil.",
+  inLanguage: "pt-BR",
+};
+
+const rotulo = "inline font-dado text-[11px] uppercase tracking-[0.14em] text-oliva-300";
+---
+
+<Base
+  titulo="Agenda de airsoft: próximos jogos, operações e torneios"
+  descricao="Agenda de eventos de airsoft no Sul do Brasil: jogos de fim de semana, operações MilSim, torneios e games noturnos, com data, local, horário e valor."
+  dadosEstruturados={[listaEstruturada]}
+>
+  <TopoPagina
+    trilha={[{ texto: "Agenda" }]}
+    dados={[
+      { icone: "calendario", texto: "Atualizada toda semana" },
+      { icone: "pino", texto: "Sul do Brasil" },
+      { icone: "pessoas", texto: "Inscrição pelo WhatsApp" },
+    ]}
+    codigo="07"
+  >
+    Agenda
+    <p slot="descricao">
+      Jogos de fim de semana, operações MilSim, torneios e games noturnos.
+      Confira data, local, horário e valor — e confirme a vaga no grupo do
+      organizador.
+    </p>
+  </TopoPagina>
+
+  <div class="mx-auto max-w-[1240px] px-5 pb-8 pt-2 md:px-12 md:pb-12 md:pt-4">
+    {
+      meses.map((mes) => (
+        <section class="mes mt-12 first:mt-8">
+          <h2 class="font-display text-2xl font-bold uppercase capitalize md:text-3xl">
+            {mes}
+          </h2>
+          <ul class="mt-6 grid gap-6 md:grid-cols-2">
+            {eventos
+              .filter((e) => e.grupoMes === mes)
+              .map((e) => (
+                <li
+                  class="evento flex flex-col border border-borda bg-papel sm:flex-row"
+                  data-fim={e.fimIso}
+                >
+                  {e.arte && (
+                    <Image
+                      src={e.arte}
+                      alt={`Arte de divulgação: ${e.nome}`}
+                      width={320}
+                      class="aspect-square w-full shrink-0 border-b border-borda object-cover sm:h-40 sm:w-40 sm:self-start sm:border-b-0 sm:border-r"
+                      loading="lazy"
+                    />
+                  )}
+                  <div class="flex flex-1 flex-col p-5">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <Etiqueta tom="escassez">
+                        {e.semana} {e.dia}
+                        {e.diaFim ? `–${e.diaFim}` : ""} {e.mes}
+                      </Etiqueta>
+                      <Etiqueta tom="neutro">{e.tipo}</Etiqueta>
+                    </div>
+                    <h3 class="mt-3 font-display text-xl font-bold uppercase leading-tight">
+                      {e.nome}
+                    </h3>
+                    <dl class="mt-3 space-y-1.5 text-sm leading-relaxed text-texto-2">
+                      <div>
+                        <dt class={rotulo}>Local: </dt>
+                        <dd class="inline">
+                          {e.local}
+                          {e.mapa && (
+                            <>
+                              {" "}
+                              <a
+                                href={e.mapa}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="text-oliva-500 underline"
+                              >
+                                ver no mapa
+                              </a>
+                            </>
+                          )}
+                        </dd>
+                      </div>
+                      {e.horario && (
+                        <div>
+                          <dt class={rotulo}>Horário: </dt>
+                          <dd class="inline">{e.horario}</dd>
+                        </div>
+                      )}
+                      {e.valor && (
+                        <div>
+                          <dt class={rotulo}>Valor: </dt>
+                          <dd class="inline">{e.valor}</dd>
+                        </div>
+                      )}
+                      <div>
+                        <dt class={rotulo}>Grupo no WhatsApp: </dt>
+                        <dd class="inline">{e.grupo}</dd>
+                      </div>
+                    </dl>
+                    {e.detalhe && (
+                      <p class="mt-3 text-sm leading-relaxed text-texto">
+                        {e.detalhe}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+          </ul>
+        </section>
+      ))
+    }
+
+    <p id="agenda-vazia" class="mt-10 hidden text-lg text-texto-2">
+      Nenhum evento futuro na agenda por enquanto. Volte em breve.
+    </p>
+
+    <section class="mt-16 border-t border-borda pt-8">
+      <h2 class="font-display text-2xl font-bold uppercase">Organiza jogos?</h2>
+      <p class="mt-3 max-w-[60ch] leading-relaxed text-texto-2">
+        Para divulgar seu evento aqui, entre no
+        <a href="/grupos" class="text-oliva-500 underline">grupo oficial da comunidade</a>
+        e mande a arte com data, local, horário e valor. Para achar onde jogar
+        fora da agenda, veja os
+        <a href="/campos" class="text-oliva-500 underline">campos por estado e cidade</a>.
+      </p>
+    </section>
+  </div>
+</Base>
+
+<script>
+  // A página é estática: esconde no navegador o que já passou (fuso de Brasília).
+  const hoje = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date());
+  document.querySelectorAll<HTMLElement>(".evento").forEach((el) => {
+    if ((el.dataset.fim ?? "") < hoje) el.remove();
+  });
+  document.querySelectorAll<HTMLElement>(".mes").forEach((el) => {
+    if (!el.querySelector(".evento")) el.remove();
+  });
+  if (!document.querySelector(".evento")) {
+    document.getElementById("agenda-vazia")?.classList.remove("hidden");
+  }
+</script>
