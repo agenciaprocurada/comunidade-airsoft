@@ -23,6 +23,7 @@
     "astro": "^7.2.4",
     "fabric": "^6.9.1",
     "leaflet": "^1.9.4",
+    "pdf-lib": "^1.17.1",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {

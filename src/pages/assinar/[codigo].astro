@@ -1,0 +1,531 @@
+---
+import Base from "../../layouts/Base.astro";
+import {
+  CODIGO_VALIDO,
+  assinaturaPlausivel,
+  blocosDoTermo,
+  cpfValido,
+  dataBr,
+  dataHoraBr,
+  emailValido,
+  mascararCpf,
+  normalizarTelefone,
+  soDigitos,
+  telefoneValido,
+} from "../../lib/termo-evento";
+import { dividirTermo, nascimentoValido, trechosComVariaveis } from "../../lib/termo-variaveis";
+import { ipDaRequisicao } from "../../lib/conta";
+import { ENTRADA, ENTRADA_INVALIDA, ERRO_CAMPO, ROTULO_CAMPO } from "../../lib/estilos-form";
+
+export const prerender = false;
+
+/**
+ * Pagina PUBLICA de assinatura do termo de um evento. O link vai para o
+ * grupo de WhatsApp; quem abre nao tem conta nem login.
+ *
+ * Tres etapas numa pagina so:
+ *   1. dados (nome, e-mail, telefone, CPF) — o termo ainda nao aparece;
+ *   2. termo + aceite + assinatura desenhada;
+ *   3. conclusao, com o termo assinado para baixar (PDF).
+ * A etapa 3 e uma URL propria (?concluido=<token>) para a pessoa poder
+ * voltar e baixar de novo.
+ *
+ * O visitante nunca toca nas tabelas: so as funcoes do banco
+ * (`termo_publico`, `termo_assinar`, `termo_assinado`;
+ * db/schema-termos-evento.sql). Sem indexacao e sem cache (middleware).
+ */
+const { codigo: codigoBruto } = Astro.params;
+const codigo = (codigoBruto ?? "").toLowerCase();
+if (!CODIGO_VALIDO.test(codigo)) return Astro.rewrite("/404");
+
+/** Arte de agradecimento da tela final, por evento (arquivos em public/termos/). */
+const IMAGENS_OBRIGADO: Record<string, { src: string; alt: string }> = {
+  vwbubhc7v4: {
+    src: "/termos/vwbubhc7v4.webp",
+    alt: "Operação Vietnã — Obrigado pela assinatura do termo de consentimento! Sua participação está confirmada e você faz parte dessa missão!",
+  },
+};
+const imagemObrigado = IMAGENS_OBRIGADO[codigo] ?? null;
+
+const { supabase } = Astro.locals;
+
+interface EventoPublico {
+  nome: string;
+  data_evento: string | null;
+  horario: string | null;
+  local_evento: string | null;
+  organizador: string | null;
+  texto: string;
+  aberto: boolean;
+}
+
+const { data: bruto } = await supabase.rpc("termo_publico", { p_codigo: codigo });
+const evento = (bruto as EventoPublico | null) ?? null;
+if (!evento) return Astro.rewrite("/404");
+
+/* ------------------------------ etapa 3 ----------------------------------- */
+
+const tokenUrl = (Astro.url.searchParams.get("concluido") ?? "").toLowerCase();
+let concluido: { nome: string; cpf: string; assinado_em: string } | null = null;
+if (/^[0-9a-f]{32}$/.test(tokenUrl)) {
+  const { data } = await supabase.rpc("termo_assinado", { p_codigo: codigo, p_token: tokenUrl });
+  const a = (data as { assinatura?: { nome: string; cpf: string; assinado_em: string } } | null)?.assinatura;
+  if (a) concluido = a;
+}
+
+/* --------------------------- etapas 1 e 2 (POST) -------------------------- */
+
+type Campos = { nome: string; email: string; telefone: string; cpf: string; nascimento: string; equipe: string };
+let valores: Campos = { nome: "", email: "", telefone: "", cpf: "", nascimento: "", equipe: "" };
+const erros: Partial<Record<keyof Campos | "assinatura" | "aceite" | "geral", string>> = {};
+
+if (!concluido && Astro.request.method === "POST" && evento.aberto) {
+  const f = await Astro.request.formData();
+  const texto = (k: string) => String(f.get(k) ?? "").trim();
+
+  // Isca para robo: campo escondido que gente de verdade nao preenche.
+  if (texto("site")) return Astro.redirect(`/assinar/${codigo}`, 303);
+
+  valores = {
+    nome: texto("nome").replace(/\s+/g, " ").slice(0, 140),
+    email: texto("email").toLowerCase().slice(0, 160),
+    telefone: texto("telefone").slice(0, 25),
+    cpf: texto("cpf").slice(0, 20),
+    nascimento: texto("nascimento").slice(0, 10),
+    equipe: texto("equipe").replace(/\s+/g, " ").slice(0, 80),
+  };
+  const assinatura = texto("assinatura");
+
+  if (valores.nome.length < 5 || !valores.nome.includes(" ")) erros.nome = "Informe o nome completo.";
+  if (!emailValido(valores.email)) erros.email = "Informe um e-mail válido.";
+  if (!telefoneValido(valores.telefone)) erros.telefone = "Informe o telefone com DDD.";
+  if (!cpfValido(valores.cpf)) erros.cpf = "CPF inválido. Confira os números.";
+  if (!nascimentoValido(valores.nascimento)) erros.nascimento = "Informe uma data de nascimento válida.";
+  if (!assinaturaPlausivel(assinatura)) erros.assinatura = "Desenhe a sua assinatura no quadro.";
+
+  if (Object.keys(erros).length === 0) {
+    const ip = ipDaRequisicao(() => Astro.clientAddress);
+    const { data: resposta, error } = await supabase.rpc("termo_assinar", {
+      p_codigo: codigo,
+      p_nome: valores.nome,
+      p_email: valores.email,
+      p_telefone: normalizarTelefone(valores.telefone),
+      p_cpf: soDigitos(valores.cpf),
+      p_nascimento: valores.nascimento,
+      p_equipe: valores.equipe,
+      p_assinatura: assinatura,
+      p_ip: ip,
+      p_user_agent: Astro.request.headers.get("user-agent") ?? "",
+    });
+    const r = (resposta as { resultado?: string; token?: string } | null) ?? {};
+
+    if (error) {
+      console.error("termo_assinar falhou:", error.message);
+      erros.geral = "Não foi possível registrar agora. Tente de novo em instantes.";
+    } else if (r.resultado === "ok" && r.token) {
+      return Astro.redirect(`/assinar/${codigo}?concluido=${r.token}`, 303);
+    } else if (r.resultado === "ja_assinou") {
+      erros.cpf = "Já existe uma assinatura com este CPF neste evento.";
+    } else if (r.resultado === "encerrado") {
+      erros.geral = "As assinaturas deste evento foram encerradas.";
+    } else {
+      erros.geral = "Alguma informação não foi aceita. Confira os dados e tente de novo.";
+    }
+  }
+}
+
+// Qual etapa abre: erro nos dados volta para a 1; erro so na assinatura, para a 2.
+const erroNosDados = Boolean(erros.nome || erros.email || erros.telefone || erros.cpf || erros.nascimento);
+const etapaInicial = Astro.request.method === "POST" && !erroNosDados && Object.keys(erros).length > 0 ? 2 : 1;
+
+// O fecho do documento (depois de {{so_assinado}}) so aparece na versao assinada.
+const blocos = blocosDoTermo(dividirTermo(evento.texto).tela);
+// 16px: abaixo disso o Safari do iPhone dá zoom ao focar o campo e a tela "pula".
+const grande = (c: string) => c.replace("text-[0.9375rem]", "text-base").replace("py-2.5", "py-3");
+const classe = (campo: keyof Campos) => grande(erros[campo] ? ENTRADA_INVALIDA : ENTRADA);
+const temErro = Object.keys(erros).length > 0;
+const resumo = [evento.data_evento && dataBr(evento.data_evento), evento.horario, evento.local_evento, evento.organizador]
+  .filter(Boolean)
+  .join(" · ");
+---
+
+<Base
+  titulo={`Termo de consentimento — ${evento.nome}`}
+  descricao="Assinatura online do termo de responsabilidade e consentimento do evento."
+  semIndexar={true}
+  semConviteWhatsApp={true}
+>
+  <div class="mx-auto max-w-[40rem] px-5 py-10 md:py-14">
+    <p class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400">
+      Termo de consentimento
+    </p>
+    <h1 class="mt-2 font-display text-3xl font-extrabold uppercase leading-[0.98] md:text-4xl">
+      {evento.nome}
+    </h1>
+    {resumo && <p class="mt-3 text-[0.9375rem] text-texto-2">{resumo}</p>}
+
+    {
+      concluido ? (
+        /* ------------------------------ ETAPA 3 ------------------------------ */
+        <div class="mt-8" role="status">
+          {imagemObrigado && (
+            <img src={imagemObrigado.src} alt={imagemObrigado.alt} width="1254" height="1254" class="mb-6 block h-auto w-full border border-borda-forte" />
+          )}
+          <a
+            href={`/assinar/${codigo}/termo.pdf?t=${tokenUrl}`}
+            class="inline-flex min-h-[3.5rem] w-full items-center justify-center gap-2 border border-oliva-500 bg-oliva-500 px-6 py-4 font-display text-[1.0625rem] font-bold uppercase tracking-[0.06em] text-fundo transition-colors hover:bg-oliva-300 "
+          >
+            Baixar termo assinado (PDF)
+          </a>
+          <div class="mt-5 border border-ok/70 bg-ok-bg p-6">
+            <p class="font-display text-3xl font-bold uppercase text-ok-texto">Assinatura concluída</p>
+            <p class="mt-2 text-[0.9375rem] leading-relaxed text-ok-texto">
+              {concluido.nome}, seu termo foi assinado em {dataHoraBr(concluido.assinado_em)} e
+              ficou guardado com a organização do evento. Baixe a sua cópia abaixo.
+            </p>
+          </div>
+
+          <p class="mt-4 text-[0.8125rem] leading-snug text-texto-2">
+            CPF {mascararCpf(concluido.cpf)}. Guarde esta página nos favoritos: pelo mesmo
+            endereço você baixa o termo de novo quando precisar.
+          </p>
+        </div>
+      ) : !evento.aberto ? (
+        <div class="mt-8 border border-alerta bg-alerta-bg p-6" role="status">
+          <p class="font-display text-2xl font-bold uppercase text-alerta-texto">Assinaturas encerradas</p>
+          <p class="mt-2 text-[0.9375rem] text-alerta-texto">
+            Este link não está mais recebendo assinaturas. Fale com a organização do evento.
+          </p>
+        </div>
+      ) : (
+        <form method="post" id="form-termo" data-etapa={etapaInicial} class="mt-8 scroll-mt-24" novalidate>
+          {/* indicador de etapas */}
+          <div aria-live="polite">
+            <p class="font-dado text-[0.75rem] uppercase tracking-[0.14em] text-oliva-300">
+              <span id="passo-n">Passo 1 de 2</span> · <span id="passo-nome" class="text-tinta">Seus dados</span>
+            </p>
+            <div class="mt-2 grid grid-cols-2 gap-1.5" aria-hidden="true">
+              <div class="h-1 bg-oliva-500"></div>
+              <div id="barra-2" class="h-1 bg-borda-forte"></div>
+            </div>
+          </div>
+
+          {temErro && (
+            <div class="mt-5 border border-alerta bg-alerta-bg p-4 text-[0.9375rem] text-alerta-texto" role="alert">
+              {erros.geral ?? "Confira os campos marcados."}
+            </div>
+          )}
+
+          {/* isca para robo */}
+          <div class="hidden" aria-hidden="true">
+            <label>Site <input type="text" name="site" tabindex="-1" autocomplete="off" /></label>
+          </div>
+
+          {/* ---------------------------- ETAPA 1 ---------------------------- */}
+          <section id="etapa-1" class="mt-6 space-y-5">
+            <p class="text-[0.9375rem] leading-relaxed text-texto">
+              Para participar do evento, informe os seus dados. Na próxima tela você lê o termo e assina.
+            </p>
+
+            <div>
+              <label for="nome" class={ROTULO_CAMPO}>Nome completo</label>
+              <input id="nome" name="nome" type="text" required autocomplete="name" maxlength="140" value={valores.nome} class={classe("nome")} aria-invalid={erros.nome ? "true" : undefined} />
+              <p class={ERRO_CAMPO} data-erro="nome" hidden={!erros.nome}>{erros.nome}</p>
+            </div>
+
+            <div>
+              <label for="email" class={ROTULO_CAMPO}>E-mail</label>
+              <input id="email" name="email" type="email" required autocomplete="email" inputmode="email" maxlength="160" value={valores.email} class={classe("email")} aria-invalid={erros.email ? "true" : undefined} />
+              <p class={ERRO_CAMPO} data-erro="email" hidden={!erros.email}>{erros.email}</p>
+            </div>
+
+            <div class="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label for="telefone" class={ROTULO_CAMPO}>Telefone (com DDD)</label>
+                <input id="telefone" name="telefone" type="tel" required autocomplete="tel" inputmode="tel" maxlength="20" placeholder="(51) 99999-9999" value={valores.telefone} class={classe("telefone")} aria-invalid={erros.telefone ? "true" : undefined} />
+                <p class={ERRO_CAMPO} data-erro="telefone" hidden={!erros.telefone}>{erros.telefone}</p>
+              </div>
+              <div>
+                <label for="cpf" class={ROTULO_CAMPO}>CPF</label>
+                <input id="cpf" name="cpf" type="text" required inputmode="numeric" maxlength="14" placeholder="000.000.000-00" autocomplete="off" value={valores.cpf} class={classe("cpf")} aria-invalid={erros.cpf ? "true" : undefined} />
+                <p class={ERRO_CAMPO} data-erro="cpf" hidden={!erros.cpf}>{erros.cpf}</p>
+              </div>
+            </div>
+
+            <div class="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label for="nascimento" class={ROTULO_CAMPO}>Data de nascimento</label>
+                <input id="nascimento" name="nascimento" type="date" required autocomplete="bday" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={valores.nascimento} class={classe("nascimento")} aria-invalid={erros.nascimento ? "true" : undefined} />
+                <p class={ERRO_CAMPO} data-erro="nascimento" hidden={!erros.nascimento}>{erros.nascimento}</p>
+              </div>
+              <div>
+                <label for="equipe" class={ROTULO_CAMPO}>Equipe <span class="font-normal text-texto-2">(opcional)</span></label>
+                <input id="equipe" name="equipe" type="text" maxlength="80" autocomplete="organization" placeholder="Se joga por uma equipe" value={valores.equipe} class={classe("equipe")} />
+              </div>
+            </div>
+
+            <button type="button" id="continuar" class="inline-flex min-h-[3.25rem] w-full items-center justify-center border border-oliva-500 bg-oliva-500 px-6 py-4 font-display text-[1.0625rem] font-bold uppercase tracking-[0.06em] text-fundo transition-colors hover:bg-oliva-300 sm:w-auto">
+              Continuar
+            </button>
+          </section>
+
+          {/* ---------------------------- ETAPA 2 ---------------------------- */}
+          <section id="etapa-2" class="mt-6 hidden space-y-6">
+            <div class="flex flex-wrap items-center justify-between gap-2 border border-borda bg-papel px-4 py-3 text-[0.875rem]">
+              <span class="text-texto-2">Assinando como <strong id="resumo-nome" class="text-tinta"></strong></span>
+              <button type="button" id="voltar" class="text-oliva-500 underline">Corrigir meus dados</button>
+            </div>
+
+            <div>
+              <h2 id="texto-termo" class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400">
+                Leia o termo
+              </h2>
+              <div class="mt-3 border sm:max-h-[24rem] sm:overflow-y-auto border-borda-forte bg-papel p-5 text-[0.9375rem] leading-relaxed text-texto" tabindex="0" aria-labelledby="texto-termo">
+                {blocos.map((b) =>
+                  b.tipo === "titulo" ? (
+                    <h3 class="mt-5 first:mt-0 font-display text-lg font-bold uppercase text-tinta">{b.texto}</h3>
+                  ) : (
+                    <p class="mt-2 whitespace-pre-line">
+                      {trechosComVariaveis(b.texto).map((t) =>
+                        t.tipo === "texto" ? (
+                          t.texto
+                        ) : (
+                          <span data-var={t.nome} class="border-b border-oliva-300 px-1 font-semibold text-tinta">__________</span>
+                        ),
+                      )}
+                    </p>
+                  ),
+                )}
+              </div>
+            </div>
+
+            <div>
+              <span class={ROTULO_CAMPO} id="rotulo-assinatura">Assinatura</span>
+              <p class="mt-1 text-[0.8125rem] leading-snug text-texto-2">
+                Desenhe com o dedo (no celular) ou com o mouse.
+              </p>
+              <div class={`relative mt-2 border-2 border-dashed bg-[#f0f2e9] ${erros.assinatura ? "border-alerta" : "border-borda-forte"}`}>
+                <canvas id="assinatura-canvas" width="900" height="300" class="block w-full cursor-crosshair" style="height: 13rem; touch-action: none;" role="img" aria-labelledby="rotulo-assinatura"></canvas>
+                <p id="assinatura-dica" class="pointer-events-none absolute inset-0 flex items-center justify-center text-[0.9375rem] text-[#6b7361]">
+                  Assine aqui
+                </p>
+              </div>
+              <div class="mt-2 flex justify-end">
+                <button type="button" id="assinatura-limpar" class="border border-borda-forte px-3.5 py-2 text-[0.875rem] font-semibold text-texto hover:border-oliva-300">
+                  Limpar
+                </button>
+              </div>
+              <input type="hidden" name="assinatura" id="assinatura-dado" />
+              <p class={ERRO_CAMPO} id="erro-assinatura" hidden={!erros.assinatura}>{erros.assinatura}</p>
+            </div>
+
+            <div>
+              <p class="text-[0.9375rem] leading-snug text-texto">
+                Ao assinar, declaro que li o termo por inteiro e concordo com ele.
+              </p>
+              <button type="submit" id="enviar" class="mt-4 inline-flex w-full items-center justify-center border border-oliva-500 bg-oliva-500 px-6 py-4 font-display text-[1.0625rem] font-bold uppercase tracking-[0.06em] text-fundo transition-colors hover:bg-oliva-300 sm:w-auto">
+                Assinar o termo
+              </button>
+              <p class="mt-3 text-[0.8125rem] leading-snug text-texto-2">
+                Ficam registrados também a data, a hora, o endereço IP e o navegador usados,
+                como prova da assinatura.
+              </p>
+            </div>
+          </section>
+        </form>
+      )
+    }
+  </div>
+</Base>
+
+<script>
+  import { cpfValido, dataBr, emailValido, formatarCpf, formatarTelefone, telefoneValido } from "../../lib/termo-evento";
+  import { dataExtenso, nascimentoValido } from "../../lib/termo-variaveis";
+
+  const form = document.getElementById("form-termo") as HTMLFormElement | null;
+  if (form) {
+    const etapa1 = document.getElementById("etapa-1")!;
+    const etapa2 = document.getElementById("etapa-2")!;
+    const passoN = document.getElementById("passo-n")!;
+    const passoNome = document.getElementById("passo-nome")!;
+    const barra2 = document.getElementById("barra-2")!;
+    const campo = (id: string) => document.getElementById(id) as HTMLInputElement;
+    const canvas = document.getElementById("assinatura-canvas") as HTMLCanvasElement;
+    const dica = document.getElementById("assinatura-dica");
+    const dado = document.getElementById("assinatura-dado") as HTMLInputElement;
+
+    /* ------------------------------ etapas ------------------------------ */
+    function irParaEtapa(n: 1 | 2) {
+      etapa1.classList.toggle("hidden", n !== 1);
+      etapa2.classList.toggle("hidden", n !== 2);
+      passoN.textContent = `Passo ${n} de 2`;
+      passoNome.textContent = n === 1 ? "Seus dados" : "Termo e assinatura";
+      barra2.className = n === 2 ? "h-1 bg-oliva-500" : "h-1 bg-borda-forte";
+      form!.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    /* ----------------------- validação da etapa 1 ----------------------- */
+    const mostrarErro = (nome: string, msg: string) => {
+      const el = form!.querySelector<HTMLElement>(`[data-erro="${nome}"]`);
+      if (el) {
+        el.textContent = msg;
+        el.hidden = !msg;
+      }
+      campo(nome).setAttribute("aria-invalid", msg ? "true" : "false");
+    };
+
+    function validarDados(): boolean {
+      const nome = campo("nome").value.replace(/\s+/g, " ").trim();
+      const checks: [string, boolean, string][] = [
+        ["nome", nome.length >= 5 && nome.includes(" "), "Informe o nome completo."],
+        ["email", emailValido(campo("email").value.trim()), "Informe um e-mail válido."],
+        ["telefone", telefoneValido(campo("telefone").value), "Informe o telefone com DDD."],
+        ["cpf", cpfValido(campo("cpf").value), "CPF inválido. Confira os números."],
+        ["nascimento", nascimentoValido(campo("nascimento").value), "Informe uma data de nascimento válida."],
+      ];
+      let primeiroErro: string | null = null;
+      for (const [id, ok, msg] of checks) {
+        mostrarErro(id, ok ? "" : msg);
+        if (!ok && !primeiroErro) primeiroErro = id;
+      }
+      if (primeiroErro) campo(primeiroErro).focus();
+      return !primeiroErro;
+    }
+
+    /** Preenche no termo cada {{variável}} com o que a pessoa digitou na etapa 1. */
+    function preencherTermo() {
+      const v: Record<string, string> = {
+        nome: campo("nome").value.replace(/\s+/g, " ").trim(),
+        cpf: formatarCpf(campo("cpf").value),
+        nascimento: dataBr(campo("nascimento").value),
+        telefone: formatarTelefone(campo("telefone").value),
+        email: campo("email").value.trim(),
+        equipe: campo("equipe").value.replace(/\s+/g, " ").trim() || "(não informada)",
+        data_assinatura: dataExtenso(new Date()),
+      };
+      document.querySelectorAll<HTMLElement>("[data-var]").forEach((el) => {
+        el.textContent = v[el.dataset.var ?? ""] || "—";
+      });
+      document.getElementById("resumo-nome")!.textContent = v.nome;
+    }
+
+    document.getElementById("continuar")!.addEventListener("click", () => {
+      if (!validarDados()) return;
+      preencherTermo();
+      irParaEtapa(2);
+    });
+    // Enter nos campos da etapa 1 avança em vez de enviar o formulário.
+    etapa1.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        document.getElementById("continuar")!.click();
+      }
+    });
+    document.getElementById("voltar")!.addEventListener("click", () => irParaEtapa(1));
+
+    /* ----------------------------- máscaras ----------------------------- */
+    const cpf = campo("cpf");
+    cpf.addEventListener("input", () => {
+      const d = cpf.value.replace(/\D/g, "").slice(0, 11);
+      cpf.value = d
+        .replace(/^(\d{3})(\d)/, "$1.$2")
+        .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+        .replace(/\.(\d{3})(\d)/, ".$1-$2");
+    });
+    const tel = campo("telefone");
+    tel.addEventListener("input", () => {
+      const d = tel.value.replace(/\D/g, "").slice(0, 11);
+      tel.value =
+        d.length > 10
+          ? d.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, "($1) $2-$3")
+          : d.length > 2
+            ? d.replace(/^(\d{2})(\d{0,4})(\d{0,4}).*/, "($1) $2-$3")
+            : d;
+    });
+
+    /* ------------------------ assinatura (canvas) ------------------------ */
+    const ctx = canvas.getContext("2d")!;
+    // Traço escuro sobre fundo claro; o PNG sai transparente, legível no papel.
+    ctx.strokeStyle = "#14180f";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    let desenhando = false;
+    let temTraco = false;
+
+    const ponto = (e: PointerEvent) => {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) * (canvas.width / r.width),
+        y: (e.clientY - r.top) * (canvas.height / r.height),
+      };
+    };
+    canvas.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      desenhando = true;
+      const p = ponto(e);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + 0.1, p.y + 0.1);
+      ctx.stroke();
+      temTraco = true;
+      dica?.classList.add("hidden");
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!desenhando) return;
+      e.preventDefault();
+      const p = ponto(e);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    });
+    const parar = () => {
+      desenhando = false;
+    };
+    canvas.addEventListener("pointerup", parar);
+    canvas.addEventListener("pointercancel", parar);
+
+    document.getElementById("assinatura-limpar")!.addEventListener("click", () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      temTraco = false;
+      dado.value = "";
+      dica?.classList.remove("hidden");
+    });
+
+    /* ------------------------------- envio ------------------------------- */
+    form.addEventListener("submit", (e) => {
+      const erroAssinatura = document.getElementById("erro-assinatura")!;
+
+      if (!validarDados()) {
+        e.preventDefault();
+        irParaEtapa(1);
+        return;
+      }
+      erroAssinatura.textContent = "Desenhe a sua assinatura no quadro.";
+      erroAssinatura.hidden = temTraco;
+      if (!temTraco) {
+        e.preventDefault();
+        return;
+      }
+      dado.value = canvas.toDataURL("image/png");
+      // Evita o toque duplo: o segundo envio voltaria "CPF já assinou".
+      const enviar = document.getElementById("enviar") as HTMLButtonElement;
+      enviar.disabled = true;
+      enviar.textContent = "Enviando…";
+    });
+
+    // Voltar pelo navegador devolve a página do cache com o botão travado.
+    window.addEventListener("pageshow", () => {
+      const enviar = document.getElementById("enviar") as HTMLButtonElement | null;
+      if (enviar?.disabled) {
+        enviar.disabled = false;
+        enviar.textContent = "Assinar o termo";
+      }
+    });
+
+    if (Number(form.dataset.etapa) === 2) {
+      preencherTermo();
+      irParaEtapa(2);
+    }
+  }
+</script>

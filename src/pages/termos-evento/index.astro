@@ -1,0 +1,189 @@
+---
+import Base from "../../layouts/Base.astro";
+import { ENTRADA, ROTULO_CAMPO, AJUDA_CAMPO } from "../../lib/estilos-form";
+import { dataBr, gerarCodigo, textoPadrao } from "../../lib/termo-evento";
+
+export const prerender = false;
+
+/**
+ * Painel do termo de consentimento — SO o dono (middleware devolve 404
+ * para qualquer outro e-mail; o banco recusa de novo). Aqui se cadastra
+ * o evento e se pega o link de assinatura para o grupo de WhatsApp.
+ */
+const { supabase, usuario } = Astro.locals;
+
+let erro = "";
+const dados = { nome: "", data: "", horario: "", local: "", organizador: "" };
+
+if (Astro.request.method === "POST") {
+  const f = await Astro.request.formData();
+  const t = (k: string) => String(f.get(k) ?? "").trim();
+  dados.nome = t("nome").replace(/\s+/g, " ").slice(0, 140);
+  dados.data = t("data");
+  dados.horario = t("horario").slice(0, 40);
+  dados.local = t("local").slice(0, 200);
+  dados.organizador = t("organizador").slice(0, 140);
+
+  if (dados.nome.length < 3) {
+    erro = "Dê um nome ao evento (mínimo 3 letras).";
+  } else if (dados.data && !/^\d{4}-\d{2}-\d{2}$/.test(dados.data)) {
+    erro = "Data inválida.";
+  } else {
+    const texto =
+      t("texto").length >= 100
+        ? t("texto").slice(0, 20000)
+        : textoPadrao({
+            nome: dados.nome,
+            data: dados.data || null,
+            local: dados.local || null,
+            organizador: dados.organizador || null,
+          });
+
+    // O codigo e aleatorio e unico no banco; em colisao (quase impossivel)
+    // tenta de novo.
+    for (let tentativa = 0; tentativa < 4; tentativa++) {
+      const { data: criado, error } = await supabase
+        .from("termos_eventos")
+        .insert({
+          codigo: gerarCodigo(),
+          nome: dados.nome,
+          data_evento: dados.data || null,
+          horario: dados.horario || null,
+          local_evento: dados.local || null,
+          organizador: dados.organizador || null,
+          texto,
+          criado_por: usuario?.id ?? null,
+        })
+        .select("id")
+        .single();
+
+      if (criado) return Astro.redirect(`/termos-evento/${criado.id}?novo=1`, 303);
+      if (error?.code !== "23505") {
+        console.error("Falha ao criar evento do termo:", error);
+        erro = "Não foi possível criar o evento. Confira se o SQL do termo foi aplicado no Supabase.";
+        break;
+      }
+    }
+  }
+}
+
+interface Linha {
+  id: string;
+  codigo: string;
+  nome: string;
+  data_evento: string | null;
+  ativo: boolean;
+  criado_em: string;
+  termos_assinaturas: { count: number }[];
+}
+
+const { data: eventosBrutos, error: erroLista } = await supabase
+  .from("termos_eventos")
+  .select("id, codigo, nome, data_evento, ativo, criado_em, termos_assinaturas(count)")
+  .order("criado_em", { ascending: false })
+  .limit(200);
+
+if (erroLista) console.error("Falha ao listar eventos do termo:", erroLista);
+const eventos = (eventosBrutos as Linha[] | null) ?? [];
+---
+
+<Base
+  titulo="Termos de eventos"
+  descricao="Painel interno de termos de consentimento."
+  semIndexar={true}
+  semConviteWhatsApp={true}
+>
+  <div class="mx-auto max-w-[56rem] px-5 py-10 md:px-12 md:py-14">
+    <p class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400">Área restrita</p>
+    <h1 class="mt-2 font-display text-4xl font-extrabold uppercase leading-[0.95]">
+      Termos de eventos
+    </h1>
+    <p class="mt-3 max-w-[60ch] text-[0.9375rem] text-texto-2">
+      Cadastre o evento, copie o link e mande no grupo de WhatsApp. Cada pessoa
+      informa nome, e-mail, telefone e CPF e assina na tela.
+    </p>
+
+    {
+      erroLista && (
+        <div class="mt-6 border border-alerta bg-alerta-bg p-4 text-[0.9375rem] text-alerta-texto" role="alert">
+          Não consegui ler os eventos. Se esta é a primeira vez, aplique o arquivo
+          <code> db/schema-termos-evento.sql </code> no SQL Editor do Supabase.
+        </div>
+      )
+    }
+
+    <section class="mt-10" aria-labelledby="novo">
+      <h2 id="novo" class="font-display text-2xl font-bold uppercase">Novo evento</h2>
+      <form method="post" class="mt-4 space-y-5 border border-borda bg-papel p-5 md:p-6">
+        {erro && <p class="text-[0.9375rem] text-alerta-texto" role="alert">{erro}</p>}
+
+        <div>
+          <label for="nome" class={ROTULO_CAMPO}>Nome do evento</label>
+          <input id="nome" name="nome" required maxlength="140" value={dados.nome} placeholder="Ex.: Operação Vietnã 1968" class={ENTRADA} />
+        </div>
+        <div class="grid gap-5 sm:grid-cols-3">
+          <div>
+            <label for="data" class={ROTULO_CAMPO}>Data</label>
+            <input id="data" name="data" type="date" value={dados.data} class={ENTRADA} />
+          </div>
+          <div>
+            <label for="horario" class={ROTULO_CAMPO}>Horário</label>
+            <input id="horario" name="horario" maxlength="40" value={dados.horario} placeholder="Ex.: 07h" class={ENTRADA} />
+          </div>
+          <div>
+            <label for="organizador" class={ROTULO_CAMPO}>Organização</label>
+            <input id="organizador" name="organizador" maxlength="140" value={dados.organizador} placeholder="Ex.: Red Wolf Team" class={ENTRADA} />
+          </div>
+        </div>
+        <div>
+          <label for="local" class={ROTULO_CAMPO}>Local</label>
+          <input id="local" name="local" maxlength="200" value={dados.local} placeholder="Ex.: Base Red Wolf Team – Gravataí – RS" class={ENTRADA} />
+        </div>
+        <div>
+          <label for="texto" class={ROTULO_CAMPO}>Texto do termo (opcional)</label>
+          <textarea id="texto" name="texto" rows="5" class={ENTRADA} placeholder="Deixe em branco para usar o modelo padrão. Você revisa e edita na tela seguinte."></textarea>
+          <p class={AJUDA_CAMPO}>
+            O modelo padrão é um rascunho: peça a um advogado para revisar antes de usar em evento real.
+          </p>
+        </div>
+        <button type="submit" class="inline-flex items-center border border-oliva-500 bg-oliva-500 px-6 py-3 font-display text-base font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300">
+          Criar evento e gerar link
+        </button>
+      </form>
+    </section>
+
+    <section class="mt-12" aria-labelledby="lista">
+      <h2 id="lista" class="font-display text-2xl font-bold uppercase">
+        Eventos <span class="font-dado text-sm font-normal text-texto-2">{eventos.length}</span>
+      </h2>
+      {
+        eventos.length === 0 ? (
+          <p class="mt-4 text-texto-2">Nenhum evento cadastrado ainda.</p>
+        ) : (
+          <ul class="mt-4 divide-y divide-borda border border-borda bg-papel">
+            {eventos.map((e) => (
+              <li>
+                <a href={`/termos-evento/${e.id}`} class="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 px-5 py-4 hover:bg-papel-2">
+                  <span>
+                    <span class="font-semibold text-tinta">{e.nome}</span>
+                    <span class="ml-2 font-dado text-[0.75rem] text-texto-2">
+                      {e.data_evento ? dataBr(e.data_evento) : "sem data"}
+                    </span>
+                  </span>
+                  <span class="flex items-center gap-4 font-dado text-[0.75rem] uppercase tracking-[0.08em]">
+                    <span class={e.ativo ? "text-ok-texto" : "text-alerta-texto"}>
+                      {e.ativo ? "Aberto" : "Encerrado"}
+                    </span>
+                    <span class="text-texto-2">
+                      {e.termos_assinaturas?.[0]?.count ?? 0} assinaturas
+                    </span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+  </div>
+</Base>

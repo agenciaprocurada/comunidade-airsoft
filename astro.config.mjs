@@ -46,7 +46,7 @@ const FORA_DO_SITEMAP = [
  */
 // `/convite` guarda os links exclusivos de evento fechado: anunciar
 // isso num sitemap publico seria entregar a chave de porta em porta.
-const RAMOS_FORA_DO_SITEMAP = ['/conta', '/convite'];
+const RAMOS_FORA_DO_SITEMAP = ['/conta', '/convite', '/termos-evento', '/assinar'];
 
 // https://astro.build/config
 export default defineConfig({

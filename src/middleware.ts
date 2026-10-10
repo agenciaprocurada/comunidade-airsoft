@@ -1,6 +1,7 @@
 import { defineMiddleware } from "astro:middleware";
 import { criarClienteSupabase } from "./lib/supabase-servidor";
 import { COLUNAS_PERFIL, type Perfil } from "./lib/conta";
+import { ehDonoTermos } from "./lib/termo-evento";
 
 /**
  * Prefixos que exigem sessao. `/reivindicar` entra aqui de proposito:
@@ -15,6 +16,18 @@ import { COLUNAS_PERFIL, type Perfil } from "./lib/conta";
  * produto, nao tecnica (salvar ja exigia sessao).
  */
 const PROTEGIDAS = ["/conta", "/reivindicar", "/armeiros/cadastrar", "/mapa"];
+
+/**
+ * Painel do termo de consentimento: so o dono (um e-mail so, ver
+ * EMAIL_DONO_TERMOS). Fica FORA de PROTEGIDAS de proposito — quem entra
+ * aqui nao precisa ter feito o cadastro de jogador (/conta/completar).
+ * O banco recusa de novo (policy com e_dono_termos), a tela nao e a
+ * unica trava. Quem nao e o dono recebe 404, como na moderacao.
+ */
+const SO_DONO_TERMOS = ["/termos-evento"];
+
+/** Paginas com dado pessoal: nunca ficam em cache de CDN ou do navegador. */
+const SEM_CACHE = ["/termos-evento", "/assinar"];
 
 /** Dentro de /conta, o que so administrador abre. */
 const SO_ADMIN = ["/conta/admin"];
@@ -47,6 +60,17 @@ export const onRequest = defineMiddleware(async (contexto, proximo) => {
   contexto.locals.usuario = usuario;
 
   const caminho = contexto.url.pathname;
+
+  if (comecaCom(caminho, SO_DONO_TERMOS)) {
+    if (!usuario) {
+      const destino = encodeURIComponent(caminho + contexto.url.search);
+      return contexto.redirect(`/entrar?destino=${destino}`, 302);
+    }
+    if (!ehDonoTermos(usuario.email)) {
+      const resposta404 = await contexto.rewrite("/404");
+      return new Response(resposta404.body, { status: 404, headers: resposta404.headers });
+    }
+  }
 
   if (comecaCom(caminho, PROTEGIDAS)) {
     if (!usuario) {
@@ -86,6 +110,11 @@ export const onRequest = defineMiddleware(async (contexto, proximo) => {
   }
 
   const resposta = await proximo();
+
+  if (comecaCom(caminho, SEM_CACHE)) {
+    resposta.headers.set("Cache-Control", "no-store");
+    resposta.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
 
   for (const [chave, valor] of Object.entries(cabecalhosDeSessao)) {
     resposta.headers.set(chave, valor);

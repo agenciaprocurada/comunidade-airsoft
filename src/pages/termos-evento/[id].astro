@@ -1,0 +1,293 @@
+---
+import Base from "../../layouts/Base.astro";
+import { AJUDA_CAMPO, ENTRADA, ROTULO_CAMPO } from "../../lib/estilos-form";
+import { dataBr, dataHoraBr, formatarCpf, formatarTelefone } from "../../lib/termo-evento";
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+const { id } = Astro.params;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+if (!id || !UUID.test(id)) return Astro.rewrite("/404");
+
+interface Evento {
+  id: string;
+  codigo: string;
+  nome: string;
+  data_evento: string | null;
+  horario: string | null;
+  local_evento: string | null;
+  organizador: string | null;
+  texto: string;
+  texto_hash: string;
+  ativo: boolean;
+  criado_em: string;
+}
+interface Assinatura {
+  id: string;
+  nome: string;
+  email: string;
+  telefone: string;
+  cpf: string;
+  nascimento: string | null;
+  equipe: string | null;
+  assinado_em: string;
+}
+
+let aviso = "";
+let erro = "";
+
+if (Astro.request.method === "POST") {
+  const f = await Astro.request.formData();
+  const t = (k: string) => String(f.get(k) ?? "").trim();
+  const acao = t("acao");
+
+  if (acao === "alternar") {
+    const { error } = await supabase
+      .from("termos_eventos")
+      .update({ ativo: t("ativo") === "1" })
+      .eq("id", id);
+    if (error) erro = "Não foi possível alterar o estado do link.";
+    else aviso = t("ativo") === "1" ? "Link reaberto para assinaturas." : "Link encerrado.";
+  } else if (acao === "salvar") {
+    const nome = t("nome").replace(/\s+/g, " ").slice(0, 140);
+    const data = t("data");
+    const { error } = await supabase
+      .from("termos_eventos")
+      .update({
+        nome,
+        data_evento: /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : null,
+        horario: t("horario").slice(0, 40) || null,
+        local_evento: t("local").slice(0, 200) || null,
+        organizador: t("organizador").slice(0, 140) || null,
+        texto: t("texto").slice(0, 20000),
+      })
+      .eq("id", id);
+    if (error) {
+      erro = error.message.includes("ja assinado")
+        ? "Este termo já tem assinaturas: o texto e os dados do evento não podem mais mudar."
+        : "Não foi possível salvar. Confira os campos (o texto precisa ter pelo menos 100 letras).";
+    } else aviso = "Alterações salvas.";
+  } else if (acao === "apagar-assinatura") {
+    const { error } = await supabase.from("termos_assinaturas").delete().eq("id", t("assinatura")).eq("evento_id", id);
+    if (error) erro = "Não foi possível apagar a assinatura.";
+    else aviso = "Assinatura apagada.";
+  } else if (acao === "apagar-evento") {
+    const { count } = await supabase
+      .from("termos_assinaturas")
+      .select("id", { count: "exact", head: true })
+      .eq("evento_id", id);
+    if ((count ?? 0) > 0) {
+      erro = "Evento com assinaturas não pode ser apagado.";
+    } else {
+      await supabase.from("termos_eventos").delete().eq("id", id);
+      return Astro.redirect("/termos-evento", 303);
+    }
+  }
+}
+
+const { data: eventoBruto } = await supabase.from("termos_eventos").select("*").eq("id", id).maybeSingle();
+if (!eventoBruto) return Astro.rewrite("/404");
+const evento = eventoBruto as Evento;
+
+const { data: assinBrutas } = await supabase
+  .from("termos_assinaturas")
+  .select("id, nome, email, telefone, cpf, nascimento, equipe, assinado_em")
+  .eq("evento_id", id)
+  .order("assinado_em", { ascending: false });
+const assinaturas = (assinBrutas as Assinatura[] | null) ?? [];
+const travado = assinaturas.length > 0;
+
+const link = `${Astro.url.origin}/assinar/${evento.codigo}`;
+const mensagemZap =
+  `Pessoal, para participar do evento "${evento.nome}" é obrigatório assinar o termo de ` +
+  `responsabilidade online (leva 1 minuto, pelo celular):\n${link}`;
+
+const novo = Astro.url.searchParams.get("novo") === "1";
+---
+
+<Base
+  titulo={`Termo — ${evento.nome}`}
+  descricao="Painel interno de termos de consentimento."
+  semIndexar={true}
+  semConviteWhatsApp={true}
+>
+  <div class="mx-auto max-w-[64rem] px-5 py-10 md:px-12 md:py-14">
+    <a href="/termos-evento" class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400 hover:text-oliva-300">
+      ‹ Todos os eventos
+    </a>
+    <h1 class="mt-3 font-display text-4xl font-extrabold uppercase leading-[0.95]">{evento.nome}</h1>
+    <p class="mt-2 text-[0.9375rem] text-texto-2">
+      {[evento.data_evento && dataBr(evento.data_evento), evento.horario, evento.local_evento, evento.organizador].filter(Boolean).join(" · ")}
+    </p>
+
+    {(novo || aviso) && <p class="mt-5 border border-ok/70 bg-ok-bg p-4 text-[0.9375rem] text-ok-texto" role="status">{aviso || "Evento criado. Copie o link abaixo e mande no grupo."}</p>}
+    {erro && <p class="mt-5 border border-alerta bg-alerta-bg p-4 text-[0.9375rem] text-alerta-texto" role="alert">{erro}</p>}
+
+    <section class="mt-8 border border-borda-forte bg-papel p-5 md:p-6" aria-labelledby="link-h">
+      <h2 id="link-h" class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400">Link de assinatura</h2>
+      <p class="mt-2 break-all font-dado text-[0.9375rem] text-tinta" id="link-texto">{link}</p>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <button type="button" data-copiar={link} class="botao-copiar border border-oliva-500 bg-oliva-500 px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300">
+          Copiar link
+        </button>
+        <button type="button" data-copiar={mensagemZap} class="botao-copiar border border-borda-forte px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-tinta hover:border-oliva-300">
+          Copiar mensagem para o WhatsApp
+        </button>
+        <a href={link} target="_blank" rel="noopener" class="border border-borda-forte px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-tinta hover:border-oliva-300">
+          Abrir página
+        </a>
+      </div>
+      <form method="post" class="mt-5 flex items-center gap-4 border-t border-borda pt-4">
+        <input type="hidden" name="acao" value="alternar" />
+        <input type="hidden" name="ativo" value={evento.ativo ? "0" : "1"} />
+        <span class={`font-dado text-[0.75rem] uppercase tracking-[0.08em] ${evento.ativo ? "text-ok-texto" : "text-alerta-texto"}`}>
+          {evento.ativo ? "Aberto para assinaturas" : "Encerrado"}
+        </span>
+        <button type="submit" class="border border-borda-forte px-4 py-2 text-[0.875rem] font-semibold text-texto hover:border-oliva-300">
+          {evento.ativo ? "Encerrar link" : "Reabrir link"}
+        </button>
+      </form>
+    </section>
+
+    <section class="mt-10" aria-labelledby="assin-h">
+      <div class="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 id="assin-h" class="font-display text-2xl font-bold uppercase">
+          Assinaturas <span class="font-dado text-sm font-normal text-texto-2">{assinaturas.length}</span>
+        </h2>
+        {assinaturas.length > 0 && (
+          <a href={`/termos-evento/${evento.id}/exportar.csv`} class="border border-borda-forte px-4 py-2 text-[0.875rem] font-semibold text-texto hover:border-oliva-300">
+            Baixar planilha (CSV)
+          </a>
+        )}
+      </div>
+      {
+        assinaturas.length === 0 ? (
+          <p class="mt-4 text-texto-2">Ninguém assinou ainda.</p>
+        ) : (
+          <div class="mt-4 overflow-x-auto border border-borda bg-papel">
+            <table class="w-full min-w-[56rem] text-left text-[0.875rem]">
+              <thead class="border-b border-borda font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2">
+                <tr>
+                  <th class="px-4 py-3">Nome</th>
+                  <th class="px-4 py-3">E-mail</th>
+                  <th class="px-4 py-3">Telefone</th>
+                  <th class="px-4 py-3">CPF</th>
+                  <th class="px-4 py-3">Nascimento</th>
+                  <th class="px-4 py-3">Equipe</th>
+                  <th class="px-4 py-3">Assinou em</th>
+                  <th class="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-borda">
+                {assinaturas.map((a) => (
+                  <tr>
+                    <td class="px-4 py-3 font-semibold text-tinta">{a.nome}</td>
+                    <td class="px-4 py-3 text-texto">{a.email}</td>
+                    <td class="px-4 py-3 font-dado text-texto">{formatarTelefone(a.telefone)}</td>
+                    <td class="px-4 py-3 font-dado text-texto">{formatarCpf(a.cpf)}</td>
+                    <td class="px-4 py-3 font-dado text-texto">{a.nascimento ? dataBr(a.nascimento) : "-"}</td>
+                    <td class="px-4 py-3 text-texto">{a.equipe || "-"}</td>
+                    <td class="px-4 py-3 font-dado text-texto-2">{dataHoraBr(a.assinado_em)}</td>
+                    <td class="px-4 py-3 text-right">
+                      <a href={`/termos-evento/${evento.id}/assinatura/${a.id}`} class="text-oliva-500 underline">ver / imprimir</a>
+                      <form method="post" class="ml-3 inline" data-confirmar={`Apagar a assinatura de ${a.nome}? Isso não pode ser desfeito.`}>
+                        <input type="hidden" name="acao" value="apagar-assinatura" />
+                        <input type="hidden" name="assinatura" value={a.id} />
+                        <button type="submit" class="text-alerta-texto underline">apagar</button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
+    </section>
+
+    <section class="mt-12" aria-labelledby="ed-h">
+      <h2 id="ed-h" class="font-display text-2xl font-bold uppercase">Dados e texto do termo</h2>
+      {travado && (
+        <p class="mt-3 border border-alerta bg-alerta-bg p-4 text-[0.9375rem] text-alerta-texto">
+          Já existem assinaturas: o texto e os dados do evento ficam travados, para
+          o documento assinado ser sempre o mesmo que a pessoa leu.
+        </p>
+      )}
+      <form method="post" class="mt-4 space-y-5 border border-borda bg-papel p-5 md:p-6">
+        <input type="hidden" name="acao" value="salvar" />
+        <div>
+          <label for="nome" class={ROTULO_CAMPO}>Nome do evento</label>
+          <input id="nome" name="nome" required maxlength="140" value={evento.nome} disabled={travado} class={ENTRADA} />
+        </div>
+        <div class="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label for="data" class={ROTULO_CAMPO}>Data</label>
+            <input id="data" name="data" type="date" value={evento.data_evento ?? ""} disabled={travado} class={ENTRADA} />
+          </div>
+          <div>
+            <label for="horario" class={ROTULO_CAMPO}>Horário</label>
+            <input id="horario" name="horario" maxlength="40" value={evento.horario ?? ""} disabled={travado} class={ENTRADA} />
+          </div>
+          <div>
+            <label for="organizador" class={ROTULO_CAMPO}>Organização</label>
+            <input id="organizador" name="organizador" maxlength="140" value={evento.organizador ?? ""} disabled={travado} class={ENTRADA} />
+          </div>
+        </div>
+        <div>
+          <label for="local" class={ROTULO_CAMPO}>Local</label>
+          <input id="local" name="local" maxlength="200" value={evento.local_evento ?? ""} disabled={travado} class={ENTRADA} />
+        </div>
+        <div>
+          <label for="texto" class={ROTULO_CAMPO}>Texto do termo</label>
+          <textarea id="texto" name="texto" rows="18" required disabled={travado} class={ENTRADA}>{evento.texto}</textarea>
+          <p class={AJUDA_CAMPO}>
+            Linha que começa com <code>## </code> vira título. Separe os parágrafos com uma linha em branco.
+            Para preencher com os dados de quem assina, use <code>{'{{nome}}'}</code>, <code>{'{{cpf}}'}</code>,
+            <code>{'{{nascimento}}'}</code>, <code>{'{{telefone}}'}</code>, <code>{'{{email}}'}</code>, <code>{'{{equipe}}'}</code> e
+            <code>{'{{data_assinatura}}'}</code>.
+            Uma linha só com <code>{'{{so_assinado}}'}</code> separa o fecho do documento: o que vem depois
+            não aparece na tela de assinatura, só no termo assinado (PDF).
+            Este modelo é um rascunho: revise com um advogado antes de usar em evento real.
+          </p>
+        </div>
+        {!travado && (
+          <button type="submit" class="inline-flex items-center border border-oliva-500 bg-oliva-500 px-6 py-3 font-display text-base font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300">
+            Salvar alterações
+          </button>
+        )}
+      </form>
+      <p class="mt-3 font-dado text-[0.6875rem] text-texto-2 break-all">
+        Impressão digital (SHA-256) do texto: {evento.texto_hash}
+      </p>
+
+      {!travado && (
+        <form method="post" class="mt-8" data-confirmar="Apagar este evento e o link dele?">
+          <input type="hidden" name="acao" value="apagar-evento" />
+          <button type="submit" class="text-[0.875rem] text-alerta-texto underline">Apagar evento</button>
+        </form>
+      )}
+    </section>
+  </div>
+</Base>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>(".botao-copiar").forEach((b) => {
+    b.addEventListener("click", async () => {
+      const texto = b.dataset.copiar ?? "";
+      const original = b.textContent;
+      try {
+        await navigator.clipboard.writeText(texto);
+        b.textContent = "Copiado!";
+      } catch {
+        window.prompt("Copie com Ctrl+C:", texto);
+      }
+      setTimeout(() => (b.textContent = original), 1800);
+    });
+  });
+  document.querySelectorAll<HTMLFormElement>("form[data-confirmar]").forEach((f) => {
+    f.addEventListener("submit", (e) => {
+      if (!confirm(f.dataset.confirmar ?? "Confirmar?")) e.preventDefault();
+    });
+  });
+</script>
