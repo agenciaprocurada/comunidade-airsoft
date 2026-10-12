@@ -1,0 +1,219 @@
+---
+/**
+ * Lista de assinaturas de um evento (painel /termos-evento/[id]).
+ *
+ * Uma linha por pessoa, com busca, filtro por equipe e atalho para o
+ * WhatsApp. No celular cada linha vira um cartao.
+ */
+import { ENTRADA } from "../../lib/estilos-form";
+import { dataBr, dataHoraBr, formatarCpf, formatarTelefone } from "../../lib/termo-evento";
+
+interface Assinatura {
+  id: string;
+  nome: string;
+  email: string;
+  telefone: string;
+  cpf: string;
+  nascimento: string | null;
+  equipe: string | null;
+  assinado_em: string;
+}
+interface Props {
+  eventoId: string;
+  /** mais recente primeiro */
+  assinaturas: Assinatura[];
+}
+const { eventoId, assinaturas } = Astro.props;
+
+/* ------------ lista de assinaturas: dados prontos para a tela ------------ */
+const semAcento = (t: string) =>
+  t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+const linhas = assinaturas.map((a, i) => {
+  const [dia, hora] = dataHoraBr(a.assinado_em).split(", ");
+  const tel = formatarTelefone(a.telefone);
+  const cpf = formatarCpf(a.cpf);
+  return {
+    ...a,
+    n: assinaturas.length - i, // 1 = a primeira pessoa que assinou
+    dia,
+    hora,
+    tel,
+    cpf,
+    zap: `https://wa.me/55${a.telefone.replace(/^55/, "")}`,
+    nasc: a.nascimento ? dataBr(a.nascimento) : "",
+    chaveEquipe: a.equipe ? semAcento(a.equipe) : "",
+    // tudo que a busca procura, sem acento e sem caixa; CPF e telefone com e sem pontuação
+    busca: semAcento([a.nome, a.email, a.telefone, tel, a.cpf, cpf, a.equipe ?? ""].join(" ")),
+  };
+});
+
+// "SKULL SHADOWS" e "Skull Shadows" contam como a mesma equipe.
+const equipes = [
+  ...linhas
+    .reduce((m, l) => {
+      if (!l.chaveEquipe) return m;
+      const e = m.get(l.chaveEquipe) ?? { chave: l.chaveEquipe, rotulo: l.equipe as string, n: 0 };
+      e.n++;
+      return m.set(l.chaveEquipe, e);
+    }, new Map<string, { chave: string; rotulo: string; n: number }>())
+    .values(),
+].sort((a, b) => b.n - a.n || a.rotulo.localeCompare(b.rotulo, "pt-BR"));
+const semEquipe = linhas.filter((l) => !l.chaveEquipe).length;
+const GRADE =
+  "md:grid-cols-[2rem_minmax(0,1.5fr)_9.5rem_9.5rem_minmax(0,1fr)_5.5rem_11rem]";
+const CAMPO_BUSCA = ENTRADA.replace("mt-2 ", "");
+---
+
+<section class="mt-10" aria-labelledby="assin-h">
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <h2 id="assin-h" class="font-display text-2xl font-bold uppercase">
+      Assinaturas <span class="font-dado text-sm font-normal text-texto-2">{assinaturas.length}</span>
+    </h2>
+    {assinaturas.length > 0 && (
+      <a href={`/termos-evento/${eventoId}/exportar.csv`} class="inline-flex items-center gap-2 border border-borda-forte px-4 py-2.5 text-[0.875rem] font-semibold text-texto hover:border-oliva-300">
+        Baixar planilha (CSV)
+      </a>
+    )}
+  </div>
+  {
+    assinaturas.length === 0 ? (
+      <p class="mt-4 border border-borda bg-papel p-6 text-texto-2">Ninguém assinou ainda. Mande o link no grupo.</p>
+    ) : (
+      <>
+        <div class="mt-5 flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
+          <label for="busca-assin" class="sr-only">Buscar assinatura</label>
+          <input id="busca-assin" type="search" autocomplete="off" placeholder="Buscar nome, CPF, e-mail ou equipe" class={`${CAMPO_BUSCA} md:max-w-[28rem]`} />
+          <p id="contagem" class="font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2" aria-live="polite">
+            {linhas.length} de {linhas.length}
+          </p>
+        </div>
+
+        {equipes.length > 0 && (
+          <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filtrar por equipe">
+            <button type="button" data-chip="" aria-pressed="true" class="chip border border-borda-forte px-3 py-1.5 text-[0.8125rem] font-semibold text-texto aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
+              Todas <span class="ml-1 font-dado text-[0.75rem] opacity-80">{linhas.length}</span>
+            </button>
+            {equipes.map((e) => (
+              <button type="button" data-chip={e.chave} aria-pressed="false" class="chip border border-borda-forte px-3 py-1.5 text-[0.8125rem] font-semibold text-texto aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
+                {e.rotulo} <span class="ml-1 font-dado text-[0.75rem] opacity-80">{e.n}</span>
+              </button>
+            ))}
+            {semEquipe > 0 && (
+              <button type="button" data-chip="__sem" aria-pressed="false" class="chip border border-dashed border-borda-forte px-3 py-1.5 text-[0.8125rem] text-texto-2 aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
+                Sem equipe <span class="ml-1 font-dado text-[0.75rem] opacity-80">{semEquipe}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        <div class="mt-4 border border-borda bg-papel">
+          <div class={`hidden gap-x-4 border-b border-borda-forte px-4 py-3 font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2 md:grid ${GRADE}`}>
+            <span>#</span>
+            <span>Participante</span>
+            <span>Telefone</span>
+            <span>CPF · Nascimento</span>
+            <span>Equipe</span>
+            <span>Assinou</span>
+            <span class="text-right">Ações</span>
+          </div>
+          <ul id="lista-assin" class="divide-y divide-borda">
+            {linhas.map((a) => (
+              <li data-busca={a.busca} data-equipe={a.chaveEquipe || "__sem"} class="odd:bg-papel even:bg-papel-2/40 hover:bg-papel-2">
+                <div class={`grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-4 md:items-center ${GRADE}`}>
+                  <span class="hidden font-dado text-[0.75rem] text-texto-2 md:block">{a.n}</span>
+
+                  <div class="col-span-2 min-w-0 md:col-span-1">
+                    <p class="break-words text-[1rem] font-semibold leading-snug text-tinta">
+                      <span class="mr-2 font-dado text-[0.75rem] font-normal text-texto-2 md:hidden">#{a.n}</span>{a.nome}
+                    </p>
+                    <p class="mt-0.5 break-all text-[0.8125rem] text-texto-2 md:truncate" title={a.email}>{a.email}</p>
+                  </div>
+
+                  <p class="font-dado text-[0.8125rem] text-texto md:whitespace-nowrap">
+                    <span class="mb-0.5 block text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2 md:hidden">Telefone</span>
+                    <a href={a.zap} target="_blank" rel="noopener" class="text-oliva-300 hover:underline" title="Chamar no WhatsApp">{a.tel}</a>
+                  </p>
+
+                  <div class="font-dado text-[0.8125rem] text-texto">
+                    <p class="md:whitespace-nowrap"><span class="mb-0.5 block text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2 md:hidden">CPF</span>{a.cpf}</p>
+                    <p class="mt-0.5 text-[0.75rem] text-texto-2 md:whitespace-nowrap">{a.nasc ? `nasc. ${a.nasc}` : "—"}</p>
+                  </div>
+
+                  <div class="min-w-0">
+                    <span class="mb-0.5 block font-dado text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2 md:hidden">Equipe</span>
+                    {a.equipe ? (
+                      <span class="inline-block max-w-full truncate border border-borda-forte px-2 py-0.5 align-middle text-[0.8125rem] text-tinta" title={a.equipe}>{a.equipe}</span>
+                    ) : (
+                      <span class="text-[0.8125rem] text-desabilitado">sem equipe</span>
+                    )}
+                  </div>
+
+                  <div class="font-dado leading-tight">
+                    <span class="mb-0.5 block text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2 md:hidden">Assinou</span>
+                    <p class="text-[0.8125rem] text-texto md:whitespace-nowrap">{a.dia}</p>
+                    <p class="mt-0.5 text-[0.75rem] text-texto-2">{a.hora}</p>
+                  </div>
+
+                  <div class="col-span-2 flex items-center gap-3 border-t border-borda pt-3 md:col-span-1 md:justify-end md:border-0 md:pt-0">
+                    <a href={`/termos-evento/${eventoId}/assinatura/${a.id}`} class="whitespace-nowrap border border-borda-forte px-3 py-2 text-[0.8125rem] font-semibold text-texto hover:border-oliva-300">
+                      Abrir termo
+                    </a>
+                    <form method="post" data-confirmar={`Apagar a assinatura de ${a.nome}? Isso não pode ser desfeito.`}>
+                      <input type="hidden" name="acao" value="apagar-assinatura" />
+                      <input type="hidden" name="assinatura" value={a.id} />
+                      <button type="submit" class="whitespace-nowrap px-2 py-2 text-[0.8125rem] text-alerta-texto hover:underline" aria-label={`Apagar assinatura de ${a.nome}`}>Apagar</button>
+                    </form>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p id="lista-vazia" hidden class="px-4 py-8 text-center text-texto-2">Nenhuma assinatura encontrada com esse filtro.</p>
+        </div>
+      </>
+    )
+  }
+</section>
+
+
+<script>
+  // Busca e filtro por equipe da lista de assinaturas (tudo no navegador).
+  const lista = document.getElementById("lista-assin");
+  if (lista) {
+    const busca = document.getElementById("busca-assin") as HTMLInputElement;
+    const contagem = document.getElementById("contagem")!;
+    const vazio = document.getElementById("lista-vazia")!;
+    const itens = [...lista.querySelectorAll<HTMLElement>(":scope > li")];
+    const chips = [...document.querySelectorAll<HTMLButtonElement>(".chip")];
+    let equipeAtiva = "";
+
+    const normalizar = (t: string) =>
+      t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+    function aplicar() {
+      const q = normalizar(busca.value);
+      const qDigitos = q.replace(/\D/g, "");
+      let visiveis = 0;
+      for (const li of itens) {
+        const texto = li.dataset.busca ?? "";
+        const casa = !q || texto.includes(q) || (qDigitos.length >= 3 && texto.replace(/\D/g, "").includes(qDigitos));
+        const naEquipe = !equipeAtiva || li.dataset.equipe === equipeAtiva;
+        const mostrar = casa && naEquipe;
+        li.hidden = !mostrar;
+        if (mostrar) visiveis++;
+      }
+      contagem.textContent = `${visiveis} de ${itens.length}`;
+      vazio.hidden = visiveis > 0;
+    }
+
+    busca.addEventListener("input", aplicar);
+    for (const chip of chips) {
+      chip.addEventListener("click", () => {
+        equipeAtiva = chip.dataset.chip ?? "";
+        chips.forEach((c) => c.setAttribute("aria-pressed", String(c === chip)));
+        aplicar();
+      });
+    }
+  }
+</script>

@@ -139,6 +139,10 @@ alter table public.termos_assinaturas
   add constraint termos_assinaturas_nascimento_check
   check (nascimento is null or (nascimento >= date '1900-01-01' and nascimento <= current_date));
 
+-- Copia EXATA do texto que a pessoa assinou. Assim o termo do evento pode ser
+-- editado depois sem mudar o que quem ja assinou aceitou.
+alter table public.termos_assinaturas add column if not exists texto text;
+
 create index if not exists termos_assinaturas_evento_idx
   on public.termos_assinaturas (evento_id, assinado_em desc);
 
@@ -158,17 +162,12 @@ as $$
 begin
   new.texto_hash := encode(sha256(convert_to(new.texto, 'UTF8')), 'hex');
 
-  if tg_op = 'UPDATE' and exists (
+  -- O texto pode ser editado (cada assinatura guarda a copia que foi assinada).
+  -- So o codigo do link nao muda depois que alguem assinou.
+  if tg_op = 'UPDATE' and new.codigo is distinct from old.codigo and exists (
     select 1 from public.termos_assinaturas where evento_id = old.id
   ) then
-    if new.texto is distinct from old.texto
-       or new.nome is distinct from old.nome
-       or new.data_evento is distinct from old.data_evento
-       or new.local_evento is distinct from old.local_evento
-       or new.organizador is distinct from old.organizador
-       or new.codigo is distinct from old.codigo then
-      raise exception 'termo ja assinado: nao e possivel alterar o texto nem os dados do evento';
-    end if;
+    raise exception 'o link do evento nao pode mudar depois de assinado';
   end if;
 
   return new;
@@ -186,6 +185,11 @@ returns trigger
 language plpgsql
 as $$
 begin
+  -- Unica mudanca aceita: preencher a copia do texto de uma assinatura antiga.
+  if old.texto is null and new.texto is not null
+     and (to_jsonb(old) - 'texto') = (to_jsonb(new) - 'texto') then
+    return new;
+  end if;
   raise exception 'assinatura registrada nao pode ser alterada';
 end;
 $$;
@@ -194,6 +198,13 @@ drop trigger if exists termos_assinaturas_imutavel on public.termos_assinaturas;
 create trigger termos_assinaturas_imutavel
   before update on public.termos_assinaturas
   for each row execute function public.termos_assinaturas_imutavel();
+
+-- Assinaturas anteriores a esta versao: a copia e o texto do evento de hoje
+-- (que ainda era imutavel quando elas foram feitas).
+update public.termos_assinaturas a
+   set texto = e.texto
+  from public.termos_eventos e
+ where e.id = a.evento_id and a.texto is null;
 
 -- ------------------------------------------------------------
 -- RLS: so o dono
@@ -303,11 +314,11 @@ begin
 
   begin
     insert into public.termos_assinaturas
-      (evento_id, nome, email, telefone, cpf, nascimento, equipe, assinatura, texto_hash, ip, user_agent)
+      (evento_id, nome, email, telefone, cpf, nascimento, equipe, assinatura, texto_hash, texto, ip, user_agent)
     values
       (e.id, btrim(p_nome), btrim(lower(p_email)), v_tel, v_cpf, p_nascimento,
        nullif(btrim(p_equipe), ''), p_assinatura,
-       e.texto_hash, left(p_ip, 64), left(p_user_agent, 400))
+       e.texto_hash, e.texto, left(p_ip, 64), left(p_user_agent, 400))
     returning token into v_token;
   exception
     when check_violation then
@@ -335,8 +346,8 @@ as $$
       'horario', e.horario,
       'local_evento', e.local_evento,
       'organizador', e.organizador,
-      'texto', e.texto,
-      'texto_hash', e.texto_hash
+      'texto', coalesce(a.texto, e.texto),
+      'texto_hash', a.texto_hash
     ),
     'assinatura', jsonb_build_object(
       'nome', a.nome,

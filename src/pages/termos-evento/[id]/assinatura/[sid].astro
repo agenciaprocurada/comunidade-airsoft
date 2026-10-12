@@ -1,4 +1,5 @@
 ---
+import { createHash } from "node:crypto";
 import Base from "../../../../layouts/Base.astro";
 import { blocosDoTermo, dataBr, dataHoraBr, formatarCpf, formatarTelefone } from "../../../../lib/termo-evento";
 import { dividirTermo, preencherTermo } from "../../../../lib/termo-variaveis";
@@ -22,7 +23,7 @@ const { data: evento } = await supabase
   .maybeSingle();
 const { data: a } = await supabase
   .from("termos_assinaturas")
-  .select("nome, email, telefone, cpf, nascimento, equipe, assinatura, texto_hash, ip, user_agent, assinado_em")
+  .select("nome, email, telefone, cpf, nascimento, equipe, assinatura, texto, texto_hash, ip, user_agent, assinado_em")
   .eq("id", sid)
   .eq("evento_id", id)
   .maybeSingle();
@@ -37,10 +38,12 @@ const dadosTermo = {
   equipe: a.equipe,
   assinadoEm: a.assinado_em,
 };
-const partes = dividirTermo(evento.texto as string);
+// O que a pessoa assinou: a copia guardada na assinatura (o texto do evento pode ter mudado).
+const textoAssinado = (a.texto as string | null) ?? (evento.texto as string);
+const partes = dividirTermo(textoAssinado);
 const blocos = blocosDoTermo(preencherTermo(partes.tela, dadosTermo));
 const blocosFecho = blocosDoTermo(preencherTermo(partes.depois, dadosTermo));
-const confere = a.texto_hash === evento.texto_hash;
+const confere = createHash("sha256").update(textoAssinado, "utf8").digest("hex") === a.texto_hash;
 ---
 
 <Base
@@ -106,7 +109,7 @@ const confere = a.texto_hash === evento.texto_hash;
       <p>IP: {a.ip ?? "não registrado"}</p>
       <p>Navegador: {a.user_agent ?? "não registrado"}</p>
       <p>SHA-256 do texto aceito: {a.texto_hash}</p>
-      <p>{confere ? "O texto do evento é idêntico ao texto aceito nesta assinatura." : "ATENÇÃO: o texto atual do evento difere do texto aceito nesta assinatura."}</p>
+      <p>{confere ? "O texto acima confere com a impressão digital registrada no momento da assinatura." : "ATENÇÃO: o texto guardado não confere com a impressão digital desta assinatura."}</p>
     </section>
   </article>
 </Base>

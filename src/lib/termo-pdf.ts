@@ -6,6 +6,7 @@
  * caractere fora dessa tabela vira "?" em vez de derrubar o arquivo.
  */
 
+import { createHash } from "node:crypto";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { blocosDoTermo, dataBr, dataHoraBr, formatarCpf, formatarTelefone } from "./termo-evento";
 import { dividirTermo, preencherTermo } from "./termo-variaveis";
@@ -199,9 +200,9 @@ export async function gerarPdfTermoAssinado(d: DadosTermoAssinado): Promise<Uint
   escrever(`Navegador: ${a.user_agent ?? "nao registrado"}`, { tam: 8, cor: COR_SUAVE, entre: 11 });
   escrever(`SHA-256 do texto aceito: ${a.texto_hash}`, { tam: 8, cor: COR_SUAVE, entre: 11 });
   escrever(
-    a.texto_hash === d.evento.texto_hash
-      ? "O texto acima e identico ao texto aceito nesta assinatura."
-      : "ATENCAO: o texto atual do evento difere do texto aceito nesta assinatura.",
+    createHash("sha256").update(d.evento.texto, "utf8").digest("hex") === a.texto_hash
+      ? "O texto acima confere com a impressao digital registrada na assinatura."
+      : "ATENCAO: o texto guardado nao confere com a impressao digital desta assinatura.",
     { tam: 8, cor: COR_SUAVE, entre: 11 },
   );
 
