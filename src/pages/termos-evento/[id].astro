@@ -2,7 +2,7 @@
 import Base from "../../layouts/Base.astro";
 import ListaAssinaturas from "../../components/termos/ListaAssinaturas.astro";
 import { AJUDA_CAMPO, ENTRADA, ROTULO_CAMPO } from "../../lib/estilos-form";
-import { dataBr } from "../../lib/termo-evento";
+import { dataBr, gerarTokenLista } from "../../lib/termo-evento";
 
 export const prerender = false;
 
@@ -22,6 +22,7 @@ interface Evento {
   texto: string;
   texto_hash: string;
   ativo: boolean;
+  token_lista: string | null;
   criado_em: string;
 }
 interface Assinatura {
@@ -67,6 +68,14 @@ if (Astro.request.method === "POST") {
     if (error) {
       erro = "Não foi possível salvar. Confira os campos (o texto precisa ter pelo menos 100 letras).";
     } else aviso = "Alterações salvas.";
+  } else if (acao === "lista-gerar") {
+    const { error } = await supabase.from("termos_eventos").update({ token_lista: gerarTokenLista() }).eq("id", id);
+    if (error) erro = "Não foi possível gerar o link da lista.";
+    else aviso = "Link da lista gerado. Quem tinha o link antigo perdeu o acesso.";
+  } else if (acao === "lista-desligar") {
+    const { error } = await supabase.from("termos_eventos").update({ token_lista: null }).eq("id", id);
+    if (error) erro = "Não foi possível desligar o link da lista.";
+    else aviso = "Link da lista desligado.";
   } else if (acao === "apagar-assinatura") {
     const { error } = await supabase.from("termos_assinaturas").delete().eq("id", t("assinatura")).eq("evento_id", id);
     if (error) erro = "Não foi possível apagar a assinatura.";
@@ -148,6 +157,47 @@ const novo = Astro.url.searchParams.get("novo") === "1";
           {evento.ativo ? "Encerrar link" : "Reabrir link"}
         </button>
       </form>
+    </section>
+
+    <section class="mt-10 border border-borda bg-papel p-5 md:p-6" aria-labelledby="lista-link-h">
+      <h2 id="lista-link-h" class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400">
+        Compartilhar a lista (somente leitura)
+      </h2>
+      <p class="mt-2 max-w-[62ch] text-[0.9375rem] leading-relaxed text-texto-2">
+        Link para uma pessoa de fora ver <strong class="text-texto">só o nome e a equipe</strong> de quem assinou.
+        Sem login. CPF, telefone, e-mail e assinatura não aparecem.
+      </p>
+      {
+        evento.token_lista ? (
+          <>
+            <p class="mt-4 break-all font-dado text-[0.9375rem] text-tinta">{`${Astro.url.origin}/participantes/${evento.token_lista}`}</p>
+            <div class="mt-4 flex flex-wrap items-center gap-3">
+              <button type="button" data-copiar={`${Astro.url.origin}/participantes/${evento.token_lista}`} class="botao-copiar border border-oliva-500 bg-oliva-500 px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300">
+                Copiar link
+              </button>
+              <a href={`/participantes/${evento.token_lista}`} target="_blank" rel="noopener" class="border border-borda-forte px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-tinta hover:border-oliva-300">
+                Ver como a pessoa vê
+              </a>
+              <form method="post" data-confirmar="Gerar um novo link? O link atual deixa de funcionar.">
+                <input type="hidden" name="acao" value="lista-gerar" />
+                <button type="submit" class="px-3 py-2.5 text-[0.875rem] text-texto-2 underline hover:text-texto">Trocar link</button>
+              </form>
+              <form method="post" data-confirmar="Desligar o link? Quem o recebeu deixa de ter acesso.">
+                <input type="hidden" name="acao" value="lista-desligar" />
+                <button type="submit" class="px-3 py-2.5 text-[0.875rem] text-alerta-texto underline">Desligar</button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <form method="post" class="mt-4">
+            <input type="hidden" name="acao" value="lista-gerar" />
+            <button type="submit" class="border border-oliva-500 bg-oliva-500 px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300">
+              Gerar link da lista
+            </button>
+            <span class="ml-3 text-[0.8125rem] text-texto-2">Desligado no momento.</span>
+          </form>
+        )
+      }
     </section>
 
     <ListaAssinaturas eventoId={evento.id} assinaturas={assinaturas} />

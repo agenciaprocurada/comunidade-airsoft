@@ -374,3 +374,47 @@ revoke all on function public.termo_assinado(text, text) from public;
 grant execute on function public.termo_publico(text) to anon, authenticated;
 grant execute on function public.termo_assinar(text, text, text, text, text, date, text, text, text, text) to anon, authenticated;
 grant execute on function public.termo_assinado(text, text) to anon, authenticated;
+
+-- ------------------------------------------------------------
+-- Link de consulta da lista de participantes (somente leitura, sem login)
+--
+-- O dono liga/desliga/troca o link no painel (token_lista; null = desligado).
+-- A funcao publica devolve SO nome e equipe de quem assinou: CPF, telefone,
+-- e-mail, nascimento e assinatura nunca saem por aqui.
+-- ------------------------------------------------------------
+
+alter table public.termos_eventos add column if not exists token_lista text;
+alter table public.termos_eventos drop constraint if exists termos_eventos_token_lista_check;
+alter table public.termos_eventos
+  add constraint termos_eventos_token_lista_check check (token_lista is null or token_lista ~ '^[0-9a-f]{32}$');
+create unique index if not exists termos_eventos_token_lista_idx
+  on public.termos_eventos (token_lista) where token_lista is not null;
+
+create or replace function public.termo_lista_publica(p_token text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'evento', jsonb_build_object(
+      'nome', e.nome,
+      'data_evento', e.data_evento,
+      'horario', e.horario,
+      'local_evento', e.local_evento,
+      'organizador', e.organizador
+    ),
+    'participantes', coalesce((
+      select jsonb_agg(jsonb_build_object('nome', a.nome, 'equipe', a.equipe) order by lower(a.nome))
+      from public.termos_assinaturas a
+      where a.evento_id = e.id
+    ), '[]'::jsonb),
+    'atualizado_em', now()
+  )
+  from public.termos_eventos e
+  where e.token_lista = lower(p_token);
+$$;
+
+revoke all on function public.termo_lista_publica(text) from public;
+grant execute on function public.termo_lista_publica(text) to anon, authenticated;

@@ -1,0 +1,174 @@
+---
+import Base from "../../layouts/Base.astro";
+import { ENTRADA } from "../../lib/estilos-form";
+import { dataBr, dataHoraBr } from "../../lib/termo-evento";
+
+export const prerender = false;
+
+/**
+ * Lista de participantes — SOMENTE LEITURA, sem login.
+ *
+ * Quem tem o link (32 caracteres secretos) ve nome e equipe de quem
+ * assinou o termo do evento. CPF, telefone, e-mail e assinatura NUNCA
+ * saem daqui: a funcao do banco (`termo_lista_publica`) so devolve esses
+ * dois campos. O dono liga, desliga e troca o link no painel.
+ */
+const { token } = Astro.params;
+if (!/^[0-9a-f]{32}$/.test((token ?? "").toLowerCase())) return Astro.rewrite("/404");
+
+interface Participante {
+  nome: string;
+  equipe: string | null;
+}
+interface Lista {
+  evento: {
+    nome: string;
+    data_evento: string | null;
+    horario: string | null;
+    local_evento: string | null;
+    organizador: string | null;
+  };
+  participantes: Participante[];
+  atualizado_em: string;
+}
+
+const { data } = await Astro.locals.supabase.rpc("termo_lista_publica", { p_token: token!.toLowerCase() });
+const lista = (data as Lista | null) ?? null;
+if (!lista) return Astro.rewrite("/404");
+
+const { evento, participantes } = lista;
+const resumo = [evento.data_evento && dataBr(evento.data_evento), evento.horario, evento.local_evento, evento.organizador]
+  .filter(Boolean)
+  .join(" · ");
+
+const semAcento = (t: string) =>
+  t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+const linhas = participantes.map((p, i) => ({
+  n: i + 1,
+  nome: p.nome,
+  equipe: p.equipe,
+  chave: p.equipe ? semAcento(p.equipe) : "",
+  busca: semAcento(`${p.nome} ${p.equipe ?? ""}`),
+}));
+
+// "SKULL SHADOWS" e "Skull Shadows" contam como a mesma equipe.
+const equipes = [
+  ...linhas
+    .reduce((m, l) => {
+      if (!l.chave) return m;
+      const e = m.get(l.chave) ?? { chave: l.chave, rotulo: l.equipe as string, n: 0 };
+      e.n++;
+      return m.set(l.chave, e);
+    }, new Map<string, { chave: string; rotulo: string; n: number }>())
+    .values(),
+].sort((a, b) => b.n - a.n || a.rotulo.localeCompare(b.rotulo, "pt-BR"));
+const semEquipe = linhas.filter((l) => !l.chave).length;
+const CAMPO = ENTRADA.replace("mt-2 ", "").replace("text-[0.9375rem]", "text-base");
+---
+
+<Base
+  titulo={`Participantes — ${evento.nome}`}
+  descricao="Lista de participantes do evento."
+  semIndexar={true}
+  semConviteWhatsApp={true}
+>
+  <div class="mx-auto max-w-[44rem] px-5 py-10 md:py-14">
+    <p class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400">Lista de participantes</p>
+    <h1 class="mt-2 font-display text-3xl font-extrabold uppercase leading-[0.98] md:text-4xl">{evento.nome}</h1>
+    {resumo && <p class="mt-3 text-[0.9375rem] text-texto-2">{resumo}</p>}
+
+    <p class="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <span class="font-display text-5xl font-bold text-tinta">{linhas.length}</span>
+      <span class="text-[0.9375rem] text-texto-2">{linhas.length === 1 ? "pessoa assinou o termo" : "pessoas assinaram o termo"}</span>
+    </p>
+
+    {
+      linhas.length === 0 ? (
+        <p class="mt-6 border border-borda bg-papel p-6 text-texto-2">Ninguém assinou ainda.</p>
+      ) : (
+        <>
+          <div class="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <label for="busca" class="sr-only">Buscar participante</label>
+            <input id="busca" type="search" autocomplete="off" placeholder="Buscar nome ou equipe" class={`${CAMPO} sm:max-w-[20rem]`} />
+            <p id="contagem" class="font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2" aria-live="polite">
+              {linhas.length} de {linhas.length}
+            </p>
+          </div>
+
+          {equipes.length > 0 && (
+            <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filtrar por equipe">
+              <button type="button" data-chip="" aria-pressed="true" class="chip border border-borda-forte px-3 py-1.5 text-[0.8125rem] font-semibold text-texto aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
+                Todas <span class="ml-1 font-dado text-[0.75rem] opacity-80">{linhas.length}</span>
+              </button>
+              {equipes.map((e) => (
+                <button type="button" data-chip={e.chave} aria-pressed="false" class="chip border border-borda-forte px-3 py-1.5 text-[0.8125rem] font-semibold text-texto aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
+                  {e.rotulo} <span class="ml-1 font-dado text-[0.75rem] opacity-80">{e.n}</span>
+                </button>
+              ))}
+              {semEquipe > 0 && (
+                <button type="button" data-chip="__sem" aria-pressed="false" class="chip border border-dashed border-borda-forte px-3 py-1.5 text-[0.8125rem] text-texto-2 aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
+                  Sem equipe <span class="ml-1 font-dado text-[0.75rem] opacity-80">{semEquipe}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          <ol id="lista" class="mt-5 divide-y divide-borda border border-borda bg-papel">
+            {linhas.map((l) => (
+              <li data-busca={l.busca} data-equipe={l.chave || "__sem"}>
+                <div class="flex items-center gap-3 px-4 py-3.5">
+                  <span class="w-7 shrink-0 font-dado text-[0.75rem] text-texto-2">{l.n}</span>
+                  <span class="min-w-0 flex-1 break-words text-[1rem] font-semibold leading-snug text-tinta">{l.nome}</span>
+                  {l.equipe && (
+                    <span class="max-w-[45%] shrink-0 truncate border border-borda-forte px-2 py-0.5 text-[0.8125rem] text-texto" title={l.equipe}>
+                      {l.equipe}
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+          <p id="vazio" hidden class="mt-4 text-center text-texto-2">Ninguém encontrado com esse filtro.</p>
+        </>
+      )
+    }
+
+    <p class="mt-8 text-[0.8125rem] leading-snug text-texto-2">
+      Atualizada em {dataHoraBr(lista.atualizado_em)}. Recarregue a página para ver novas assinaturas.
+    </p>
+  </div>
+</Base>
+
+<script>
+  const ol = document.getElementById("lista");
+  if (ol) {
+    const busca = document.getElementById("busca") as HTMLInputElement;
+    const contagem = document.getElementById("contagem")!;
+    const vazio = document.getElementById("vazio")!;
+    const itens = [...ol.querySelectorAll<HTMLElement>(":scope > li")];
+    const chips = [...document.querySelectorAll<HTMLButtonElement>(".chip")];
+    let equipeAtiva = "";
+    const norm = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+    function aplicar() {
+      const q = norm(busca.value);
+      let visiveis = 0;
+      for (const li of itens) {
+        const mostrar = (!q || (li.dataset.busca ?? "").includes(q)) && (!equipeAtiva || li.dataset.equipe === equipeAtiva);
+        li.hidden = !mostrar;
+        if (mostrar) visiveis++;
+      }
+      contagem.textContent = `${visiveis} de ${itens.length}`;
+      vazio.hidden = visiveis > 0;
+    }
+    busca.addEventListener("input", aplicar);
+    for (const chip of chips) {
+      chip.addEventListener("click", () => {
+        equipeAtiva = chip.dataset.chip ?? "";
+        chips.forEach((c) => c.setAttribute("aria-pressed", String(c === chip)));
+        aplicar();
+      });
+    }
+  }
+</script>

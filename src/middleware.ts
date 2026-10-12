@@ -27,7 +27,7 @@ const PROTEGIDAS = ["/conta", "/reivindicar", "/armeiros/cadastrar", "/mapa"];
 const SO_DONO_TERMOS = ["/termos-evento"];
 
 /** Paginas com dado pessoal: nunca ficam em cache de CDN ou do navegador. */
-const SEM_CACHE = ["/termos-evento", "/assinar"];
+const SEM_CACHE = ["/termos-evento", "/assinar", "/participantes"];
 
 /** Dentro de /conta, o que so administrador abre. */
 const SO_ADMIN = ["/conta/admin"];

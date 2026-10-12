@@ -25,6 +25,13 @@ export function gerarCodigo(tamanho = 10): string {
 
 export const CODIGO_VALIDO = /^[a-z0-9]{8,16}$/;
 
+/** 32 caracteres hexadecimais (128 bits): codigo secreto do link de consulta. */
+export function gerarTokenLista(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 /* ------------------------------ validacoes -------------------------------- */
 
 export function soDigitos(valor: string): string {
