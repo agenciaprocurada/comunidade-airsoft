@@ -23,6 +23,8 @@ interface Evento {
   texto_hash: string;
   ativo: boolean;
   token_lista: string | null;
+  gestao_token: string | null;
+  vagas: number | null;
   criado_em: string;
 }
 interface Assinatura {
@@ -68,6 +70,14 @@ if (Astro.request.method === "POST") {
     if (error) {
       erro = "Não foi possível salvar. Confira os campos (o texto precisa ter pelo menos 100 letras).";
     } else aviso = "Alterações salvas.";
+  } else if (acao === "gestao-configurar") {
+    const { error } = await supabase.rpc("gestao_configurar", { p_evento: id, p_pin: String(f.get("pin") ?? "") });
+    if (error) erro = "Não foi possível salvar. A senha precisa ter de 6 a 40 caracteres.";
+    else aviso = "Gestão ligada. Mande o link e a senha só para quem vai controlar a lista.";
+  } else if (acao === "gestao-desligar") {
+    const { error } = await supabase.rpc("gestao_desligar", { p_evento: id });
+    if (error) erro = "Não foi possível desligar a gestão.";
+    else aviso = "Gestão desligada. O link e a senha deixaram de funcionar.";
   } else if (acao === "lista-gerar") {
     const { error } = await supabase.from("termos_eventos").update({ token_lista: gerarTokenLista() }).eq("id", id);
     if (error) erro = "Não foi possível gerar o link da lista.";
@@ -195,6 +205,55 @@ const novo = Astro.url.searchParams.get("novo") === "1";
               Gerar link da lista
             </button>
             <span class="ml-3 text-[0.8125rem] text-texto-2">Desligado no momento.</span>
+          </form>
+        )
+      }
+    </section>
+
+    <section class="mt-6 border border-borda bg-papel p-5 md:p-6" aria-labelledby="gestao-h">
+      <h2 id="gestao-h" class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400">
+        Gestão da lista de inscritos (editável)
+      </h2>
+      <p class="mt-2 max-w-[62ch] text-[0.9375rem] leading-relaxed text-texto-2">
+        Link <strong class="text-texto">com senha</strong> para quem vai controlar a lista: marcar quem pagou,
+        ver quem assinou o termo, adicionar e remover inscritos. Quem tem o link e a senha altera tudo.
+      </p>
+      {
+        evento.gestao_token ? (
+          <>
+            <p class="mt-4 break-all font-dado text-[0.9375rem] text-tinta">{`${Astro.url.origin}/gestao/${evento.gestao_token}`}</p>
+            <div class="mt-4 flex flex-wrap items-center gap-3">
+              <button type="button" data-copiar={`${Astro.url.origin}/gestao/${evento.gestao_token}`} class="botao-copiar border border-oliva-500 bg-oliva-500 px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300">
+                Copiar link
+              </button>
+              <a href={`/gestao/${evento.gestao_token}`} target="_blank" rel="noopener" class="border border-borda-forte px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-tinta hover:border-oliva-300">
+                Abrir gestão
+              </a>
+              <form method="post" data-confirmar="Desligar a gestão? O link e a senha deixam de funcionar.">
+                <input type="hidden" name="acao" value="gestao-desligar" />
+                <button type="submit" class="px-3 py-2.5 text-[0.875rem] text-alerta-texto underline">Desligar</button>
+              </form>
+            </div>
+            <form method="post" class="mt-5 flex flex-wrap items-end gap-3 border-t border-borda pt-4">
+              <input type="hidden" name="acao" value="gestao-configurar" />
+              <div>
+                <label for="pin-novo" class={ROTULO_CAMPO}>Trocar a senha</label>
+                <input id="pin-novo" name="pin" type="text" minlength="6" maxlength="40" required autocomplete="off" placeholder="mínimo 6 caracteres" class={ENTRADA} />
+              </div>
+              <button type="submit" class="border border-borda-forte px-4 py-2.5 text-[0.875rem] font-semibold text-texto hover:border-oliva-300">Salvar senha</button>
+            </form>
+            <p class="mt-2 text-[0.8125rem] text-texto-2">Trocar a senha desconecta quem estava dentro. O link continua o mesmo.</p>
+          </>
+        ) : (
+          <form method="post" class="mt-4 flex flex-wrap items-end gap-3">
+            <input type="hidden" name="acao" value="gestao-configurar" />
+            <div>
+              <label for="pin-novo" class={ROTULO_CAMPO}>Defina a senha</label>
+              <input id="pin-novo" name="pin" type="text" minlength="6" maxlength="40" required autocomplete="off" placeholder="mínimo 6 caracteres" class={ENTRADA} />
+            </div>
+            <button type="submit" class="border border-oliva-500 bg-oliva-500 px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300">
+              Ligar gestão e gerar link
+            </button>
           </form>
         )
       }

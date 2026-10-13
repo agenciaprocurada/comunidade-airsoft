@@ -1,0 +1,583 @@
+---
+import Base from "../../layouts/Base.astro";
+import { ENTRADA, ERRO_CAMPO, ROTULO_CAMPO } from "../../lib/estilos-form";
+import { dataBr, dataHoraBr } from "../../lib/termo-evento";
+
+export const prerender = false;
+
+/**
+ * Gestão da lista de inscritos do evento: quem pagou, quem assinou o
+ * termo, adicionar e remover. Acesso por LINK + SENHA (sem conta).
+ *
+ * O link (32 caracteres secretos) sozinho não abre nada: pede a senha, que
+ * o dono define no painel. A senha vira uma sessão de 12 h guardada em
+ * cookie httpOnly. Pelo banco (db/schema-termos-gestao.sql) só passam nome
+ * e equipe das assinaturas — nunca CPF, telefone, e-mail ou a imagem.
+ */
+const { token: tokenBruto } = Astro.params;
+const token = (tokenBruto ?? "").toLowerCase();
+if (!/^[0-9a-f]{32}$/.test(token)) return Astro.rewrite("/404");
+
+const { supabase } = Astro.locals;
+const BASE_URL = `/gestao/${token}`;
+const COOKIE = "gestao_sessao";
+const sessao = Astro.cookies.get(COOKIE)?.value ?? "";
+
+const MENSAGENS: Record<string, string> = {
+  salvo: "Inscrito salvo.",
+  removido: "Inscrito removido.",
+  ligado: "Assinatura ligada ao inscrito.",
+  desligado: "Ligação com a assinatura desfeita.",
+};
+const ERROS: Record<string, string> = {
+  nome: "Informe o nome (até 80 letras).",
+  lado: "Escolha o lado do inscrito.",
+  dados: "Algum campo passou do tamanho permitido.",
+  ja_ligada: "Essa assinatura já está ligada a outro inscrito.",
+  assinatura: "Escolha uma assinatura da lista.",
+  nao_encontrado: "Esse inscrito não existe mais (alguém pode ter removido).",
+};
+
+let erroPin = "";
+const ok = Astro.url.searchParams.get("ok") ?? "";
+let erroAcao = Astro.url.searchParams.get("erro") ?? "";
+
+function limparCookie() {
+  Astro.cookies.delete(COOKIE, { path: BASE_URL });
+}
+
+if (Astro.request.method === "POST") {
+  const f = await Astro.request.formData();
+  const t = (k: string) => String(f.get(k) ?? "").trim();
+  const acao = t("acao");
+
+  if (acao === "entrar") {
+    const { data } = await supabase.rpc("gestao_entrar", { p_token: token, p_pin: String(f.get("pin") ?? "") });
+    const r = (data as { ok?: boolean; sessao?: string; motivo?: string; espera_s?: number; restantes?: number } | null) ?? {};
+    if (r.ok && r.sessao) {
+      Astro.cookies.set(COOKIE, r.sessao, {
+        path: BASE_URL,
+        httpOnly: true,
+        sameSite: "lax",
+        secure: !import.meta.env.DEV,
+        maxAge: 12 * 60 * 60,
+      });
+      return Astro.redirect(BASE_URL, 303);
+    }
+    erroPin =
+      r.motivo === "bloqueado"
+        ? `Muitas tentativas. Tente de novo em ${Math.ceil((r.espera_s ?? 900) / 60)} minutos.`
+        : r.motivo === "invalido" && r.restantes !== undefined
+          ? `Senha incorreta. Restam ${r.restantes} tentativas antes do bloqueio.`
+          : "Link ou senha inválidos.";
+  } else if (acao === "sair") {
+    limparCookie();
+    return Astro.redirect(BASE_URL, 303);
+  } else if (sessao) {
+    const volta = (msg: string, id?: string) =>
+      Astro.redirect(`${BASE_URL}?${msg}${id ? `#linha-${id}` : ""}`, 303);
+    const respostaDe = (d: unknown) => (d as { ok?: boolean; erro?: string; id?: string } | null) ?? {};
+
+    if (acao === "salvar") {
+      const id = t("id");
+      const { data } = await supabase.rpc("gestao_inscrito_salvar", {
+        p_sessao: sessao,
+        p_id: id || null,
+        p_nome: t("nome"),
+        p_equipe: t("equipe"),
+        p_lado: t("lado"),
+        p_pago: f.get("pago") === "on",
+        p_obs: t("obs"),
+      });
+      const r = respostaDe(data);
+      if (r.erro === "sessao") {
+        limparCookie();
+        return Astro.redirect(BASE_URL, 303);
+      }
+      if (r.ok) return volta("ok=salvo", r.id);
+      erroAcao = r.erro ?? "dados";
+    } else if (acao === "vincular") {
+      const id = t("id");
+      const assinatura = t("assinatura_id");
+      const { data } = await supabase.rpc("gestao_vincular", {
+        p_sessao: sessao,
+        p_id: id,
+        p_assinatura_id: assinatura || null,
+      });
+      const r = respostaDe(data);
+      if (r.erro === "sessao") {
+        limparCookie();
+        return Astro.redirect(BASE_URL, 303);
+      }
+      if (r.ok) return volta(assinatura ? "ok=ligado" : "ok=desligado", id);
+      erroAcao = r.erro ?? "dados";
+    } else if (acao === "remover") {
+      const { data } = await supabase.rpc("gestao_remover", { p_sessao: sessao, p_id: t("id") });
+      const r = respostaDe(data);
+      if (r.erro === "sessao") {
+        limparCookie();
+        return Astro.redirect(BASE_URL, 303);
+      }
+      if (r.ok) return volta("ok=removido");
+      erroAcao = r.erro ?? "dados";
+    }
+  }
+}
+
+interface Inscrito {
+  id: string;
+  lado: "PMC/VIETCONG" | "MILITAR" | "RESERVA";
+  ordem: number;
+  nome: string;
+  equipe: string | null;
+  pago: boolean;
+  obs: string | null;
+  assinatura_id: string | null;
+  assinou_nome: string | null;
+  assinou_equipe: string | null;
+  assinou_em: string | null;
+}
+interface Livre {
+  id: string;
+  nome: string;
+  equipe: string | null;
+  assinado_em: string;
+}
+interface Dados {
+  evento: { nome: string; data_evento: string | null; horario: string | null; local_evento: string | null; vagas: number | null };
+  inscritos: Inscrito[];
+  livres: Livre[];
+}
+
+let dados: Dados | null = null;
+if (sessao) {
+  const { data } = await supabase.rpc("gestao_dados", { p_sessao: sessao });
+  dados = (data as Dados | null) ?? null;
+  if (!dados) limparCookie(); // sessão expirada ou link desligado
+}
+
+const semAcento = (t: string) =>
+  t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+const LADOS = [
+  { valor: "PMC/VIETCONG", rotulo: "PMC / Vietcong" },
+  { valor: "MILITAR", rotulo: "Militar" },
+  { valor: "RESERVA", rotulo: "Reservas" },
+] as const;
+
+const inscritos = dados?.inscritos ?? [];
+const contar = (fn: (i: Inscrito) => boolean) => inscritos.filter(fn).length;
+const resumo = {
+  titulares: contar((i) => i.lado !== "RESERVA"),
+  pagos: contar((i) => i.pago),
+  assinados: contar((i) => !!i.assinatura_id),
+  completos: contar((i) => i.pago && !!i.assinatura_id),
+};
+const vagas = dados?.evento.vagas ?? null;
+const detalhes = dados
+  ? [dados.evento.data_evento && dataBr(dados.evento.data_evento), dados.evento.horario, dados.evento.local_evento]
+      .filter(Boolean)
+      .join(" · ")
+  : "";
+const CAMPO = ENTRADA.replace("mt-2 ", "mt-1.5 ").replace("text-[0.9375rem]", "text-base");
+const GRADE = "md:grid-cols-[2.25rem_minmax(0,1.6fr)_7.5rem_12rem_9rem]";
+---
+
+<Base
+  titulo={dados ? `Gestão — ${dados.evento.nome}` : "Gestão da lista"}
+  descricao="Gestão da lista de inscritos do evento."
+  semIndexar={true}
+  semConviteWhatsApp={true}
+>
+  {
+    !dados ? (
+      <div class="mx-auto max-w-[26rem] px-5 py-14 md:py-20">
+        <p class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400">Acesso restrito</p>
+        <h1 class="mt-2 font-display text-3xl font-extrabold uppercase leading-[0.98]">Gestão da lista</h1>
+        <p class="mt-3 text-[0.9375rem] leading-relaxed text-texto-2">
+          Digite a senha que você recebeu junto com este link.
+        </p>
+        <form method="post" class="mt-6 space-y-4">
+          <input type="hidden" name="acao" value="entrar" />
+          <div>
+            <label for="pin" class={ROTULO_CAMPO}>Senha</label>
+            <input id="pin" name="pin" type="password" required autocomplete="current-password" class={CAMPO} />
+            {erroPin && <p class={ERRO_CAMPO} role="alert">{erroPin}</p>}
+          </div>
+          <button type="submit" class="inline-flex min-h-[3.25rem] w-full items-center justify-center border border-oliva-500 bg-oliva-500 px-6 py-3 font-display text-[1.0625rem] font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300">
+            Entrar
+          </button>
+        </form>
+      </div>
+    ) : (
+      <div class="mx-auto max-w-[72rem] px-5 py-8 md:px-10 md:py-12">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p class="font-dado text-[11px] uppercase tracking-[0.18em] text-oliva-400">Gestão da lista</p>
+            <h1 class="mt-2 font-display text-3xl font-extrabold uppercase leading-[0.98] md:text-4xl">{dados.evento.nome}</h1>
+            {detalhes && <p class="mt-2 text-[0.9375rem] text-texto-2">{detalhes}</p>}
+          </div>
+          <form method="post">
+            <input type="hidden" name="acao" value="sair" />
+            <button type="submit" class="border border-borda-forte px-4 py-2 text-[0.875rem] font-semibold text-texto hover:border-oliva-300">Sair</button>
+          </form>
+        </div>
+
+        {ok && MENSAGENS[ok] && <p class="mt-5 border border-ok/70 bg-ok-bg p-3 text-[0.9375rem] text-ok-texto" role="status">{MENSAGENS[ok]}</p>}
+        {erroAcao && <p class="mt-5 border border-alerta bg-alerta-bg p-3 text-[0.9375rem] text-alerta-texto" role="alert">{ERROS[erroAcao] ?? "Não foi possível concluir."}</p>}
+
+        {/* contadores */}
+        <div id="resumo" class="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div class="border border-borda bg-papel p-4">
+            <p class="font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2">Inscritos</p>
+            <p class="mt-1 font-display text-3xl font-bold text-tinta"><span data-r="titulares">{resumo.titulares}</span>{vagas && <span class="text-xl text-texto-2"> / {vagas}</span>}</p>
+          </div>
+          <div class="border border-borda bg-papel p-4">
+            <p class="font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2">Pagaram</p>
+            <p class="mt-1 font-display text-3xl font-bold text-ok-texto"><span data-r="pagos">{resumo.pagos}</span><span class="text-xl text-texto-2"> / <span data-r="total">{inscritos.length}</span></span></p>
+          </div>
+          <div class="border border-borda bg-papel p-4">
+            <p class="font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2">Assinaram</p>
+            <p class="mt-1 font-display text-3xl font-bold text-ok-texto"><span data-r="assinados">{resumo.assinados}</span><span class="text-xl text-texto-2"> / {inscritos.length}</span></p>
+          </div>
+          <div class="border border-borda bg-papel p-4">
+            <p class="font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2">Faltam pagar</p>
+            <p class="mt-1 font-display text-3xl font-bold text-alerta-texto" data-r="faltam-pagar">{inscritos.length - resumo.pagos}</p>
+          </div>
+          <div class="col-span-2 border border-borda bg-papel p-4 md:col-span-1">
+            <p class="font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2">Faltam assinar</p>
+            <p class="mt-1 font-display text-3xl font-bold text-alerta-texto" data-r="faltam-assinar">{inscritos.length - resumo.assinados}</p>
+          </div>
+        </div>
+
+        {/* filtros */}
+        <div class="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+          <label for="busca" class="sr-only">Buscar inscrito</label>
+          <input id="busca" type="search" autocomplete="off" placeholder="Buscar nome ou equipe" class={`${CAMPO} !mt-0 md:max-w-[20rem]`} />
+          <p id="contagem" class="font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2" aria-live="polite">{inscritos.length} de {inscritos.length}</p>
+          <button type="button" id="abrir-novo" class="border border-oliva-500 bg-oliva-500 px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300 md:ml-auto">
+            + Adicionar inscrito
+          </button>
+        </div>
+
+        <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filtrar por lado">
+          <button type="button" data-lado="" aria-pressed="true" class="filtro-lado border border-borda-forte px-3 py-1.5 text-[0.8125rem] font-semibold text-texto aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
+            Todos <span class="ml-1 font-dado text-[0.75rem] opacity-80">{inscritos.length}</span>
+          </button>
+          {LADOS.map((l) => (
+            <button type="button" data-lado={l.valor} aria-pressed="false" class="filtro-lado border border-borda-forte px-3 py-1.5 text-[0.8125rem] font-semibold text-texto aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
+              {l.rotulo} <span class="ml-1 font-dado text-[0.75rem] opacity-80">{contar((i) => i.lado === l.valor)}</span>
+            </button>
+          ))}
+        </div>
+        <div class="mt-2 flex flex-wrap gap-2" role="group" aria-label="Filtrar por situação">
+          {[
+            ["", "Qualquer situação"],
+            ["falta-pagar", "Falta pagar"],
+            ["falta-assinar", "Falta assinar"],
+            ["completo", "Pago e assinado"],
+          ].map(([v, r]) => (
+            <button type="button" data-situacao={v} aria-pressed={v === "" ? "true" : "false"} class="filtro-situacao border border-borda-forte px-3 py-1.5 text-[0.8125rem] text-texto aria-pressed:border-oliva-300 aria-pressed:text-oliva-300">
+              {r}
+            </button>
+          ))}
+        </div>
+
+        {/* lista */}
+        <div class="mt-5 border border-borda bg-papel">
+          <div class={`hidden gap-x-4 border-b border-borda-forte px-4 py-3 font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2 md:grid ${GRADE}`}>
+            <span>#</span><span>Inscrito</span><span>Pagamento</span><span>Termo</span><span class="text-right">Ações</span>
+          </div>
+          <ul id="lista" class="divide-y divide-borda">
+            {inscritos.map((i) => (
+              <li
+                id={`linha-${i.id}`}
+                data-id={i.id}
+                data-lado={i.lado}
+                data-pago={i.pago ? "1" : "0"}
+                data-assinou={i.assinatura_id ? "1" : "0"}
+                data-nome={i.nome}
+                data-equipe={i.equipe ?? ""}
+                data-obs={i.obs ?? ""}
+                data-busca={semAcento(`${i.nome} ${i.equipe ?? ""} ${i.assinou_nome ?? ""} ${i.obs ?? ""}`)}
+                class="scroll-mt-24 target:bg-papel-2 odd:bg-papel even:bg-papel-2/40"
+              >
+                <div class={`grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-4 md:items-center ${GRADE}`}>
+                  <span class="hidden font-dado text-[0.75rem] text-texto-2 md:block">{i.ordem}</span>
+
+                  <div class="col-span-2 min-w-0 md:col-span-1">
+                    <p class="break-words text-[1rem] font-semibold leading-snug text-tinta">
+                      <span class="mr-2 font-dado text-[0.75rem] font-normal text-texto-2 md:hidden">{i.ordem}</span>{i.nome}
+                    </p>
+                    <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8125rem] text-texto-2">
+                      {i.equipe && <span class="border border-borda-forte px-1.5 py-0.5 text-texto">{i.equipe}</span>}
+                      <span class="font-dado text-[0.6875rem] uppercase tracking-[0.08em]">{i.lado === "PMC/VIETCONG" ? "PMC/Vietcong" : i.lado === "MILITAR" ? "Militar" : "Reserva"}</span>
+                      {i.obs && <span>· {i.obs}</span>}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span class="mb-0.5 block font-dado text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2 md:hidden">Pagamento</span>
+                    <button type="button" class="btn-pago inline-flex min-h-[2.5rem] w-full items-center justify-center gap-1.5 border px-3 text-[0.875rem] font-semibold md:w-auto" aria-pressed={i.pago ? "true" : "false"}>
+                      <span class="rotulo-pago">{i.pago ? "✓ Pago" : "Não pago"}</span>
+                    </button>
+                  </div>
+
+                  <div class="min-w-0">
+                    <span class="mb-0.5 block font-dado text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2 md:hidden">Termo</span>
+                    {i.assinatura_id ? (
+                      <div>
+                        <p class="text-[0.875rem] font-semibold text-ok-texto">✓ Assinou</p>
+                        <p class="mt-0.5 break-words text-[0.75rem] leading-snug text-texto-2" title={`Assinatura de ${i.assinou_nome}`}>
+                          {i.assinou_nome}{i.assinou_em ? ` · ${dataHoraBr(i.assinou_em).split(", ")[0]}` : ""}
+                        </p>
+                        <form method="post" class="mt-1" data-confirmar={`Desfazer a ligação de ${i.nome} com a assinatura?`}>
+                          <input type="hidden" name="acao" value="vincular" />
+                          <input type="hidden" name="id" value={i.id} />
+                          <input type="hidden" name="assinatura_id" value="" />
+                          <button type="submit" class="text-[0.75rem] text-texto-2 underline hover:text-texto">desfazer</button>
+                        </form>
+                      </div>
+                    ) : (
+                      <div>
+                        <p class="text-[0.875rem] font-semibold text-alerta-texto">Sem assinatura</p>
+                        <button type="button" class="btn-vincular mt-1 border border-borda-forte px-3 py-1.5 text-[0.8125rem] font-semibold text-texto hover:border-oliva-300">
+                          Vincular assinatura
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div class="col-span-2 flex items-center gap-3 border-t border-borda pt-3 md:col-span-1 md:justify-end md:border-0 md:pt-0">
+                    <button type="button" class="btn-editar border border-borda-forte px-3 py-2 text-[0.8125rem] font-semibold text-texto hover:border-oliva-300">Editar</button>
+                    <form method="post" data-confirmar={`Remover ${i.nome} da lista? Isso não pode ser desfeito.`}>
+                      <input type="hidden" name="acao" value="remover" />
+                      <input type="hidden" name="id" value={i.id} />
+                      <button type="submit" class="px-2 py-2 text-[0.8125rem] text-alerta-texto hover:underline" aria-label={`Remover ${i.nome}`}>Remover</button>
+                    </form>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p id="vazio" hidden class="px-4 py-8 text-center text-texto-2">Ninguém encontrado com esse filtro.</p>
+        </div>
+
+        {dados.livres.length > 0 && (
+          <p class="mt-4 text-[0.8125rem] leading-snug text-texto-2">
+            {dados.livres.length} {dados.livres.length === 1 ? "assinatura ainda não está" : "assinaturas ainda não estão"} ligada{dados.livres.length === 1 ? "" : "s"} a um inscrito.
+            Use "Vincular assinatura" na linha da pessoa para ligar.
+          </p>
+        )}
+
+        {/* diálogo: adicionar / editar */}
+        <dialog id="dlg-inscrito" class="m-auto w-[min(28rem,calc(100vw-2rem))] border border-borda-forte bg-papel p-0 text-texto backdrop:bg-black/70">
+          <form method="post" class="space-y-4 p-5">
+            <input type="hidden" name="acao" value="salvar" />
+            <input type="hidden" name="id" id="f-id" />
+            <h2 id="f-titulo" class="font-display text-2xl font-bold uppercase text-tinta">Adicionar inscrito</h2>
+            <div>
+              <label for="f-nome" class={ROTULO_CAMPO}>Nome</label>
+              <input id="f-nome" name="nome" required maxlength="80" class={CAMPO} />
+            </div>
+            <div>
+              <label for="f-equipe" class={ROTULO_CAMPO}>Equipe <span class="font-normal text-texto-2">(opcional)</span></label>
+              <input id="f-equipe" name="equipe" maxlength="60" class={CAMPO} />
+            </div>
+            <div>
+              <label for="f-lado" class={ROTULO_CAMPO}>Lado</label>
+              <select id="f-lado" name="lado" required class={`${CAMPO} selecao appearance-none pr-10`}>
+                {LADOS.map((l) => <option value={l.valor}>{l.rotulo}</option>)}
+              </select>
+            </div>
+            <div>
+              <label for="f-obs" class={ROTULO_CAMPO}>Observação <span class="font-normal text-texto-2">(opcional)</span></label>
+              <input id="f-obs" name="obs" maxlength="200" class={CAMPO} />
+            </div>
+            <label class="flex items-center gap-3 text-[0.9375rem] text-texto">
+              <input type="checkbox" name="pago" id="f-pago" class="h-5 w-5 accent-[#7d9139]" /> Já pagou
+            </label>
+            <div class="flex flex-wrap justify-end gap-3 pt-1">
+              <button type="button" class="fechar border border-borda-forte px-4 py-2.5 text-[0.875rem] font-semibold text-texto hover:border-oliva-300">Cancelar</button>
+              <button type="submit" class="border border-oliva-500 bg-oliva-500 px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300">Salvar</button>
+            </div>
+          </form>
+        </dialog>
+
+        {/* diálogo: vincular assinatura */}
+        <dialog id="dlg-vincular" class="m-auto w-[min(28rem,calc(100vw-2rem))] border border-borda-forte bg-papel p-0 text-texto backdrop:bg-black/70">
+          <form method="post" class="space-y-4 p-5">
+            <input type="hidden" name="acao" value="vincular" />
+            <input type="hidden" name="id" id="v-id" />
+            <h2 class="font-display text-2xl font-bold uppercase text-tinta">Vincular assinatura</h2>
+            <p class="text-[0.9375rem] leading-snug text-texto-2">Qual assinatura do termo é de <strong id="v-nome" class="text-tinta"></strong>?</p>
+            {
+              dados.livres.length === 0 ? (
+                <p class="border border-borda p-3 text-[0.9375rem] text-texto-2">Não há assinaturas livres: todas já estão ligadas a alguém.</p>
+              ) : (
+                <div>
+                  <label for="v-sel" class={ROTULO_CAMPO}>Assinatura</label>
+                  <select id="v-sel" name="assinatura_id" required class={`${CAMPO} selecao appearance-none pr-10`}>
+                    {dados.livres.map((a) => (
+                      <option value={a.id} data-nome={semAcento(a.nome)}>
+                        {a.nome}{a.equipe ? ` — ${a.equipe}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p class="mt-1.5 text-[0.75rem] leading-snug text-texto-2">As que começam com o mesmo primeiro nome aparecem no topo.</p>
+                </div>
+              )
+            }
+            <div class="flex flex-wrap justify-end gap-3 pt-1">
+              <button type="button" class="fechar border border-borda-forte px-4 py-2.5 text-[0.875rem] font-semibold text-texto hover:border-oliva-300">Cancelar</button>
+              {dados.livres.length > 0 && <button type="submit" class="border border-oliva-500 bg-oliva-500 px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300">Vincular</button>}
+            </div>
+          </form>
+        </dialog>
+      </div>
+    )
+  }
+</Base>
+
+<style is:global>
+  .btn-pago { border-color: var(--color-borda-forte); color: var(--color-texto-2); }
+  .btn-pago[aria-pressed="true"] { border-color: var(--color-ok); background: var(--color-ok-bg); color: var(--color-ok-texto); }
+  .btn-pago[disabled] { opacity: 0.6; cursor: wait; }
+</style>
+
+<script>
+  const lista = document.getElementById("lista");
+  if (lista) {
+    const itens = [...lista.querySelectorAll<HTMLElement>(":scope > li")];
+    const busca = document.getElementById("busca") as HTMLInputElement;
+    const contagem = document.getElementById("contagem")!;
+    const vazio = document.getElementById("vazio")!;
+    let lado = "";
+    let situacao = "";
+    const norm = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+    /* ---------------------------- resumo e filtros ---------------------------- */
+    function recalcular() {
+      const todos = itens.map((li) => ({ lado: li.dataset.lado, pago: li.dataset.pago === "1", assinou: li.dataset.assinou === "1" }));
+      const n = (fn: (x: (typeof todos)[number]) => boolean) => todos.filter(fn).length;
+      const set = (k: string, v: number) => document.querySelectorAll(`[data-r="${k}"]`).forEach((e) => (e.textContent = String(v)));
+      set("titulares", n((x) => x.lado !== "RESERVA"));
+      set("pagos", n((x) => x.pago));
+      set("assinados", n((x) => x.assinou));
+      set("faltam-pagar", n((x) => !x.pago));
+      set("faltam-assinar", n((x) => !x.assinou));
+    }
+
+    function filtrar() {
+      const q = norm(busca.value);
+      let visiveis = 0;
+      for (const li of itens) {
+        const pago = li.dataset.pago === "1";
+        const assinou = li.dataset.assinou === "1";
+        const okSit =
+          !situacao ||
+          (situacao === "falta-pagar" && !pago) ||
+          (situacao === "falta-assinar" && !assinou) ||
+          (situacao === "completo" && pago && assinou);
+        const ok = (!q || (li.dataset.busca ?? "").includes(q)) && (!lado || li.dataset.lado === lado) && okSit;
+        li.hidden = !ok;
+        if (ok) visiveis++;
+      }
+      contagem.textContent = `${visiveis} de ${itens.length}`;
+      vazio.hidden = visiveis > 0;
+    }
+    busca.addEventListener("input", filtrar);
+    document.querySelectorAll<HTMLButtonElement>(".filtro-lado").forEach((b) =>
+      b.addEventListener("click", () => {
+        lado = b.dataset.lado ?? "";
+        document.querySelectorAll(".filtro-lado").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        filtrar();
+      }),
+    );
+    document.querySelectorAll<HTMLButtonElement>(".filtro-situacao").forEach((b) =>
+      b.addEventListener("click", () => {
+        situacao = b.dataset.situacao ?? "";
+        document.querySelectorAll(".filtro-situacao").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        filtrar();
+      }),
+    );
+
+    /* ------------------------------ marcar pago ------------------------------ */
+    lista.addEventListener("click", async (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".btn-pago");
+      if (!btn) return;
+      const li = btn.closest<HTMLElement>("li")!;
+      const novo = li.dataset.pago !== "1";
+      btn.disabled = true;
+      try {
+        const r = await fetch(`${location.pathname}/pago`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id: li.dataset.id, pago: novo }),
+        });
+        if (r.status === 401) return location.reload(); // sessão expirou
+        const j = await r.json();
+        if (!j.ok) throw new Error();
+        li.dataset.pago = novo ? "1" : "0";
+        btn.setAttribute("aria-pressed", String(novo));
+        btn.querySelector(".rotulo-pago")!.textContent = novo ? "✓ Pago" : "Não pago";
+        recalcular();
+        filtrar();
+      } catch {
+        alert("Não consegui salvar o pagamento. Tente de novo.");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    /* --------------------------- diálogos e confirmações --------------------------- */
+    const dlgInscrito = document.getElementById("dlg-inscrito") as HTMLDialogElement;
+    const dlgVincular = document.getElementById("dlg-vincular") as HTMLDialogElement;
+    const campo = (id: string) => document.getElementById(id) as HTMLInputElement;
+    document.querySelectorAll<HTMLButtonElement>(".fechar").forEach((b) => b.addEventListener("click", () => b.closest("dialog")!.close()));
+
+    function abrirInscrito(li: HTMLElement | null) {
+      campo("f-id").value = li?.dataset.id ?? "";
+      campo("f-nome").value = li?.dataset.nome ?? "";
+      campo("f-equipe").value = li?.dataset.equipe ?? "";
+      campo("f-obs").value = li?.dataset.obs ?? "";
+      (document.getElementById("f-lado") as HTMLSelectElement).value = li?.dataset.lado ?? (lado || "PMC/VIETCONG");
+      campo("f-pago").checked = li?.dataset.pago === "1";
+      document.getElementById("f-titulo")!.textContent = li ? "Editar inscrito" : "Adicionar inscrito";
+      dlgInscrito.showModal();
+      campo("f-nome").focus();
+    }
+    document.getElementById("abrir-novo")!.addEventListener("click", () => abrirInscrito(null));
+
+    lista.addEventListener("click", (e) => {
+      const alvo = e.target as HTMLElement;
+      const li = alvo.closest<HTMLElement>("li");
+      if (!li) return;
+      if (alvo.closest(".btn-editar")) abrirInscrito(li);
+      if (alvo.closest(".btn-vincular")) {
+        campo("v-id").value = li.dataset.id ?? "";
+        document.getElementById("v-nome")!.textContent = li.dataset.nome ?? "";
+        const sel = document.getElementById("v-sel") as HTMLSelectElement | null;
+        if (sel) {
+          // sugestão não automática: só põe no topo quem tem o mesmo primeiro nome
+          const primeiro = norm(li.dataset.nome ?? "").split(" ")[0];
+          const opcoes = [...sel.options];
+          opcoes.sort((a, b) => {
+            const pa = (a.dataset.nome ?? "").split(" ")[0] === primeiro ? 0 : 1;
+            const pb = (b.dataset.nome ?? "").split(" ")[0] === primeiro ? 0 : 1;
+            return pa - pb;
+          });
+          opcoes.forEach((o) => sel.appendChild(o));
+          sel.selectedIndex = 0;
+        }
+        dlgVincular.showModal();
+      }
+    });
+
+    document.querySelectorAll<HTMLFormElement>("form[data-confirmar]").forEach((f) =>
+      f.addEventListener("submit", (e) => {
+        if (!confirm(f.dataset.confirmar ?? "Confirmar?")) e.preventDefault();
+      }),
+    );
+  }
+</script>
