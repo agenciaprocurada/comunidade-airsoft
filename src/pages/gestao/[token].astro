@@ -335,23 +335,34 @@ const GRADE = "md:grid-cols-[2.25rem_minmax(0,1.6fr)_7.5rem_12rem_9rem]";
                         <span class="mr-1.5 font-dado text-[0.6875rem] font-normal text-texto-2 md:hidden">{i.ordem}</span>{i.nome}
                       </p>
                       {(i.equipe || i.obs) && (
-                        <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.75rem] leading-none text-texto-2">
-                          {i.equipe && <span class="border border-borda-forte px-1.5 py-1 text-texto">{i.equipe}</span>}
+                        <p class:list={["mt-1 flex-wrap items-center gap-x-2 gap-y-1 text-[0.75rem] leading-none text-texto-2", i.obs ? "flex" : "hidden md:flex"]}>
+                          {i.equipe && <span class="hidden border border-borda-forte px-1.5 py-1 text-texto md:inline">{i.equipe}</span>}
                           {i.obs && <span class="leading-snug">{i.obs}</span>}
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <button type="button" class="btn-pago inline-flex min-h-[2.75rem] min-w-[4.75rem] items-center justify-center border px-2 text-[0.8125rem] font-semibold md:min-h-[2.5rem] md:min-w-0 md:px-3 md:text-[0.875rem]" aria-pressed={i.pago ? "true" : "false"}>
-                        <span class="rotulo-pago">{i.pago ? "✓ Pago" : "Não pago"}</span>
+                      <button
+                        type="button"
+                        class="btn-pago inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center border px-2 text-[0.8125rem] font-semibold md:min-h-[2.5rem] md:min-w-0 md:px-3 md:text-[0.875rem]"
+                        aria-pressed={i.pago ? "true" : "false"}
+                        aria-label={i.pago ? `Pago: ${i.nome}. Toque para desmarcar` : `Não pago: ${i.nome}. Toque para marcar como pago`}
+                      >
+                        <svg class="ic ic-nao h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.6 9.3c-.4-.9-1.4-1.4-2.6-1.4-1.4 0-2.5.8-2.5 1.9 0 2.7 5 1.2 5 3.9 0 1.1-1.1 1.9-2.5 1.9-1.2 0-2.3-.6-2.7-1.6M12 6.4v1.5M12 16.1v1.5"/></svg><svg class="ic ic-sim h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".2"/><path d="M8 12.4l2.8 2.8L16.2 9.6"/></svg>
+                        <span class="rotulo-pago hidden md:inline">{i.pago ? "✓ Pago" : "Não pago"}</span>
                       </button>
                     </div>
 
                     <div class="min-w-0">
                       {/* celular: só o estado; toque abre a folha de ações */}
-                      <button type="button" class="btn-termo inline-flex min-h-[2.75rem] min-w-[4.75rem] items-center justify-center border px-2 text-[0.8125rem] font-semibold md:hidden" data-ok={i.assinatura_id ? "1" : "0"}>
-                        {i.assinatura_id ? "✓ Termo" : "Sem termo"}
+                      <button
+                        type="button"
+                        class="btn-termo inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center border px-2 md:hidden"
+                        data-ok={i.assinatura_id ? "1" : "0"}
+                        aria-label={i.assinatura_id ? `Termo assinado: ${i.nome}. Toque para ver as ações` : `Sem termo: ${i.nome}. Toque para ver as ações`}
+                      >
+                        <svg class="ic ic-nao h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4M9 12.5h6M9 16h4"/></svg><svg class="ic ic-sim h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" fill="currentColor" fill-opacity=".2"/><path d="M14 3v4h4M9.2 14.4l2.2 2.2 3.8-4.2"/></svg>
                       </button>
                       {/* computador: detalhes e ações na própria linha */}
                       <div class="hidden md:block">
@@ -524,6 +535,11 @@ const GRADE = "md:grid-cols-[2.25rem_minmax(0,1.6fr)_7.5rem_12rem_9rem]";
   .btn-pago[disabled] { opacity: 0.6; cursor: wait; }
   .btn-termo { border-color: var(--color-borda-forte); color: var(--color-texto-2); }
   .btn-termo[data-ok="1"] { border-color: var(--color-ok); background: var(--color-ok-bg); color: var(--color-ok-texto); }
+  .btn-pago .ic, .btn-termo .ic { display: none; }
+  @media (max-width: 767px) {
+    .btn-pago[aria-pressed="false"] .ic-nao, .btn-pago[aria-pressed="true"] .ic-sim { display: block; }
+    .btn-termo[data-ok="0"] .ic-nao, .btn-termo[data-ok="1"] .ic-sim { display: block; }
+  }
   .rolagem-h { scrollbar-width: none; }
   .rolagem-h::-webkit-scrollbar { display: none; }
 </style>
@@ -607,6 +623,7 @@ const GRADE = "md:grid-cols-[2.25rem_minmax(0,1.6fr)_7.5rem_12rem_9rem]";
         li.dataset.pago = novo ? "1" : "0";
         btn.setAttribute("aria-pressed", String(novo));
         btn.querySelector(".rotulo-pago")!.textContent = novo ? "✓ Pago" : "Não pago";
+        btn.setAttribute("aria-label", `${novo ? "Pago" : "Não pago"}: ${li.dataset.nome}. Toque para ${novo ? "desmarcar" : "marcar como pago"}`);
         recalcular();
         filtrar();
       } catch {
