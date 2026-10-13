@@ -223,141 +223,176 @@ const GRADE = "md:grid-cols-[2.25rem_minmax(0,1.6fr)_7.5rem_12rem_9rem]";
           </form>
         </div>
 
+        <button
+          type="button"
+          id="gerar-lista"
+          data-titulo={dados.evento.nome}
+          data-vagas={vagas ?? ""}
+          class="mt-6 inline-flex min-h-[3.5rem] w-full items-center justify-center gap-2 border border-oliva-500 bg-oliva-500 px-6 py-3 font-display text-[1.125rem] font-bold uppercase tracking-[0.08em] text-fundo transition-colors hover:bg-oliva-300 md:w-auto"
+        >
+          Gerar lista atualizada
+        </button>
+
         {ok && MENSAGENS[ok] && <p class="mt-5 border border-ok/70 bg-ok-bg p-3 text-[0.9375rem] text-ok-texto" role="status">{MENSAGENS[ok]}</p>}
         {erroAcao && <p class="mt-5 border border-alerta bg-alerta-bg p-3 text-[0.9375rem] text-alerta-texto" role="alert">{ERROS[erroAcao] ?? "Não foi possível concluir."}</p>}
 
-        {/* contadores */}
-        <div id="resumo" class="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
-          <div class="border border-borda bg-papel p-4">
-            <p class="font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2">Inscritos</p>
-            <p class="mt-1 font-display text-3xl font-bold text-tinta"><span data-r="titulares">{resumo.titulares}</span>{vagas && <span class="text-xl text-texto-2"> / {vagas}</span>}</p>
+        {/* contadores: compactos no celular; "faltam" servem de atalho para o filtro */}
+        <div id="resumo" class="mt-5 grid grid-cols-6 gap-2 md:grid-cols-5 md:gap-3">
+          <div class="col-span-2 border border-borda bg-papel p-3 md:col-span-1 md:p-4">
+            <p class="font-dado text-[0.625rem] uppercase tracking-[0.1em] text-texto-2 md:text-[0.6875rem]">Inscritos</p>
+            <p class="mt-0.5 font-display text-2xl font-bold leading-none text-tinta md:mt-1 md:text-3xl"><span data-r="titulares">{resumo.titulares}</span>{vagas && <span class="text-base text-texto-2 md:text-xl">/{vagas}</span>}</p>
           </div>
-          <div class="border border-borda bg-papel p-4">
-            <p class="font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2">Pagaram</p>
-            <p class="mt-1 font-display text-3xl font-bold text-ok-texto"><span data-r="pagos">{resumo.pagos}</span><span class="text-xl text-texto-2"> / <span data-r="total">{inscritos.length}</span></span></p>
+          <div class="col-span-2 border border-borda bg-papel p-3 md:col-span-1 md:p-4">
+            <p class="font-dado text-[0.625rem] uppercase tracking-[0.1em] text-texto-2 md:text-[0.6875rem]">Pagaram</p>
+            <p class="mt-0.5 font-display text-2xl font-bold leading-none text-ok-texto md:mt-1 md:text-3xl"><span data-r="pagos">{resumo.pagos}</span><span class="text-base text-texto-2 md:text-xl">/<span data-r="total">{inscritos.length}</span></span></p>
           </div>
-          <div class="border border-borda bg-papel p-4">
-            <p class="font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2">Assinaram</p>
-            <p class="mt-1 font-display text-3xl font-bold text-ok-texto"><span data-r="assinados">{resumo.assinados}</span><span class="text-xl text-texto-2"> / {inscritos.length}</span></p>
+          <div class="col-span-2 border border-borda bg-papel p-3 md:col-span-1 md:p-4">
+            <p class="font-dado text-[0.625rem] uppercase tracking-[0.1em] text-texto-2 md:text-[0.6875rem]">Assinaram</p>
+            <p class="mt-0.5 font-display text-2xl font-bold leading-none text-ok-texto md:mt-1 md:text-3xl"><span data-r="assinados">{resumo.assinados}</span><span class="text-base text-texto-2 md:text-xl">/{inscritos.length}</span></p>
           </div>
-          <div class="border border-borda bg-papel p-4">
-            <p class="font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2">Faltam pagar</p>
-            <p class="mt-1 font-display text-3xl font-bold text-alerta-texto" data-r="faltam-pagar">{inscritos.length - resumo.pagos}</p>
-          </div>
-          <div class="col-span-2 border border-borda bg-papel p-4 md:col-span-1">
-            <p class="font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2">Faltam assinar</p>
-            <p class="mt-1 font-display text-3xl font-bold text-alerta-texto" data-r="faltam-assinar">{inscritos.length - resumo.assinados}</p>
-          </div>
+          <button type="button" data-atalho="falta-pagar" class="col-span-3 border border-borda bg-papel p-3 text-left hover:border-alerta md:col-span-1 md:p-4" title="Mostrar só quem falta pagar">
+            <p class="font-dado text-[0.625rem] uppercase tracking-[0.1em] text-texto-2 md:text-[0.6875rem]">Faltam pagar ›</p>
+            <p class="mt-0.5 font-display text-2xl font-bold leading-none text-alerta-texto md:mt-1 md:text-3xl" data-r="faltam-pagar">{inscritos.length - resumo.pagos}</p>
+          </button>
+          <button type="button" data-atalho="falta-assinar" class="col-span-3 border border-borda bg-papel p-3 text-left hover:border-alerta md:col-span-1 md:p-4" title="Mostrar só quem falta assinar">
+            <p class="font-dado text-[0.625rem] uppercase tracking-[0.1em] text-texto-2 md:text-[0.6875rem]">Faltam assinar ›</p>
+            <p class="mt-0.5 font-display text-2xl font-bold leading-none text-alerta-texto md:mt-1 md:text-3xl" data-r="faltam-assinar">{inscritos.length - resumo.assinados}</p>
+          </button>
         </div>
 
         {/* filtros */}
-        <div class="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+        <div class="mt-5 flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
           <label for="busca" class="sr-only">Buscar inscrito</label>
           <input id="busca" type="search" autocomplete="off" placeholder="Buscar nome ou equipe" class={`${CAMPO} !mt-0 md:max-w-[20rem]`} />
           <p id="contagem" class="font-dado text-[0.75rem] uppercase tracking-[0.1em] text-texto-2" aria-live="polite">{inscritos.length} de {inscritos.length}</p>
-          <button type="button" id="abrir-novo" class="border border-oliva-500 bg-oliva-500 px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300 md:ml-auto">
-            + Adicionar inscrito
+          <button
+            type="button"
+            id="abrir-novo"
+            aria-label="Adicionar inscrito"
+            class="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center border border-oliva-500 bg-oliva-500 text-fundo shadow-[0_6px_24px_rgba(0,0,0,0.6)] hover:bg-oliva-300 md:static md:z-auto md:ml-auto md:h-auto md:w-auto md:px-5 md:py-2.5 md:shadow-none"
+          >
+            <span class="text-3xl font-bold leading-none md:hidden" aria-hidden="true">+</span>
+            <span class="hidden font-display text-sm font-bold uppercase tracking-[0.06em] md:inline">+ Adicionar inscrito</span>
           </button>
         </div>
 
-        <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filtrar por lado">
-          <button type="button" data-lado="" aria-pressed="true" class="filtro-lado border border-borda-forte px-3 py-1.5 text-[0.8125rem] font-semibold text-texto aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
+        <div class="rolagem-h -mx-5 mt-2 flex gap-2 overflow-x-auto px-5 pb-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0" role="group" aria-label="Filtrar por lado">
+          <button type="button" data-lado="" aria-pressed="true" class="filtro-lado shrink-0 border border-borda-forte px-3 py-2 text-[0.8125rem] font-semibold text-texto aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
             Todos <span class="ml-1 font-dado text-[0.75rem] opacity-80">{inscritos.length}</span>
           </button>
           {LADOS.map((l) => (
-            <button type="button" data-lado={l.valor} aria-pressed="false" class="filtro-lado border border-borda-forte px-3 py-1.5 text-[0.8125rem] font-semibold text-texto aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
+            <button type="button" data-lado={l.valor} aria-pressed="false" class="filtro-lado shrink-0 border border-borda-forte px-3 py-2 text-[0.8125rem] font-semibold text-texto aria-pressed:border-oliva-500 aria-pressed:bg-oliva-500 aria-pressed:text-fundo">
               {l.rotulo} <span class="ml-1 font-dado text-[0.75rem] opacity-80">{contar((i) => i.lado === l.valor)}</span>
             </button>
           ))}
         </div>
-        <div class="mt-2 flex flex-wrap gap-2" role="group" aria-label="Filtrar por situação">
+        <div class="rolagem-h -mx-5 mt-1.5 flex gap-2 overflow-x-auto px-5 pb-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0" role="group" aria-label="Filtrar por situação">
           {[
-            ["", "Qualquer situação"],
+            ["", "Todas as situações"],
             ["falta-pagar", "Falta pagar"],
             ["falta-assinar", "Falta assinar"],
             ["completo", "Pago e assinado"],
           ].map(([v, r]) => (
-            <button type="button" data-situacao={v} aria-pressed={v === "" ? "true" : "false"} class="filtro-situacao border border-borda-forte px-3 py-1.5 text-[0.8125rem] text-texto aria-pressed:border-oliva-300 aria-pressed:text-oliva-300">
+            <button type="button" data-situacao={v} aria-pressed={v === "" ? "true" : "false"} class="filtro-situacao shrink-0 border border-borda-forte px-3 py-2 text-[0.8125rem] text-texto aria-pressed:border-oliva-300 aria-pressed:text-oliva-300">
               {r}
             </button>
           ))}
         </div>
 
         {/* lista */}
-        <div class="mt-5 border border-borda bg-papel">
+        <div class="mt-4 border border-borda bg-papel">
           <div class={`hidden gap-x-4 border-b border-borda-forte px-4 py-3 font-dado text-[0.6875rem] uppercase tracking-[0.12em] text-texto-2 md:grid ${GRADE}`}>
             <span>#</span><span>Inscrito</span><span>Pagamento</span><span>Termo</span><span class="text-right">Ações</span>
           </div>
           <ul id="lista" class="divide-y divide-borda">
-            {inscritos.map((i) => (
-              <li
-                id={`linha-${i.id}`}
-                data-id={i.id}
-                data-lado={i.lado}
-                data-pago={i.pago ? "1" : "0"}
-                data-assinou={i.assinatura_id ? "1" : "0"}
-                data-nome={i.nome}
-                data-equipe={i.equipe ?? ""}
-                data-obs={i.obs ?? ""}
-                data-busca={semAcento(`${i.nome} ${i.equipe ?? ""} ${i.assinou_nome ?? ""} ${i.obs ?? ""}`)}
-                class="scroll-mt-24 target:bg-papel-2 odd:bg-papel even:bg-papel-2/40"
-              >
-                <div class={`grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-4 md:items-center ${GRADE}`}>
-                  <span class="hidden font-dado text-[0.75rem] text-texto-2 md:block">{i.ordem}</span>
+            {inscritos.map((i, idx) => (
+              <Fragment>
+                {(idx === 0 || inscritos[idx - 1].lado !== i.lado) && (
+                  <li class="cabecalho-lado bg-papel-2 px-3 py-2 font-dado text-[0.6875rem] uppercase tracking-[0.14em] text-oliva-300 md:px-4" data-cab={i.lado}>
+                    {i.lado === "PMC/VIETCONG" ? "PMC / Vietcong" : i.lado === "MILITAR" ? "Militar" : "Vagas reservas"}
+                    <span class="ml-1 text-texto-2">· {contar((x) => x.lado === i.lado)}</span>
+                  </li>
+                )}
+                <li
+                  id={`linha-${i.id}`}
+                  data-id={i.id}
+                  data-lado={i.lado}
+                  data-pago={i.pago ? "1" : "0"}
+                  data-assinou={i.assinatura_id ? "1" : "0"}
+                  data-assinou-nome={i.assinou_nome ?? ""}
+                  data-assinou-em={i.assinou_em ? dataHoraBr(i.assinou_em).split(", ")[0] : ""}
+                  data-nome={i.nome}
+                  data-equipe={i.equipe ?? ""}
+                  data-obs={i.obs ?? ""}
+                  data-busca={semAcento(`${i.nome} ${i.equipe ?? ""} ${i.assinou_nome ?? ""} ${i.obs ?? ""}`)}
+                  class="scroll-mt-24 target:bg-papel-2"
+                >
+                  <div class={`grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-x-2 px-3 py-2.5 md:gap-x-4 md:px-4 md:py-4 ${GRADE}`}>
+                    <span class="hidden font-dado text-[0.75rem] text-texto-2 md:block">{i.ordem}</span>
 
-                  <div class="col-span-2 min-w-0 md:col-span-1">
-                    <p class="break-words text-[1rem] font-semibold leading-snug text-tinta">
-                      <span class="mr-2 font-dado text-[0.75rem] font-normal text-texto-2 md:hidden">{i.ordem}</span>{i.nome}
-                    </p>
-                    <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8125rem] text-texto-2">
-                      {i.equipe && <span class="border border-borda-forte px-1.5 py-0.5 text-texto">{i.equipe}</span>}
-                      <span class="font-dado text-[0.6875rem] uppercase tracking-[0.08em]">{i.lado === "PMC/VIETCONG" ? "PMC/Vietcong" : i.lado === "MILITAR" ? "Militar" : "Reserva"}</span>
-                      {i.obs && <span>· {i.obs}</span>}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span class="mb-0.5 block font-dado text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2 md:hidden">Pagamento</span>
-                    <button type="button" class="btn-pago inline-flex min-h-[2.5rem] w-full items-center justify-center gap-1.5 border px-3 text-[0.875rem] font-semibold md:w-auto" aria-pressed={i.pago ? "true" : "false"}>
-                      <span class="rotulo-pago">{i.pago ? "✓ Pago" : "Não pago"}</span>
-                    </button>
-                  </div>
-
-                  <div class="min-w-0">
-                    <span class="mb-0.5 block font-dado text-[0.6875rem] uppercase tracking-[0.1em] text-texto-2 md:hidden">Termo</span>
-                    {i.assinatura_id ? (
-                      <div>
-                        <p class="text-[0.875rem] font-semibold text-ok-texto">✓ Assinou</p>
-                        <p class="mt-0.5 break-words text-[0.75rem] leading-snug text-texto-2" title={`Assinatura de ${i.assinou_nome}`}>
-                          {i.assinou_nome}{i.assinou_em ? ` · ${dataHoraBr(i.assinou_em).split(", ")[0]}` : ""}
+                    <div class="min-w-0">
+                      <p class="break-words text-[1rem] font-semibold leading-tight text-tinta">
+                        <span class="mr-1.5 font-dado text-[0.6875rem] font-normal text-texto-2 md:hidden">{i.ordem}</span>{i.nome}
+                      </p>
+                      {(i.equipe || i.obs) && (
+                        <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.75rem] leading-none text-texto-2">
+                          {i.equipe && <span class="border border-borda-forte px-1.5 py-1 text-texto">{i.equipe}</span>}
+                          {i.obs && <span class="leading-snug">{i.obs}</span>}
                         </p>
-                        <form method="post" class="mt-1" data-confirmar={`Desfazer a ligação de ${i.nome} com a assinatura?`}>
-                          <input type="hidden" name="acao" value="vincular" />
+                      )}
+                    </div>
+
+                    <div>
+                      <button type="button" class="btn-pago inline-flex min-h-[2.75rem] min-w-[4.75rem] items-center justify-center border px-2 text-[0.8125rem] font-semibold md:min-h-[2.5rem] md:min-w-0 md:px-3 md:text-[0.875rem]" aria-pressed={i.pago ? "true" : "false"}>
+                        <span class="rotulo-pago">{i.pago ? "✓ Pago" : "Não pago"}</span>
+                      </button>
+                    </div>
+
+                    <div class="min-w-0">
+                      {/* celular: só o estado; toque abre a folha de ações */}
+                      <button type="button" class="btn-termo inline-flex min-h-[2.75rem] min-w-[4.75rem] items-center justify-center border px-2 text-[0.8125rem] font-semibold md:hidden" data-ok={i.assinatura_id ? "1" : "0"}>
+                        {i.assinatura_id ? "✓ Termo" : "Sem termo"}
+                      </button>
+                      {/* computador: detalhes e ações na própria linha */}
+                      <div class="hidden md:block">
+                        {i.assinatura_id ? (
+                          <div>
+                            <p class="text-[0.875rem] font-semibold text-ok-texto">✓ Assinou</p>
+                            <p class="mt-0.5 break-words text-[0.75rem] leading-snug text-texto-2" title={`Assinatura de ${i.assinou_nome}`}>
+                              {i.assinou_nome}{i.assinou_em ? ` · ${dataHoraBr(i.assinou_em).split(", ")[0]}` : ""}
+                            </p>
+                            <form method="post" class="mt-1" data-confirmar={`Desfazer a ligação de ${i.nome} com a assinatura?`}>
+                              <input type="hidden" name="acao" value="vincular" />
+                              <input type="hidden" name="id" value={i.id} />
+                              <input type="hidden" name="assinatura_id" value="" />
+                              <button type="submit" class="text-[0.75rem] text-texto-2 underline hover:text-texto">desfazer</button>
+                            </form>
+                          </div>
+                        ) : (
+                          <div>
+                            <p class="text-[0.875rem] font-semibold text-alerta-texto">Sem assinatura</p>
+                            <button type="button" class="btn-vincular mt-1 border border-borda-forte px-3 py-1.5 text-[0.8125rem] font-semibold text-texto hover:border-oliva-300">
+                              Vincular assinatura
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <button type="button" class="btn-menu flex h-11 w-10 items-center justify-center border border-borda-forte text-xl leading-none text-texto md:hidden" aria-label={`Ações de ${i.nome}`}>⋯</button>
+                      <div class="hidden items-center gap-3 md:flex md:justify-end">
+                        <button type="button" class="btn-editar border border-borda-forte px-3 py-2 text-[0.8125rem] font-semibold text-texto hover:border-oliva-300">Editar</button>
+                        <form method="post" data-confirmar={`Remover ${i.nome} da lista? Isso não pode ser desfeito.`}>
+                          <input type="hidden" name="acao" value="remover" />
                           <input type="hidden" name="id" value={i.id} />
-                          <input type="hidden" name="assinatura_id" value="" />
-                          <button type="submit" class="text-[0.75rem] text-texto-2 underline hover:text-texto">desfazer</button>
+                          <button type="submit" class="px-2 py-2 text-[0.8125rem] text-alerta-texto hover:underline" aria-label={`Remover ${i.nome}`}>Remover</button>
                         </form>
                       </div>
-                    ) : (
-                      <div>
-                        <p class="text-[0.875rem] font-semibold text-alerta-texto">Sem assinatura</p>
-                        <button type="button" class="btn-vincular mt-1 border border-borda-forte px-3 py-1.5 text-[0.8125rem] font-semibold text-texto hover:border-oliva-300">
-                          Vincular assinatura
-                        </button>
-                      </div>
-                    )}
+                    </div>
                   </div>
-
-                  <div class="col-span-2 flex items-center gap-3 border-t border-borda pt-3 md:col-span-1 md:justify-end md:border-0 md:pt-0">
-                    <button type="button" class="btn-editar border border-borda-forte px-3 py-2 text-[0.8125rem] font-semibold text-texto hover:border-oliva-300">Editar</button>
-                    <form method="post" data-confirmar={`Remover ${i.nome} da lista? Isso não pode ser desfeito.`}>
-                      <input type="hidden" name="acao" value="remover" />
-                      <input type="hidden" name="id" value={i.id} />
-                      <button type="submit" class="px-2 py-2 text-[0.8125rem] text-alerta-texto hover:underline" aria-label={`Remover ${i.nome}`}>Remover</button>
-                    </form>
-                  </div>
-                </div>
-              </li>
+                </li>
+              </Fragment>
             ))}
           </ul>
           <p id="vazio" hidden class="px-4 py-8 text-center text-texto-2">Ninguém encontrado com esse filtro.</p>
@@ -369,6 +404,50 @@ const GRADE = "md:grid-cols-[2.25rem_minmax(0,1.6fr)_7.5rem_12rem_9rem]";
             Use "Vincular assinatura" na linha da pessoa para ligar.
           </p>
         )}
+
+        {/* folha de ações (celular): tudo o que se faz com um inscrito, num lugar só */}
+        <dialog id="dlg-acoes" class="m-0 mt-auto w-full max-w-none border-t border-borda-forte bg-papel p-0 text-texto backdrop:bg-black/70 md:m-auto md:w-[26rem] md:border">
+          <div class="p-5 pb-6">
+            <p id="a-nome" class="font-display text-2xl font-bold uppercase leading-tight text-tinta"></p>
+            <p id="a-info" class="mt-1 text-[0.875rem] text-texto-2"></p>
+            <p id="a-termo" class="mt-3 border border-borda px-3 py-2 text-[0.875rem]"></p>
+
+            <div class="mt-4 grid gap-2">
+              <button type="button" id="a-pago" class="min-h-[3rem] border border-borda-forte px-4 text-[0.9375rem] font-semibold text-tinta hover:border-oliva-300"></button>
+              <button type="button" id="a-vincular" class="min-h-[3rem] border border-borda-forte px-4 text-[0.9375rem] font-semibold text-tinta hover:border-oliva-300">Vincular assinatura</button>
+              <form method="post" id="a-desfazer" hidden>
+                <input type="hidden" name="acao" value="vincular" />
+                <input type="hidden" name="id" />
+                <input type="hidden" name="assinatura_id" value="" />
+                <button type="submit" class="min-h-[3rem] w-full border border-borda-forte px-4 text-[0.9375rem] font-semibold text-tinta hover:border-oliva-300">Desfazer ligação com a assinatura</button>
+              </form>
+              <button type="button" id="a-editar" class="min-h-[3rem] border border-borda-forte px-4 text-[0.9375rem] font-semibold text-tinta hover:border-oliva-300">Editar dados</button>
+              <form method="post" id="a-remover">
+                <input type="hidden" name="acao" value="remover" />
+                <input type="hidden" name="id" />
+                <button type="submit" class="min-h-[3rem] w-full border border-alerta/60 px-4 text-[0.9375rem] font-semibold text-alerta-texto hover:border-alerta">Remover da lista</button>
+              </form>
+              <button type="button" class="fechar mt-1 min-h-[3rem] px-4 text-[0.9375rem] text-texto-2 hover:text-texto">Fechar</button>
+            </div>
+          </div>
+        </dialog>
+
+        {/* diálogo: lista atualizada para copiar */}
+        <dialog id="dlg-lista" class="m-auto w-[min(40rem,calc(100vw-2rem))] border border-borda-forte bg-papel p-0 text-texto backdrop:bg-black/70">
+          <div class="space-y-4 p-5">
+            <h2 class="font-display text-2xl font-bold uppercase text-tinta">Lista atualizada</h2>
+            <p class="text-[0.875rem] leading-snug text-texto-2">
+              Já reflete o que está na tela agora. Copie e cole no grupo.
+              <span class="whitespace-nowrap">💵 pagou</span> · <span class="whitespace-nowrap">✅ assinou o termo</span>
+            </p>
+            <label for="texto-lista" class="sr-only">Texto da lista</label>
+            <textarea id="texto-lista" readonly rows="16" class="w-full border border-borda-forte bg-fundo p-3 font-dado text-[0.8125rem] leading-relaxed text-tinta focus:outline-none focus-visible:outline-2 focus-visible:outline-oliva-300"></textarea>
+            <div class="flex flex-wrap items-center justify-end gap-3">
+              <button type="button" class="fechar border border-borda-forte px-4 py-2.5 text-[0.875rem] font-semibold text-texto hover:border-oliva-300">Fechar</button>
+              <button type="button" id="copiar-lista" class="border border-oliva-500 bg-oliva-500 px-5 py-2.5 font-display text-sm font-bold uppercase tracking-[0.06em] text-fundo hover:bg-oliva-300">Copiar lista</button>
+            </div>
+          </div>
+        </dialog>
 
         {/* diálogo: adicionar / editar */}
         <dialog id="dlg-inscrito" class="m-auto w-[min(28rem,calc(100vw-2rem))] border border-borda-forte bg-papel p-0 text-texto backdrop:bg-black/70">
@@ -443,12 +522,17 @@ const GRADE = "md:grid-cols-[2.25rem_minmax(0,1.6fr)_7.5rem_12rem_9rem]";
   .btn-pago { border-color: var(--color-borda-forte); color: var(--color-texto-2); }
   .btn-pago[aria-pressed="true"] { border-color: var(--color-ok); background: var(--color-ok-bg); color: var(--color-ok-texto); }
   .btn-pago[disabled] { opacity: 0.6; cursor: wait; }
+  .btn-termo { border-color: var(--color-borda-forte); color: var(--color-texto-2); }
+  .btn-termo[data-ok="1"] { border-color: var(--color-ok); background: var(--color-ok-bg); color: var(--color-ok-texto); }
+  .rolagem-h { scrollbar-width: none; }
+  .rolagem-h::-webkit-scrollbar { display: none; }
 </style>
 
 <script>
   const lista = document.getElementById("lista");
   if (lista) {
-    const itens = [...lista.querySelectorAll<HTMLElement>(":scope > li")];
+    const itens = [...lista.querySelectorAll<HTMLElement>(":scope > li[data-id]")];
+    const cabecalhos = [...lista.querySelectorAll<HTMLElement>(":scope > li.cabecalho-lado")];
     const busca = document.getElementById("busca") as HTMLInputElement;
     const contagem = document.getElementById("contagem")!;
     const vazio = document.getElementById("vazio")!;
@@ -483,6 +567,8 @@ const GRADE = "md:grid-cols-[2.25rem_minmax(0,1.6fr)_7.5rem_12rem_9rem]";
         li.hidden = !ok;
         if (ok) visiveis++;
       }
+      // título de cada lado só aparece se sobrou alguém dele
+      for (const c of cabecalhos) c.hidden = !itens.some((li) => !li.hidden && li.dataset.lado === c.dataset.cab);
       contagem.textContent = `${visiveis} de ${itens.length}`;
       vazio.hidden = visiveis > 0;
     }
@@ -549,29 +635,155 @@ const GRADE = "md:grid-cols-[2.25rem_minmax(0,1.6fr)_7.5rem_12rem_9rem]";
     }
     document.getElementById("abrir-novo")!.addEventListener("click", () => abrirInscrito(null));
 
+    const LADO_NOME: Record<string, string> = { "PMC/VIETCONG": "PMC / Vietcong", MILITAR: "Militar", RESERVA: "Reserva" };
+
+    function abrirVincular(li: HTMLElement) {
+      campo("v-id").value = li.dataset.id ?? "";
+      document.getElementById("v-nome")!.textContent = li.dataset.nome ?? "";
+      const sel = document.getElementById("v-sel") as HTMLSelectElement | null;
+      if (sel) {
+        // sugestão não automática: só põe no topo quem tem o mesmo primeiro nome
+        const primeiro = norm(li.dataset.nome ?? "").split(" ")[0];
+        const opcoes = [...sel.options];
+        opcoes.sort((a, b) => {
+          const pa = (a.dataset.nome ?? "").split(" ")[0] === primeiro ? 0 : 1;
+          const pb = (b.dataset.nome ?? "").split(" ")[0] === primeiro ? 0 : 1;
+          return pa - pb;
+        });
+        opcoes.forEach((o) => sel.appendChild(o));
+        sel.selectedIndex = 0;
+      }
+      dlgVincular.showModal();
+    }
+
+    /* ---------------------- folha de ações (celular) ---------------------- */
+    const dlgAcoes = document.getElementById("dlg-acoes") as HTMLDialogElement;
+    let liAtual: HTMLElement | null = null;
+
+    function abrirAcoes(li: HTMLElement) {
+      liAtual = li;
+      const assinou = li.dataset.assinou === "1";
+      const pago = li.dataset.pago === "1";
+      const id = li.dataset.id ?? "";
+      document.getElementById("a-nome")!.textContent = li.dataset.nome ?? "";
+      document.getElementById("a-info")!.textContent = [li.dataset.equipe, LADO_NOME[li.dataset.lado ?? ""], li.dataset.obs]
+        .filter(Boolean)
+        .join(" · ");
+      const termo = document.getElementById("a-termo")!;
+      termo.textContent = assinou
+        ? `✓ Assinou o termo — ${li.dataset.assinouNome}${li.dataset.assinouEm ? ` · ${li.dataset.assinouEm}` : ""}`
+        : "Sem assinatura ligada a este inscrito";
+      termo.className = `mt-3 border px-3 py-2 text-[0.875rem] ${assinou ? "border-ok/60 bg-ok-bg text-ok-texto" : "border-alerta/60 text-alerta-texto"}`;
+      document.getElementById("a-pago")!.textContent = pago ? "Desmarcar pagamento" : "Marcar como pago";
+      document.getElementById("a-vincular")!.hidden = assinou;
+      const desfazer = document.getElementById("a-desfazer") as HTMLFormElement;
+      desfazer.hidden = !assinou;
+      desfazer.dataset.confirmar = `Desfazer a ligação de ${li.dataset.nome} com a assinatura?`;
+      (desfazer.elements.namedItem("id") as HTMLInputElement).value = id;
+      const remover = document.getElementById("a-remover") as HTMLFormElement;
+      remover.dataset.confirmar = `Remover ${li.dataset.nome} da lista? Isso não pode ser desfeito.`;
+      (remover.elements.namedItem("id") as HTMLInputElement).value = id;
+      dlgAcoes.showModal();
+    }
+
     lista.addEventListener("click", (e) => {
       const alvo = e.target as HTMLElement;
-      const li = alvo.closest<HTMLElement>("li");
+      const li = alvo.closest<HTMLElement>("li[data-id]");
       if (!li) return;
       if (alvo.closest(".btn-editar")) abrirInscrito(li);
-      if (alvo.closest(".btn-vincular")) {
-        campo("v-id").value = li.dataset.id ?? "";
-        document.getElementById("v-nome")!.textContent = li.dataset.nome ?? "";
-        const sel = document.getElementById("v-sel") as HTMLSelectElement | null;
-        if (sel) {
-          // sugestão não automática: só põe no topo quem tem o mesmo primeiro nome
-          const primeiro = norm(li.dataset.nome ?? "").split(" ")[0];
-          const opcoes = [...sel.options];
-          opcoes.sort((a, b) => {
-            const pa = (a.dataset.nome ?? "").split(" ")[0] === primeiro ? 0 : 1;
-            const pb = (b.dataset.nome ?? "").split(" ")[0] === primeiro ? 0 : 1;
-            return pa - pb;
-          });
-          opcoes.forEach((o) => sel.appendChild(o));
-          sel.selectedIndex = 0;
+      else if (alvo.closest(".btn-vincular")) abrirVincular(li);
+      else if (alvo.closest(".btn-menu, .btn-termo")) abrirAcoes(li);
+    });
+    document.getElementById("a-editar")!.addEventListener("click", () => {
+      dlgAcoes.close();
+      if (liAtual) abrirInscrito(liAtual);
+    });
+    document.getElementById("a-vincular")!.addEventListener("click", () => {
+      dlgAcoes.close();
+      if (liAtual) abrirVincular(liAtual);
+    });
+    document.getElementById("a-pago")!.addEventListener("click", () => {
+      dlgAcoes.close();
+      liAtual?.querySelector<HTMLButtonElement>(".btn-pago")?.click();
+    });
+    // tocar no fundo escuro fecha a folha
+    dlgAcoes.addEventListener("click", (e) => {
+      if (e.target === dlgAcoes) dlgAcoes.close();
+    });
+
+    // os contadores "faltam" levam direto para a lista já filtrada
+    document.querySelectorAll<HTMLElement>("[data-atalho]").forEach((el) =>
+      el.addEventListener("click", () => {
+        document.querySelector<HTMLButtonElement>(`.filtro-situacao[data-situacao="${el.dataset.atalho}"]`)?.click();
+        lista.scrollIntoView({ behavior: "smooth", block: "start" });
+      }),
+    );
+
+    /* --------------------------- gerar lista atualizada --------------------------- */
+    const dlgLista = document.getElementById("dlg-lista") as HTMLDialogElement;
+    const textoLista = document.getElementById("texto-lista") as HTMLTextAreaElement;
+
+    function gerarTexto(): string {
+      const botao = document.getElementById("gerar-lista")!;
+      const secoes: { lado: string; titulo: string; linhas: string[] }[] = [
+        { lado: "PMC/VIETCONG", titulo: "PMC/VIETCONG", linhas: [] },
+        { lado: "MILITAR", titulo: "MILITAR", linhas: [] },
+        { lado: "RESERVA", titulo: "Vagas reservas", linhas: [] },
+      ];
+      let titulares = 0;
+      let pagos = 0;
+      let assinaram = 0;
+      for (const li of itens) {
+        const secao = secoes.find((x) => x.lado === li.dataset.lado);
+        if (!secao) continue;
+        const nome = li.dataset.nome ?? "";
+        const equipe = li.dataset.equipe ?? "";
+        // o ✅ antigo da lista em papel não vale mais: agora ✅ = assinou o termo
+        const obs = (li.dataset.obs ?? "").replace(/✅/g, "").replace(/\s+/g, " ").trim();
+        const pago = li.dataset.pago === "1";
+        const assinou = li.dataset.assinou === "1";
+        if (li.dataset.lado !== "RESERVA") titulares++;
+        if (pago) pagos++;
+        if (assinou) assinaram++;
+
+        let linha = `${secao.linhas.length + 1} - ${nome}`;
+        if (obs) linha += /^[^\p{L}\p{N}]+$/u.test(obs) ? ` ${obs}` : ` (${obs})`;
+        if (equipe && equipe.toLowerCase() !== nome.toLowerCase()) {
+          if (equipe === "Rhino") linha += "🦏";
+          else linha += ` ${equipe === "FS" ? "##FS##" : equipe}`;
         }
-        dlgVincular.showModal();
+        if (pago) linha += "💵";
+        if (assinou) linha += "✅";
+        secao.linhas.push(linha);
       }
+
+      const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(", ", " às ");
+      const vagas = botao.dataset.vagas;
+      const cab = [
+        `LISTA DE INSCRITOS — ${botao.dataset.titulo ?? ""}${vagas ? ` (${vagas} vagas)` : ""}`,
+        `Atualizada em ${agora}`,
+        "💵 pagou · ✅ assinou o termo",
+        `Inscritos: ${titulares}${vagas ? `/${vagas}` : ""} · Pagos: ${pagos} · Assinaram: ${assinaram}`,
+      ];
+      return [cab.join("\n"), ...secoes.filter((x) => x.linhas.length).map((x) => `${x.titulo}\n${x.linhas.join("\n")}`)].join("\n\n");
+    }
+
+    document.getElementById("gerar-lista")!.addEventListener("click", () => {
+      textoLista.value = gerarTexto();
+      dlgLista.showModal();
+      textoLista.focus();
+      textoLista.select();
+    });
+    const botaoCopiar = document.getElementById("copiar-lista")!;
+    botaoCopiar.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(textoLista.value);
+      } catch {
+        textoLista.select();
+        document.execCommand("copy");
+      }
+      botaoCopiar.textContent = "Copiado!";
+      setTimeout(() => (botaoCopiar.textContent = "Copiar lista"), 1800);
     });
 
     document.querySelectorAll<HTMLFormElement>("form[data-confirmar]").forEach((f) =>
