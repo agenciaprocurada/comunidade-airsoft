@@ -154,6 +154,11 @@ const rotulo = "inline font-dado text-[11px] uppercase tracking-[0.14em] text-ol
                         {e.detalhe}
                       </p>
                     )}
+                    {e.url && (
+                      <a href={e.url} class="mt-4 self-start border-b border-oliva-500 pb-1 text-sm font-semibold text-oliva-300 hover:text-tinta">
+                        Conhecer a operação →
+                      </a>
+                    )}
                   </div>
                 </li>
               ))}

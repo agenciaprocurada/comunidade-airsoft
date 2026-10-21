@@ -1,0 +1,280 @@
+---
+import { Image } from "astro:assets";
+import Base from "../layouts/Base.astro";
+import Icone from "../components/vietna/Icone.astro";
+import { operacaoVietna as evento } from "../data/operacao-vietna";
+import hero from "../assets/vietna/selva-operacao-vietna.webp";
+import poster from "../assets/vietna/poster-operacao-vietna.webp";
+import militares from "../assets/vietna/loadout-us-army.webp";
+import vietcong from "../assets/vietna/loadout-vietcong.webp";
+import sorteio from "../assets/vietna/sorteio-capacete.webp";
+import logo from "../assets/vietna/logo-comunidade.webp";
+import logoRedWolf from "../assets/vietna/logo-redwolf-team.webp";
+import "../styles/operacao-vietna.css";
+
+const beneficios = [
+  { icone: "patch", titulo: "Patch exclusivo", texto: "A marca da operação para levar com você." },
+  { icone: "fruta", titulo: "Frutas pra tropa", texto: "Uma pausa para recarregar as energias." },
+  { icone: "presente", titulo: "Sorteio de brindes", texto: "Com capacete de airsoft entre os prêmios." },
+  { icone: "ferramenta", titulo: "NB Precision", texto: "Armeiro presente na base da operação." },
+  { icone: "lanche", titulo: "Lanches na base", texto: "Alimentação à venda durante o evento." },
+];
+const perguntas = [
+  { pergunta: "Quando e onde acontece a operação?", resposta: "Dia 28 de novembro de 2026, às 07h, na Base Red Wolf, em Gravataí/RS. Confirme com a organização o ponto de acesso à base antes de sair." },
+  { pergunta: "O patch está incluído no ingresso?", resposta: "Sim. Os três lotes divulgados nesta página incluem o patch exclusivo da OPERAÇÃO VIETNÃ: R$ 60 até 10/10, R$ 70 até 25/10 e R$ 80 até 10/11." },
+  { pergunta: "Qual uniforme devo usar?", resposta: "O US Army usa farda e calça multicam ou verde oliva. O Vietcong usa camisa preta e calça lisa preta, tan ou jeans. Confira as artes oficiais de loadout nesta página e alinhe seu equipamento com a organização." },
+  { pergunta: "Como faço para participar?", resposta: evento.grupoInscricao ? "Entre no grupo de pré-inscrição para combinar seu exército, confirmar a disponibilidade e receber as orientações de pagamento. Preencha também o termo de participação. A assinatura do termo não substitui a confirmação do ingresso com a organização." : "Confirme sua inscrição, seu exército e o pagamento diretamente com a organização. O termo de participação já está disponível no botão abaixo. A assinatura do termo não substitui a confirmação do ingresso." },
+  { pergunta: "Vai ter alimentação e suporte técnico?", resposta: "A operação terá frutas para a tropa, lanches à venda e o armeiro NB Precision na base. Também haverá sorteio de brindes, incluindo um capacete de airsoft, conforme a arte oficial." },
+];
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "SportsEvent",
+  name: "OPERAÇÃO VIETNÃ — US Army x Vietcong",
+  description: "Operação de airsoft na Base Red Wolf, em Gravataí/RS. US Army x Vietcong, patch exclusivo, sorteio de brindes e NB Precision na base.",
+  startDate: evento.inicio,
+  eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+  eventStatus: "https://schema.org/EventScheduled",
+  sport: "Airsoft",
+  image: [new URL(poster.src, Astro.site).href],
+  url: new URL("/operacao-vietna", Astro.site).href,
+  location: { "@type": "Place", name: evento.local, address: { "@type": "PostalAddress", addressLocality: "Gravataí", addressRegion: "RS", addressCountry: "BR" } },
+  organizer: { "@type": "Organization", name: "Red Wolf" },
+};
+---
+
+<Base
+  titulo="OPERAÇÃO VIETNÃ — 28/11/2026 · Base Red Wolf"
+  descricao="1968. O inferno é verde. Dia 28/11, às 07h, na Base Red Wolf em Gravataí/RS. US Army x Vietcong. Confira os lotes com patch e prepare-se para a operação."
+  imagem={{ src: "/vietna/og-operacao-vietna.jpg", largura: 1200, altura: 630 }}
+  dadosEstruturados={[schema]}
+  semCasca
+>
+  <div class="vietna-page">
+    <header class="vn-header">
+      <a href="#inicio" class="vn-brand" aria-label="Red Wolf Team · Operação Vietnã — início">
+        <Image src={logoRedWolf} alt="Red Wolf Team" class="vn-redwolf-logo" height={140} loading="eager" />
+        <span>OPERAÇÃO <strong>VIETNÃ</strong></span>
+      </a>
+      <nav class="vn-nav" aria-label="Navegação do evento">
+        <a href="#missao">A missão</a>
+        <a href="#exercitos">Os exércitos</a>
+        <a href="#lotes">Os lotes</a>
+        <a href="#base">A base</a>
+      </nav>
+      <a href="#lotes" class="vn-button vn-button-small">Quero participar <Icone nome="diagonal" tamanho={17} /></a>
+    </header>
+
+    <section class="vn-hero" id="inicio" aria-labelledby="titulo-evento">
+      <Image src={hero} alt="" class="vn-hero-image" widths={[640, 1024, 1440, 1920]} sizes="100vw" loading="eager" fetchpriority="high" />
+      <div class="vn-hero-shade" aria-hidden="true"></div>
+      <div class="vn-hero-content vn-container">
+        <div class="vn-eyebrow"><span class="vn-live-dot"></span> Jogo de airsoft <span class="vn-eyebrow-divider">/</span> Red Wolf apresenta</div>
+        <h1 id="titulo-evento"><span class="vn-operation">OPERAÇÃO</span><span class="vn-title">VIETNÃ</span></h1>
+        <p class="vn-hero-tagline">1968. O inferno é verde.<br /><strong>E ele tem data marcada.</strong></p>
+        <div class="vn-hero-meta">
+          <div><Icone nome="calendario" /><span><strong>28 NOVEMBRO</strong><small>2026 · SÁBADO · 07H</small></span></div>
+          <div><Icone nome="pino" /><span><strong>BASE RED WOLF</strong><small>GRAVATAÍ / RS</small></span></div>
+        </div>
+        <div class="vn-hero-actions">
+          <a href="#lotes" class="vn-button">Eu vou pra essa missão <Icone nome="seta" tamanho={20} /></a>
+          <a href="#missao" class="vn-link">Conhecer a operação <span aria-hidden="true">↓</span></a>
+        </div>
+        <p class="vn-hero-note"><Icone nome="patch" tamanho={16} /> Todos os lotes com patch exclusivo</p>
+      </div>
+      <div class="vn-hero-caption" aria-hidden="true"><span>TEATRO DE OPERAÇÕES</span><strong>SELVA · 1968</strong><span>US ARMY × VIETCONG</span></div>
+      <a href="#missao" class="vn-scroll"><span>Role para o briefing</span><span aria-hidden="true">↓</span></a>
+      <div class="vn-hero-coordinate" aria-hidden="true">OP. VN / 28.11.26</div>
+    </section>
+
+    <div class="vn-battle-strip" aria-label="US Army contra Vietcong">
+      <span><span class="vn-star" aria-hidden="true">★</span> US ARMY</span>
+      <span class="vn-battle-center">DOIS EXÉRCITOS. UMA SELVA.</span>
+      <span>VIETCONG <span class="vn-star vn-red-star" aria-hidden="true">★</span></span>
+    </div>
+
+    <section class="vn-mission vn-section vn-container" id="missao" aria-labelledby="titulo-missao">
+      <div class="vn-mission-copy">
+        <p class="vn-kicker"><span>01</span> O briefing</p>
+        <h2 id="titulo-missao">A SELVA CHAMA.<br /><span>VOCÊ RESPONDE?</span></h2>
+        <p>O ano é 1968. Entre a mata fechada e o som dos helicópteros, dois exércitos se encontram. De um lado, o US Army. Do outro, o Vietcong.</p>
+        <p>Em 28 de novembro, a Base Red Wolf é o cenário dessa operação de airsoft. Reúna sua equipe, escolha seu lado e venha viver a OPERAÇÃO VIETNÃ.</p>
+        <a href="#exercitos" class="vn-text-link">Conheça os exércitos <Icone nome="seta" tamanho={18} /></a>
+      </div>
+      <figure class="vn-poster">
+        <div class="vn-poster-tape" aria-hidden="true">ARQUIVO DA OPERAÇÃO / 1968</div>
+        <Image src={poster} alt="Arte da Operação Vietnã: combatentes avançam pela selva com helicópteros ao pôr do sol" width={640} loading="lazy" />
+        <figcaption><span>OPERAÇÃO VIETNÃ</span><span>28 NOV. 2026 <span aria-hidden="true">↗</span></span></figcaption>
+      </figure>
+    </section>
+
+    <section class="vn-armies vn-section" id="exercitos" aria-labelledby="titulo-exercitos">
+      <div class="vn-container">
+        <div class="vn-section-heading">
+          <div><p class="vn-kicker"><span>02</span> Escolha seu lado</p><h2 id="titulo-exercitos">DOIS LADOS.<br /><span>A MESMA ADRENALINA.</span></h2></div>
+          <p>Seu uniforme identifica seu exército.<br />Confira o loadout e chegue preparado.</p>
+        </div>
+        <div class="vn-army-grid">
+          <article class="vn-army vn-army-us">
+            <div class="vn-army-visual">
+              <Image src={militares} alt="Guia oficial do US Army: militar com farda multicam e equipamentos verde oliva, coiote e multicam" widths={[500, 760, 1002]} sizes="(max-width: 760px) 100vw, 50vw" loading="lazy" />
+              <span class="vn-army-label">EXÉRCITO 01 <span aria-hidden="true">★</span></span>
+            </div>
+            <div class="vn-army-info">
+              <p class="vn-small-label">FORÇA MILITAR</p><h3>US ARMY</h3>
+              <p>Farda e calça multicam ou verde oliva. Equipamentos em verde, coiote ou multicam.</p>
+              <div class="vn-colors" aria-label="Cores: verde oliva, coiote e multicam"><span class="vn-swatch vn-olive"></span><span class="vn-swatch vn-tan"></span><span class="vn-swatch vn-camo"></span><span>VERDE OLIVA / COIOTE / MULTICAM</span></div>
+              <button type="button" class="vn-text-link" data-loadout="us-army">Abrir guia de loadout <Icone nome="diagonal" tamanho={18} /></button>
+            </div>
+          </article>
+          <div class="vn-versus" aria-hidden="true">VS</div>
+          <article class="vn-army vn-army-vc">
+            <div class="vn-army-visual">
+              <Image src={vietcong} alt="Guia oficial do Vietcong: combatente com camisa preta, calça preta e colete coiote" widths={[500, 760, 1024]} sizes="(max-width: 760px) 100vw, 50vw" loading="lazy" />
+              <span class="vn-army-label">EXÉRCITO 02 <span aria-hidden="true">★</span></span>
+            </div>
+            <div class="vn-army-info">
+              <p class="vn-small-label">FORÇA VIETCONG</p><h3>VIETCONG</h3>
+              <p>Camisa preta obrigatória. Calça lisa preta, tan ou jeans. Colete preto ou coiote.</p>
+              <div class="vn-colors" aria-label="Cores: preto, tan e jeans"><span class="vn-swatch vn-black"></span><span class="vn-swatch vn-tan"></span><span class="vn-swatch vn-jeans"></span><span>PRETO / TAN / JEANS</span></div>
+              <button type="button" class="vn-text-link" data-loadout="vietcong">Abrir guia de loadout <Icone nome="diagonal" tamanho={18} /></button>
+            </div>
+          </article>
+        </div>
+        <p class="vn-army-note"><Icone nome="mira" tamanho={18} /> As artes oficiais trazem os detalhes de cada loadout. Confirme dúvidas de equipamento com a organização.</p>
+      </div>
+    </section>
+
+    <section class="vn-benefits vn-section vn-container" aria-labelledby="titulo-estrutura">
+      <div class="vn-section-heading">
+        <div><p class="vn-kicker"><span>03</span> Além do combate</p><h2 id="titulo-estrutura">A TROPA TEM <span>SUPORTE.</span></h2></div>
+      </div>
+      <div class="vn-benefits-grid">
+        {beneficios.map((item) => <article><Icone nome={item.icone} tamanho={31} /><h3>{item.titulo}</h3><p>{item.texto}</p>{item.icone === "presente" && <button type="button" class="vn-subtle-link" data-loadout="sorteio">Ver arte do sorteio ↗</button>}</article>)}
+      </div>
+    </section>
+
+    <section class="vn-tickets vn-section" id="lotes" aria-labelledby="titulo-lotes">
+      <div class="vn-container">
+        <div class="vn-section-heading">
+          <div><p class="vn-kicker"><span>04</span> Seu lugar na operação</p><h2 id="titulo-lotes">MISSÃO MARCADA.<br /><span>PREPARE SEU PATCH.</span></h2></div>
+          <p>Três lotes. O mesmo chamado.<br />Todos incluem o patch exclusivo da operação.</p>
+        </div>
+        <div class="vn-ticket-grid">
+          {evento.lotes.map((lote) => (
+            <article class="vn-ticket" data-lote data-ate={lote.ate} data-valor={lote.valor}>
+              <div class="vn-ticket-top"><span class="vn-ticket-number">/{lote.numero}</span><span class="vn-ticket-status" data-lote-status>Lote com patch</span></div>
+              <h3>{lote.nome}</h3>
+              <p class="vn-price"><span>R$</span> {lote.valor}<small>,00</small></p>
+              <p class="vn-deadline"><Icone nome="calendario" tamanho={16} /> Até {lote.prazo}</p>
+              <div class="vn-ticket-bottom"><span><Icone nome="check" tamanho={16} /> Patch exclusivo incluído</span><a href="#participar" class="vn-ticket-link">Participar da operação <Icone nome="diagonal" tamanho={20} /></a></div>
+            </article>
+          ))}
+        </div>
+        <p class="vn-ticket-disclaimer" data-ticket-notice>Valores por participante. Prazos dos lotes no horário de Brasília. Confirme a disponibilidade com a organização.</p>
+        <div class="vn-signup" id="participar">
+          <div><p class="vn-small-label">PRÓXIMO PASSO</p><h3>SUA MISSÃO COMEÇA AQUI.</h3><p>{evento.grupoInscricao ? "Entre no grupo de pré-inscrição para confirmar sua vaga e receber as orientações da organização." : "Confirme sua vaga e o pagamento com a organização. Adiante sua preparação preenchendo o termo oficial da operação."}</p></div>
+          <div class="vn-signup-actions">
+            {evento.grupoInscricao && <a href={evento.grupoInscricao} target="_blank" rel="noopener noreferrer" class="vn-button"><Icone nome="mensagem" tamanho={20} /> Entrar na pré-inscrição <Icone nome="diagonal" tamanho={18} /></a>}
+            <a href={evento.termo} class:list={[evento.grupoInscricao ? "vn-text-link" : "vn-button"]}>Preencher termo de participação <Icone nome="seta" tamanho={19} /></a>
+            <small>O termo não substitui a confirmação do ingresso.</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="vn-base vn-section vn-container" id="base" aria-labelledby="titulo-base">
+      <div class="vn-base-display">
+        <div class="vn-base-grid" aria-hidden="true"></div>
+        <span class="vn-base-label">PONTO DE ENCONTRO / RS</span>
+        <div class="vn-base-target"><Icone nome="mira" tamanho={62} /><span>BASE<br /><strong>RED WOLF</strong></span></div>
+        <span class="vn-base-bottom"><span class="vn-live-dot"></span> GRAVATAÍ · RIO GRANDE DO SUL</span>
+      </div>
+      <div class="vn-base-copy"><p class="vn-kicker"><span>05</span> O teatro de operações</p><h2 id="titulo-base">NOS VEMOS<br /><span>NA BASE.</span></h2><p>A Base Red Wolf, em Gravataí/RS, é o ponto de encontro da tropa. Prepare seu equipamento e alinhe a chegada com sua equipe.</p><dl><div><dt><Icone nome="calendario" tamanho={19} /> DATA</dt><dd>28 de novembro de 2026</dd></div><div><dt><Icone nome="relogio" tamanho={19} /> HORÁRIO</dt><dd>07h</dd></div><div><dt><Icone nome="pino" tamanho={19} /> LOCAL</dt><dd>Base Red Wolf · Gravataí/RS</dd></div></dl><p class="vn-base-note">Confirme o ponto de acesso e as orientações de chegada com a organização.</p><a class="vn-text-link" href="https://www.google.com/maps/search/?api=1&query=Base+Red+Wolf+Airsoft+Gravata%C3%AD+RS" target="_blank" rel="noopener noreferrer">Buscar a base no mapa <Icone nome="diagonal" tamanho={18} /></a></div>
+    </section>
+
+    <section class="vn-faq vn-section vn-container" aria-labelledby="titulo-duvidas">
+      <div><p class="vn-kicker"><span>06</span> Antes da missão</p><h2 id="titulo-duvidas">ÚLTIMO<br /><span>BRIEFING.</span></h2><p>As informações essenciais<br />para chegar preparado.</p></div>
+      <div class="vn-faq-list">{perguntas.map((item, i) => <details><summary><span class="vn-faq-number">0{i + 1}</span>{item.pergunta}<span class="vn-faq-plus" aria-hidden="true">+</span></summary><p>{item.resposta}</p></details>)}</div>
+    </section>
+
+    <section class="vn-final" aria-labelledby="titulo-chamada">
+      <div class="vn-container"><p class="vn-kicker">28.11.2026 / GRAVATAÍ, RS</p><h2 id="titulo-chamada">O INFERNO É VERDE.<br /><span>O PRÓXIMO PASSO É SEU.</span></h2><a href="#lotes" class="vn-button">Eu vou pra essa missão <Icone nome="seta" tamanho={20} /></a><p>US ARMY <span aria-hidden="true">★</span> VIETCONG</p></div>
+    </section>
+
+    <footer class="vn-footer vn-container"><a href="/" aria-label="Ir para Comunidade Airsoft"><Image src={logo} alt="Comunidade Airsoft" class="logo vn-community-logo" width={340} loading="lazy" /></a><p>OPERAÇÃO VIETNÃ <span>Uma operação Red Wolf · 2026</span></p><a href="/agenda" class="vn-footer-link">Agenda da comunidade <Icone nome="diagonal" tamanho={16} /></a></footer>
+
+    <div class="vn-mobile-cta"><div><strong>28 NOV · 07H</strong><span>BASE RED WOLF · GRAVATAÍ/RS</span></div><a href="#lotes" class="vn-button vn-button-small">Participar <Icone nome="seta" tamanho={17} /></a></div>
+
+    <dialog class="vn-dialog" id="dialog-loadout" aria-labelledby="titulo-guia">
+      <div class="vn-dialog-bar"><h2 id="titulo-guia">Guia oficial de loadout</h2><button type="button" data-fechar-guia aria-label="Fechar guia">Fechar <span aria-hidden="true">×</span></button></div>
+      <div class="vn-dialog-content">
+        <div data-guia="us-army">
+          <Image src={militares} width={1002} alt="Arte oficial do loadout militar da Operação Vietnã" loading="lazy" />
+          <div class="vn-dialog-rules"><h3>Loadout US Army — texto da arte oficial</h3><p><strong>Uniforme:</strong> farda e calça tática multicam ou verde oliva.</p><p><strong>Equipamentos liberados:</strong> capacete, colete tático, bolsa de combate, cinto tático e botas em verde, coiote ou multicam. Óculos táticos. Rifle AEG e pistola, ambos com limite de até 400 FPS indicado na arte.</p><p><strong>Proibidos para militar:</strong> capacete preto, boné preto, colete preto e camiseta preta.</p><p>Confirme com a organização as regras completas e a medição dos equipamentos antes de jogar.</p></div>
+        </div>
+        <div data-guia="vietcong">
+          <Image src={vietcong} width={1024} alt="Arte oficial do loadout Vietcong da Operação Vietnã" loading="lazy" />
+          <div class="vn-dialog-rules"><h3>Loadout Vietcong — texto da arte oficial</h3><p><strong>Uniforme:</strong> camisa preta obrigatória. Calça de cor lisa preta, tan ou jeans. Colete preto ou tan/coiote.</p><p><strong>Equipamentos liberados:</strong> capacete ou boné preto, óculos táticos, bolsa de combate, cinto tático e botas táticas. Rifle AEG e pistola, ambos com limite de até 400 FPS indicado na arte.</p><p><strong>Proibidos para Vietcong:</strong> capacete ou boné camuflado, camisa camuflada, colete camuflado e calça camuflada.</p><p>Confirme com a organização as regras completas e a medição dos equipamentos antes de jogar.</p></div>
+        </div>
+        <div data-guia="sorteio">
+          <Image src={sorteio} width={1024} alt="Arte oficial anunciando sorteio de um capacete de airsoft na Operação Vietnã" loading="lazy" />
+          <div class="vn-dialog-rules"><h3>Sorteio da operação</h3><p>A arte oficial anuncia o sorteio de um capacete de airsoft no evento de 28 de novembro, na Base Red Wolf Team, em Gravataí. Consulte a organização no grupo de pré-inscrição sobre a participação no sorteio.</p></div>
+        </div>
+      </div>
+    </dialog>
+  </div>
+</Base>
+
+<script>
+  import { operacaoVietna } from "../data/operacao-vietna";
+  // Atualizado no navegador: esta LP é estática e não depende de um novo build
+  // para encerrar um lote. As datas usam o fuso do próprio evento.
+  const hoje = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  const lotes = Array.from(document.querySelectorAll<HTMLElement>("[data-lote]"));
+  let vigenteEncontrado = false;
+  lotes.forEach((lote) => {
+    const encerrado = hoje > (lote.dataset.ate ?? "");
+    const vigente = !encerrado && !vigenteEncontrado;
+    if (vigente) vigenteEncontrado = true;
+    lote.classList.toggle("vn-ticket-closed", encerrado);
+    lote.classList.toggle("vn-ticket-current", vigente);
+    const status = lote.querySelector<HTMLElement>("[data-lote-status]");
+    if (status) status.textContent = encerrado ? "Prazo encerrado" : vigente ? "Lote vigente" : "Próximo lote";
+    const link = lote.querySelector<HTMLAnchorElement>(".vn-ticket-link");
+    if (link) {
+      link.firstChild!.textContent = encerrado ? "Ver participação " : "Participar da operação ";
+      link.setAttribute("aria-label", `${encerrado ? "Ver participação na operação" : "Participar da operação"} — ${lote.querySelector("h3")?.textContent}`);
+    }
+  });
+  const aviso = document.querySelector<HTMLElement>("[data-ticket-notice]");
+  if (aviso && !vigenteEncontrado) aviso.textContent = "Os prazos dos lotes com patch se encerraram. Consulte a organização sobre disponibilidade e valores.";
+  if (hoje > operacaoVietna.data) {
+    if (aviso) aviso.textContent = "Esta edição aconteceu em 28 de novembro de 2026. Os valores acima fazem parte do histórico do evento.";
+    document.querySelectorAll<HTMLAnchorElement>('a[href="#lotes"]').forEach((link) => {
+      if (link.firstChild) link.firstChild.textContent = "Ver os lotes ";
+    });
+    document.querySelector(".vn-signup")?.setAttribute("hidden", "");
+  }
+
+  const dialog = document.querySelector<HTMLDialogElement>("#dialog-loadout");
+  let ultimoBotao: HTMLButtonElement | null = null;
+  document.querySelectorAll<HTMLButtonElement>("[data-loadout]").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      if (!dialog) return;
+      ultimoBotao = botao;
+      const guia = botao.dataset.loadout;
+      dialog.querySelectorAll<HTMLElement>("[data-guia]").forEach((item) => { item.hidden = item.dataset.guia !== guia; });
+      const titulo = dialog.querySelector("#titulo-guia");
+      if (titulo) titulo.textContent = guia === "sorteio" ? "Sorteio de capacete — arte oficial" : `Loadout oficial — ${guia === "us-army" ? "US Army" : "Vietcong"}`;
+      dialog.showModal();
+      dialog.scrollTop = 0;
+      document.documentElement.classList.add("vn-modal-open");
+    });
+  });
+  dialog?.querySelector("[data-fechar-guia]")?.addEventListener("click", () => dialog.close());
+  dialog?.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+  dialog?.addEventListener("close", () => {
+    document.documentElement.classList.remove("vn-modal-open");
+    ultimoBotao?.focus({ preventScroll: true });
+  });
+</script>
