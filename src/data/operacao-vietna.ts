@@ -5,6 +5,12 @@ export const operacaoVietna = {
   inicio: "2026-11-28T07:00:00-03:00",
   local: "Base Red Wolf",
   cidade: "Gravataí/RS",
+  mapa: {
+    // Ponto confirmado pelo link do Google Maps enviado pela organização.
+    lat: -29.912675,
+    lng: -50.879957,
+    url: "https://maps.app.goo.gl/jv4uoYy3VNn84Ye38",
+  },
   termo: "/assinar/vwbubhc7v4",
   grupoInscricao: "https://chat.whatsapp.com/FihmaKVZoxH3rMXGOtyQbW",
   lotes: [

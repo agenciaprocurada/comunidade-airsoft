@@ -2,6 +2,7 @@
 import { Image } from "astro:assets";
 import Base from "../layouts/Base.astro";
 import Icone from "../components/vietna/Icone.astro";
+import MapaLocal from "../components/MapaLocal.astro";
 import { operacaoVietna as evento } from "../data/operacao-vietna";
 import hero from "../assets/vietna/selva-operacao-vietna.webp";
 import poster from "../assets/vietna/poster-operacao-vietna.webp";
@@ -37,7 +38,7 @@ const schema = {
   sport: "Airsoft",
   image: [new URL(poster.src, Astro.site).href],
   url: new URL("/operacao-vietna", Astro.site).href,
-  location: { "@type": "Place", name: evento.local, address: { "@type": "PostalAddress", addressLocality: "Gravataí", addressRegion: "RS", addressCountry: "BR" } },
+  location: { "@type": "Place", name: evento.local, address: { "@type": "PostalAddress", addressLocality: "Gravataí", addressRegion: "RS", addressCountry: "BR" }, geo: { "@type": "GeoCoordinates", latitude: evento.mapa.lat, longitude: evento.mapa.lng } },
   organizer: { "@type": "Organization", name: "Red Wolf" },
 };
 ---
@@ -115,10 +116,11 @@ const schema = {
         </div>
         <div class="vn-army-grid">
           <article class="vn-army vn-army-us">
-            <div class="vn-army-visual">
-              <Image src={militares} alt="Guia oficial do US Army: militar com farda multicam e equipamentos verde oliva, coiote e multicam" widths={[500, 760, 1002]} sizes="(max-width: 760px) 100vw, 50vw" loading="lazy" />
+            <button type="button" class="vn-army-visual" data-loadout="us-army" aria-label="Ampliar guia completo de loadout do US Army">
               <span class="vn-army-label">EXÉRCITO 01 <span aria-hidden="true">★</span></span>
-            </div>
+              <Image src={militares} alt="Guia oficial do US Army: militar com farda multicam e equipamentos verde oliva, coiote e multicam" widths={[500, 760, 1002]} sizes="(max-width: 760px) 100vw, 50vw" loading="lazy" />
+              <span class="vn-loadout-zoom"><Icone nome="diagonal" tamanho={16} /> Clique para ampliar a imagem</span>
+            </button>
             <div class="vn-army-info">
               <p class="vn-small-label">FORÇA MILITAR</p><h3>US ARMY</h3>
               <p>Farda e calça multicam ou verde oliva. Equipamentos em verde, coiote ou multicam.</p>
@@ -128,10 +130,11 @@ const schema = {
           </article>
           <div class="vn-versus" aria-hidden="true">VS</div>
           <article class="vn-army vn-army-vc">
-            <div class="vn-army-visual">
-              <Image src={vietcong} alt="Guia oficial do Vietcong: combatente com camisa preta, calça preta e colete coiote" widths={[500, 760, 1024]} sizes="(max-width: 760px) 100vw, 50vw" loading="lazy" />
+            <button type="button" class="vn-army-visual" data-loadout="vietcong" aria-label="Ampliar guia completo de loadout do Vietcong">
               <span class="vn-army-label">EXÉRCITO 02 <span aria-hidden="true">★</span></span>
-            </div>
+              <Image src={vietcong} alt="Guia oficial do Vietcong: combatente com camisa preta, calça preta e colete coiote" widths={[500, 760, 1024]} sizes="(max-width: 760px) 100vw, 50vw" loading="lazy" />
+              <span class="vn-loadout-zoom"><Icone nome="diagonal" tamanho={16} /> Clique para ampliar a imagem</span>
+            </button>
             <div class="vn-army-info">
               <p class="vn-small-label">FORÇA VIETCONG</p><h3>VIETCONG</h3>
               <p>Camisa preta obrigatória. Calça lisa preta, tan ou jeans. Colete preto ou coiote.</p>
@@ -183,13 +186,11 @@ const schema = {
     </section>
 
     <section class="vn-base vn-section vn-container" id="base" aria-labelledby="titulo-base">
-      <div class="vn-base-display">
-        <div class="vn-base-grid" aria-hidden="true"></div>
-        <span class="vn-base-label">PONTO DE ENCONTRO / RS</span>
-        <div class="vn-base-target"><Icone nome="mira" tamanho={62} /><span>BASE<br /><strong>RED WOLF</strong></span></div>
-        <span class="vn-base-bottom"><span class="vn-live-dot"></span> GRAVATAÍ · RIO GRANDE DO SUL</span>
+      <div class="vn-base-map">
+        <div class="vn-base-map-heading"><Icone nome="pino" tamanho={28} /><span>PONTO DE ENCONTRO<strong>BASE RED WOLF</strong></span></div>
+        <MapaLocal nome="Base Red Wolf Team" cidade="Gravataí" uf="RS" lat={evento.mapa.lat} lng={evento.mapa.lng} />
       </div>
-      <div class="vn-base-copy"><p class="vn-kicker"><span>05</span> O teatro de operações</p><h2 id="titulo-base">NOS VEMOS<br /><span>NA BASE.</span></h2><p>A Base Red Wolf, em Gravataí/RS, é o ponto de encontro da tropa. Prepare seu equipamento e alinhe a chegada com sua equipe.</p><dl><div><dt><Icone nome="calendario" tamanho={19} /> DATA</dt><dd>28 de novembro de 2026</dd></div><div><dt><Icone nome="relogio" tamanho={19} /> HORÁRIO</dt><dd>07h</dd></div><div><dt><Icone nome="pino" tamanho={19} /> LOCAL</dt><dd>Base Red Wolf · Gravataí/RS</dd></div></dl><p class="vn-base-note">Confirme o ponto de acesso e as orientações de chegada com a organização.</p><a class="vn-text-link" href="https://www.google.com/maps/search/?api=1&query=Base+Red+Wolf+Airsoft+Gravata%C3%AD+RS" target="_blank" rel="noopener noreferrer">Buscar a base no mapa <Icone nome="diagonal" tamanho={18} /></a></div>
+      <div class="vn-base-copy"><p class="vn-kicker"><span>05</span> O teatro de operações</p><h2 id="titulo-base">NOS VEMOS<br /><span>NA BASE.</span></h2><p>A Base Red Wolf, em Gravataí/RS, é o ponto de encontro da tropa. Prepare seu equipamento e alinhe a chegada com sua equipe.</p><dl><div><dt><Icone nome="calendario" tamanho={19} /> DATA</dt><dd>28 de novembro de 2026</dd></div><div><dt><Icone nome="relogio" tamanho={19} /> HORÁRIO</dt><dd>07h</dd></div><div><dt><Icone nome="pino" tamanho={19} /> LOCAL</dt><dd>Base Red Wolf · Gravataí/RS</dd></div></dl><p class="vn-base-note">Confirme o ponto de acesso e as orientações de chegada com a organização.</p><a class="vn-text-link" href={evento.mapa.url} target="_blank" rel="noopener noreferrer">Abrir localização no Google Maps <Icone nome="diagonal" tamanho={18} /></a></div>
     </section>
 
     <section class="vn-faq vn-section vn-container" aria-labelledby="titulo-duvidas">
