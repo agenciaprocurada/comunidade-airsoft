@@ -59,11 +59,6 @@
 .vn-scroll { position: absolute; bottom: 33px; left: 48px; display: flex; align-items: center; gap: 25px; font: 10px var(--font-dado); letter-spacing: .12em; text-transform: uppercase; color: #a6ab95; }
 .vn-scroll > span:last-child { font-size: 22px; color: var(--vn-paper); }
 .vn-hero-coordinate { position: absolute; bottom: 40px; right: 48px; font: 10px var(--font-dado); letter-spacing: .12em; color: #9b9f88; }
-.vn-battle-strip { display: flex; align-items: center; justify-content: center; gap: 58px; background: #1a2015; border-block: 1px solid #343c28; min-height: 84px; }
-.vn-battle-strip > span { display: flex; gap: 25px; align-items: center; font: 700 25px var(--font-display); letter-spacing: .13em; }
-.vn-battle-strip > .vn-battle-center { font: 10px var(--font-dado); letter-spacing: .18em; color: #a1a98a; padding-inline: 58px; border-inline: 1px solid #414737; min-height: 23px; }
-.vn-star { color: #b2b785; font-size: 26px; }
-.vn-red-star { color: #c4523e; }
 .vn-kicker { display: flex; align-items: center; gap: 13px; margin-bottom: 22px !important; color: var(--vn-olive); font: 11px/1.5 var(--font-dado); letter-spacing: .16em; text-transform: uppercase; }
 .vn-kicker > span { padding-right: 14px; border-right: 1px solid #6d7552; color: #989c78; }
 .vietna-page h2 { font-size: clamp(38px, 4.1vw, 58px); line-height: 1.04; letter-spacing: -.015em; }
@@ -205,8 +200,6 @@ html.vn-modal-open { overflow: hidden; }
   .vn-header { padding-inline: 32px; }
   .vn-nav { gap: 22px; }
   .vn-mission { gap: 65px; }
-  .vn-battle-strip { gap: 30px; }
-  .vn-battle-strip > .vn-battle-center { padding-inline: 30px; }
   .vn-benefits-grid article { padding-inline: 17px; }
   .vn-benefits-grid h3 { font-size: 21px; }
   .vn-base { gap: 50px; }
@@ -247,10 +240,6 @@ html.vn-modal-open { overflow: hidden; }
   .vn-hero-note { font-size: 11px; }
   .vn-hero-caption, .vn-hero-coordinate { display: none; }
   .vn-scroll { left: 20px; bottom: 18px; font-size: 8px; gap: 20px; }
-  .vn-battle-strip { min-height: 73px; gap: 28px; }
-  .vn-battle-strip > span { font-size: 22px; letter-spacing: .07em; gap: 16px; }
-  .vn-battle-strip > .vn-battle-center { display: none; }
-  .vn-star { font-size: 20px; }
   .vn-mission { grid-template-columns: 1fr; gap: 54px; }
   .vn-mission-copy > p:not(.vn-kicker) { font-size: 15px; }
   .vn-kicker { font-size: 10px; margin-bottom: 18px !important; }
@@ -332,5 +321,35 @@ html.vn-modal-open { overflow: hidden; }
   .vn-hero-meta small { font-size: 7px; }
   .vn-colors { gap: 5px; }
   .vn-colors > span:last-child { font-size: 7px; }
+}
+/* A mesma lista em uma faixa compacta logo após o hero. */
+.vn-supporters-strip { padding-block: 22px 24px; border-block: 1px solid #343c28; background: #171e12; }
+.vn-supporters-strip-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.vn-supporters-strip-heading h2 { color: #b7bda7; font: 10px/1.5 var(--font-dado); text-transform: uppercase; letter-spacing: .13em; }
+.vn-supporters-strip-heading a { display: flex; align-items: center; gap: 10px; color: #a6aa82; font-size: 11px; }
+.vn-supporters-strip-heading a:hover { color: var(--vn-paper); }
+.vn-supporters-strip .vn-supporter-grid { grid-template-columns: repeat(9, minmax(0, 1fr)); border: 0; }
+.vn-supporters-strip .vn-supporter,
+.vn-supporters-strip .vn-supporter:last-child:nth-child(odd) { grid-column: auto; padding: 0 10px; border: 0; background: transparent; }
+.vn-supporters-strip .vn-supporter figure { gap: 0; }
+.vn-supporters-strip .vn-supporter-mark { height: 66px; }
+.vn-supporters-strip .vn-supporter .vn-supporter-mark img { max-width: min(100%, 110px); max-height: 58px; }
+.vn-supporters-strip .vn-supporter figcaption { display: none; }
+@media (min-width: 761px) and (max-width: 1100px) {
+  .vn-supporters-strip .vn-supporter-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); row-gap: 16px; }
+  .vn-supporters-strip .vn-supporter,
+  .vn-supporters-strip .vn-supporter:last-child:nth-child(odd) { grid-column: span 2; }
+  .vn-supporters-strip .vn-supporter:nth-child(6) { grid-column: 2 / span 2; }
+}
+@media (max-width: 760px) {
+  .vn-supporters-strip { padding-block: 20px; }
+  .vn-supporters-strip-heading { gap: 10px; margin-bottom: 16px; }
+  .vn-supporters-strip-heading h2 { font-size: 8px; letter-spacing: .08em; }
+  .vn-supporters-strip-heading a { font-size: 10px; gap: 6px; }
+  .vn-supporters-strip .vn-supporter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 14px; }
+  .vn-supporters-strip .vn-supporter,
+  .vn-supporters-strip .vn-supporter:last-child:nth-child(odd) { padding-inline: 8px; }
+  .vn-supporters-strip .vn-supporter-mark { height: 60px; }
+  .vn-supporters-strip .vn-supporter .vn-supporter-mark img { max-height: 54px; }
 }
 @media (prefers-reduced-motion: reduce) { .vietna-page *, .vietna-page *::before, .vietna-page *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

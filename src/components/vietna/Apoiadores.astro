@@ -10,6 +10,11 @@ import mello from "../../assets/vietna/apoiadores/mello-3d.webp";
 import luz from "../../assets/vietna/apoiadores/luz-tactical-training.webp";
 import alphaBravo from "../../assets/vietna/apoiadores/alpha-bravo.webp";
 
+interface Props { compacto?: boolean }
+const { compacto = false } = Astro.props;
+const idSecao = compacto ? "apoiadores-topo" : "apoiadores";
+const idTitulo = compacto ? "titulo-apoio-topo-vietna" : "titulo-apoio-vietna";
+
 // Marcas desta operação. A lista de parceiros da comunidade é independente.
 // Mantemos os arquivos nas cores originais; o acabamento da faixa vem do CSS.
 const apoiadores = [
@@ -25,21 +30,28 @@ const apoiadores = [
 ];
 ---
 
-<section class="vn-supporters vn-section" id="apoiadores" aria-labelledby="titulo-apoio-vietna">
+<section class:list={["vn-supporters", compacto ? "vn-supporters-strip" : "vn-section"]} id={idSecao} aria-labelledby={idTitulo}>
   <div class="vn-container">
-    <div class="vn-section-heading">
-      <div>
-        <p class="vn-kicker"><span>07</span> Juntos nesta missão</p>
-        <h2 id="titulo-apoio-vietna">APOIO À <span>OPERAÇÃO.</span></h2>
+    {compacto ? (
+      <div class="vn-supporters-strip-heading">
+        <h2 id={idTitulo}>Apoiadores da operação</h2>
+        <a href="#apoiadores">Conheça as marcas <span aria-hidden="true">↗</span></a>
       </div>
-      <p>As marcas que estão com a tropa<br />na OPERAÇÃO VIETNÃ.</p>
-    </div>
+    ) : (
+      <div class="vn-section-heading">
+        <div>
+          <p class="vn-kicker"><span>07</span> Juntos nesta missão</p>
+          <h2 id={idTitulo}>APOIO À <span>OPERAÇÃO.</span></h2>
+        </div>
+        <p>As marcas que estão com a tropa<br />na OPERAÇÃO VIETNÃ.</p>
+      </div>
+    )}
     <ul class="vn-supporter-grid" role="list">
       {apoiadores.map((apoiador) => (
         <li class:list={["vn-supporter", { "vn-supporter-light": apoiador.fundoClaro, "vn-supporter-emblem": apoiador.emblema }]}>
           <figure>
             <div class="vn-supporter-mark">
-              <Image src={apoiador.logo} alt={`Logo ${apoiador.nome}`} widths={[240, 480]} sizes="(max-width: 760px) 40vw, 240px" loading="lazy" />
+              <Image src={apoiador.logo} alt={`Logo ${apoiador.nome}`} widths={compacto ? [120, 240] : [240, 480]} sizes={compacto ? "110px" : "(max-width: 760px) 40vw, 240px"} loading="lazy" />
             </div>
             <figcaption>{apoiador.nome}</figcaption>
           </figure>
