@@ -3,6 +3,7 @@ import { Image } from "astro:assets";
 import Base from "../layouts/Base.astro";
 import Icone from "../components/vietna/Icone.astro";
 import MapaLocal from "../components/MapaLocal.astro";
+import ApoiadoresVietna from "../components/vietna/Apoiadores.astro";
 import { operacaoVietna as evento } from "../data/operacao-vietna";
 import hero from "../assets/vietna/selva-operacao-vietna.webp";
 import poster from "../assets/vietna/poster-operacao-vietna.webp";
@@ -197,6 +198,8 @@ const schema = {
       <div><p class="vn-kicker"><span>06</span> Antes da missão</p><h2 id="titulo-duvidas">ÚLTIMO<br /><span>BRIEFING.</span></h2><p>As informações essenciais<br />para chegar preparado.</p></div>
       <div class="vn-faq-list">{perguntas.map((item, i) => <details><summary><span class="vn-faq-number">0{i + 1}</span>{item.pergunta}<span class="vn-faq-plus" aria-hidden="true">+</span></summary><p>{item.resposta}</p></details>)}</div>
     </section>
+
+    <ApoiadoresVietna />
 
     <section class="vn-final" aria-labelledby="titulo-chamada">
       <div class="vn-container"><p class="vn-kicker">28.11.2026 / GRAVATAÍ, RS</p><h2 id="titulo-chamada">O INFERNO É VERDE.<br /><span>O PRÓXIMO PASSO É SEU.</span></h2><a href="#lotes" class="vn-button">Eu vou pra essa missão <Icone nome="seta" tamanho={20} /></a><p>US ARMY <span aria-hidden="true">★</span> VIETCONG</p></div>

@@ -1,0 +1,50 @@
+---
+import { Image } from "astro:assets";
+import rhino from "../../assets/vietna/apoiadores/rhino-custom.webp";
+import blackStar from "../../assets/vietna/apoiadores/black-star.webp";
+import nbPrecision from "../../assets/vietna/apoiadores/nb-precision.webp";
+import comandos from "../../assets/vietna/apoiadores/comandos-rs.webp";
+import vins from "../../assets/vietna/apoiadores/vins-3d.webp";
+import airsoftBusiness from "../../assets/vietna/apoiadores/airsoft-business.webp";
+import mello from "../../assets/vietna/apoiadores/mello-3d.webp";
+import luz from "../../assets/vietna/apoiadores/luz-tactical-training.webp";
+import alphaBravo from "../../assets/vietna/apoiadores/alpha-bravo.webp";
+
+// Marcas desta operação. A lista de parceiros da comunidade é independente.
+// Mantemos os arquivos nas cores originais; o acabamento da faixa vem do CSS.
+const apoiadores = [
+  { nome: "Rhino Custom", logo: rhino, emblema: true },
+  { nome: "Black Star", logo: blackStar, fundoClaro: true },
+  { nome: "NB Precision", logo: nbPrecision, emblema: true },
+  { nome: "Comandos RS", logo: comandos, fundoClaro: true, emblema: true },
+  { nome: "Vins 3D", logo: vins, fundoClaro: true, emblema: true },
+  { nome: "Airsoft Business", logo: airsoftBusiness },
+  { nome: "Mello 3D Extrusion", logo: mello },
+  { nome: "Luz Tactical Training", logo: luz },
+  { nome: "AlphaBravo", logo: alphaBravo },
+];
+---
+
+<section class="vn-supporters vn-section" id="apoiadores" aria-labelledby="titulo-apoio-vietna">
+  <div class="vn-container">
+    <div class="vn-section-heading">
+      <div>
+        <p class="vn-kicker"><span>07</span> Juntos nesta missão</p>
+        <h2 id="titulo-apoio-vietna">APOIO À <span>OPERAÇÃO.</span></h2>
+      </div>
+      <p>As marcas que estão com a tropa<br />na OPERAÇÃO VIETNÃ.</p>
+    </div>
+    <ul class="vn-supporter-grid" role="list">
+      {apoiadores.map((apoiador) => (
+        <li class:list={["vn-supporter", { "vn-supporter-light": apoiador.fundoClaro, "vn-supporter-emblem": apoiador.emblema }]}>
+          <figure>
+            <div class="vn-supporter-mark">
+              <Image src={apoiador.logo} alt={`Logo ${apoiador.nome}`} widths={[240, 480]} sizes="(max-width: 760px) 40vw, 240px" loading="lazy" />
+            </div>
+            <figcaption>{apoiador.nome}</figcaption>
+          </figure>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
