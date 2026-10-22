@@ -322,15 +322,18 @@ html.vn-modal-open { overflow: hidden; }
   .vn-colors { gap: 5px; }
   .vn-colors > span:last-child { font-size: 7px; }
 }
+@media (min-width: 761px) {
+  .vn-supporter:last-child:nth-child(3n+1) { grid-column: 3 / span 2; border-left: 1px solid #343d2a; }
+}
 /* A mesma lista em uma faixa compacta logo após o hero. */
 .vn-supporters-strip { padding-block: 22px 24px; border-block: 1px solid #343c28; background: #171e12; }
 .vn-supporters-strip-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .vn-supporters-strip-heading h2 { color: #b7bda7; font: 10px/1.5 var(--font-dado); text-transform: uppercase; letter-spacing: .13em; }
 .vn-supporters-strip-heading a { display: flex; align-items: center; gap: 10px; color: #a6aa82; font-size: 11px; }
 .vn-supporters-strip-heading a:hover { color: var(--vn-paper); }
-.vn-supporters-strip .vn-supporter-grid { grid-template-columns: repeat(9, minmax(0, 1fr)); border: 0; }
+.vn-supporters-strip .vn-supporter-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); border: 0; }
 .vn-supporters-strip .vn-supporter,
-.vn-supporters-strip .vn-supporter:last-child:nth-child(odd) { grid-column: auto; padding: 0 10px; border: 0; background: transparent; }
+.vn-supporters-strip .vn-supporter:last-child { grid-column: auto; padding: 0 10px; border: 0; background: transparent; }
 .vn-supporters-strip .vn-supporter figure { gap: 0; }
 .vn-supporters-strip .vn-supporter-mark { height: 66px; }
 .vn-supporters-strip .vn-supporter .vn-supporter-mark img { max-width: min(100%, 110px); max-height: 58px; }
@@ -338,8 +341,7 @@ html.vn-modal-open { overflow: hidden; }
 @media (min-width: 761px) and (max-width: 1100px) {
   .vn-supporters-strip .vn-supporter-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); row-gap: 16px; }
   .vn-supporters-strip .vn-supporter,
-  .vn-supporters-strip .vn-supporter:last-child:nth-child(odd) { grid-column: span 2; }
-  .vn-supporters-strip .vn-supporter:nth-child(6) { grid-column: 2 / span 2; }
+  .vn-supporters-strip .vn-supporter:last-child { grid-column: span 2; }
 }
 @media (max-width: 760px) {
   .vn-supporters-strip { padding-block: 20px; }
@@ -348,7 +350,8 @@ html.vn-modal-open { overflow: hidden; }
   .vn-supporters-strip-heading a { font-size: 10px; gap: 6px; }
   .vn-supporters-strip .vn-supporter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 14px; }
   .vn-supporters-strip .vn-supporter,
-  .vn-supporters-strip .vn-supporter:last-child:nth-child(odd) { padding-inline: 8px; }
+  .vn-supporters-strip .vn-supporter:last-child { padding-inline: 8px; }
+  .vn-supporters-strip .vn-supporter:last-child:nth-child(3n+1) { grid-column: 2; }
   .vn-supporters-strip .vn-supporter-mark { height: 60px; }
   .vn-supporters-strip .vn-supporter .vn-supporter-mark img { max-height: 54px; }
 }
