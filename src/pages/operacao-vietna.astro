@@ -12,7 +12,14 @@ import vietcong from "../assets/vietna/loadout-vietcong.webp";
 import sorteio from "../assets/vietna/sorteio-capacete.webp";
 import logo from "../assets/vietna/logo-comunidade.webp";
 import logoRedWolf from "../assets/vietna/logo-redwolf-team.webp";
+import rangerVinicius from "../assets/vietna/rangers/ranger-vinicius-kolling.webp";
+import rangerCleiton from "../assets/vietna/rangers/ranger-cleiton-red-wolf.webp";
 import "../styles/operacao-vietna.css";
+
+const rangers = [
+  { id: "ranger-vinicius", nome: "Vinicius Kolling", exercito: "US Army", rotulo: "Ranger do time EUA", imagem: rangerVinicius, alt: "Vinicius Kolling de boné e camisa vermelha diante da bandeira dos Estados Unidos" },
+  { id: "ranger-cleiton", nome: "Cleiton (Red Wolf)", exercito: "Vietcong", rotulo: "Ranger dos Vietcongs", imagem: rangerCleiton, alt: "Cleiton, da Red Wolf, com camisa vermelha diante da bandeira vietnamita e da selva" },
+];
 
 const beneficios = [
   { icone: "patch", titulo: "Patch exclusivo", texto: "A marca da operação para levar com você." },
@@ -144,9 +151,29 @@ const schema = {
       </div>
     </section>
 
+    <section class="vn-rangers vn-section" id="rangers" aria-labelledby="titulo-rangers">
+      <div class="vn-container">
+        <div class="vn-section-heading">
+          <div><p class="vn-kicker"><span>03</span> Rangers da missão</p><h2 id="titulo-rangers">OS RANGERS<br /><span>DA OPERAÇÃO.</span></h2></div>
+          <p>US Army e Vietcong.<br />Conheça o ranger de cada exército.</p>
+        </div>
+        <div class="vn-ranger-grid">
+          {rangers.map((ranger) => (
+            <article class="vn-ranger-card">
+              <div class="vn-ranger-info"><p class="vn-small-label">{ranger.rotulo}</p><h3>{ranger.nome}</h3></div>
+              <button type="button" class="vn-ranger-poster" data-loadout={ranger.id} aria-label={`Ampliar pôster de ${ranger.nome}, ranger do ${ranger.exercito}`} aria-haspopup="dialog" aria-controls="dialog-loadout">
+                <Image src={ranger.imagem} alt={ranger.alt} widths={[500, 760, 1002]} sizes="(max-width: 760px) calc(100vw - 40px), (max-width: 1296px) 45vw, 586px" loading="lazy" />
+                <span class="vn-loadout-zoom"><Icone nome="diagonal" tamanho={16} /> Clique para ampliar o pôster</span>
+              </button>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
     <section class="vn-benefits vn-section vn-container" aria-labelledby="titulo-estrutura">
       <div class="vn-section-heading">
-        <div><p class="vn-kicker"><span>03</span> Além do combate</p><h2 id="titulo-estrutura">A TROPA TEM <span>SUPORTE.</span></h2></div>
+        <div><p class="vn-kicker"><span>04</span> Além do combate</p><h2 id="titulo-estrutura">A TROPA TEM <span>SUPORTE.</span></h2></div>
       </div>
       <div class="vn-benefits-grid">
         {beneficios.map((item) => <article><Icone nome={item.icone} tamanho={31} /><h3>{item.titulo}</h3><p>{item.texto}</p>{item.icone === "presente" && <button type="button" class="vn-subtle-link" data-loadout="sorteio">Ver arte do sorteio ↗</button>}</article>)}
@@ -156,7 +183,7 @@ const schema = {
     <section class="vn-tickets vn-section" id="lotes" aria-labelledby="titulo-lotes">
       <div class="vn-container">
         <div class="vn-section-heading">
-          <div><p class="vn-kicker"><span>04</span> Seu lugar na operação</p><h2 id="titulo-lotes">MISSÃO MARCADA.<br /><span>PREPARE SEU PATCH.</span></h2></div>
+          <div><p class="vn-kicker"><span>05</span> Seu lugar na operação</p><h2 id="titulo-lotes">MISSÃO MARCADA.<br /><span>PREPARE SEU PATCH.</span></h2></div>
           <p>Três lotes. O mesmo chamado.<br />Todos incluem o patch exclusivo da operação.</p>
         </div>
         <div class="vn-ticket-grid">
@@ -187,11 +214,11 @@ const schema = {
         <div class="vn-base-map-heading"><Icone nome="pino" tamanho={28} /><span>PONTO DE ENCONTRO<strong>BASE RED WOLF</strong></span></div>
         <MapaLocal nome="Base Red Wolf Team" cidade="Gravataí" uf="RS" lat={evento.mapa.lat} lng={evento.mapa.lng} />
       </div>
-      <div class="vn-base-copy"><p class="vn-kicker"><span>05</span> O teatro de operações</p><h2 id="titulo-base">NOS VEMOS<br /><span>NA BASE.</span></h2><p>A Base Red Wolf, em Gravataí/RS, é o ponto de encontro da tropa. Prepare seu equipamento e alinhe a chegada com sua equipe.</p><dl><div><dt><Icone nome="calendario" tamanho={19} /> DATA</dt><dd>28 de novembro de 2026</dd></div><div><dt><Icone nome="relogio" tamanho={19} /> HORÁRIO</dt><dd>07h</dd></div><div><dt><Icone nome="pino" tamanho={19} /> LOCAL</dt><dd>Base Red Wolf · Gravataí/RS</dd></div></dl><p class="vn-base-note">Confirme o ponto de acesso e as orientações de chegada com a organização.</p><a class="vn-text-link" href={evento.mapa.url} target="_blank" rel="noopener noreferrer">Abrir localização no Google Maps <Icone nome="diagonal" tamanho={18} /></a></div>
+      <div class="vn-base-copy"><p class="vn-kicker"><span>06</span> O teatro de operações</p><h2 id="titulo-base">NOS VEMOS<br /><span>NA BASE.</span></h2><p>A Base Red Wolf, em Gravataí/RS, é o ponto de encontro da tropa. Prepare seu equipamento e alinhe a chegada com sua equipe.</p><dl><div><dt><Icone nome="calendario" tamanho={19} /> DATA</dt><dd>28 de novembro de 2026</dd></div><div><dt><Icone nome="relogio" tamanho={19} /> HORÁRIO</dt><dd>07h</dd></div><div><dt><Icone nome="pino" tamanho={19} /> LOCAL</dt><dd>Base Red Wolf · Gravataí/RS</dd></div></dl><p class="vn-base-note">Confirme o ponto de acesso e as orientações de chegada com a organização.</p><a class="vn-text-link" href={evento.mapa.url} target="_blank" rel="noopener noreferrer">Abrir localização no Google Maps <Icone nome="diagonal" tamanho={18} /></a></div>
     </section>
 
     <section class="vn-faq vn-section vn-container" aria-labelledby="titulo-duvidas">
-      <div><p class="vn-kicker"><span>06</span> Antes da missão</p><h2 id="titulo-duvidas">ÚLTIMO<br /><span>BRIEFING.</span></h2><p>As informações essenciais<br />para chegar preparado.</p></div>
+      <div><p class="vn-kicker"><span>07</span> Antes da missão</p><h2 id="titulo-duvidas">ÚLTIMO<br /><span>BRIEFING.</span></h2><p>As informações essenciais<br />para chegar preparado.</p></div>
       <div class="vn-faq-list">{perguntas.map((item, i) => <details><summary><span class="vn-faq-number">0{i + 1}</span>{item.pergunta}<span class="vn-faq-plus" aria-hidden="true">+</span></summary><p>{item.resposta}</p></details>)}</div>
     </section>
 
@@ -208,18 +235,24 @@ const schema = {
     <dialog class="vn-dialog" id="dialog-loadout" aria-labelledby="titulo-guia">
       <div class="vn-dialog-bar"><h2 id="titulo-guia">Guia oficial de loadout</h2><button type="button" data-fechar-guia aria-label="Fechar guia">Fechar <span aria-hidden="true">×</span></button></div>
       <div class="vn-dialog-content">
-        <div data-guia="us-army">
+        <div data-guia="us-army" data-titulo-guia="Loadout oficial — US Army">
           <Image src={militares} width={1002} alt="Arte oficial do loadout militar da Operação Vietnã" loading="lazy" />
           <div class="vn-dialog-rules"><h3>Loadout US Army — texto da arte oficial</h3><p><strong>Uniforme:</strong> farda e calça tática multicam ou verde oliva.</p><p><strong>Equipamentos liberados:</strong> capacete, colete tático, bolsa de combate, cinto tático e botas em verde, coiote ou multicam. Óculos táticos. Rifle AEG e pistola, ambos com limite de até 400 FPS indicado na arte.</p><p><strong>Proibidos para militar:</strong> capacete preto, boné preto, colete preto e camiseta preta.</p><p>Confirme com a organização as regras completas e a medição dos equipamentos antes de jogar.</p></div>
         </div>
-        <div data-guia="vietcong">
+        <div data-guia="vietcong" data-titulo-guia="Loadout oficial — Vietcong">
           <Image src={vietcong} width={1024} alt="Arte oficial do loadout Vietcong da Operação Vietnã" loading="lazy" />
           <div class="vn-dialog-rules"><h3>Loadout Vietcong — texto da arte oficial</h3><p><strong>Uniforme:</strong> camisa preta obrigatória. Calça de cor lisa preta, tan ou jeans. Colete preto ou tan/coiote.</p><p><strong>Equipamentos liberados:</strong> capacete ou boné preto, óculos táticos, bolsa de combate, cinto tático e botas táticas. Rifle AEG e pistola, ambos com limite de até 400 FPS indicado na arte.</p><p><strong>Proibidos para Vietcong:</strong> capacete ou boné camuflado, camisa camuflada, colete camuflado e calça camuflada.</p><p>Confirme com a organização as regras completas e a medição dos equipamentos antes de jogar.</p></div>
         </div>
-        <div data-guia="sorteio">
+        <div data-guia="sorteio" data-titulo-guia="Sorteio de capacete — arte oficial">
           <Image src={sorteio} width={1024} alt="Arte oficial anunciando sorteio de um capacete de airsoft na Operação Vietnã" loading="lazy" />
           <div class="vn-dialog-rules"><h3>Sorteio da operação</h3><p>A arte oficial anuncia o sorteio de um capacete de airsoft no evento de 28 de novembro, na Base Red Wolf Team, em Gravataí. Consulte a organização no grupo de pré-inscrição sobre a participação no sorteio.</p></div>
         </div>
+        {rangers.map((ranger) => (
+          <div data-guia={ranger.id} data-titulo-guia={`Ranger — ${ranger.nome}`}>
+            <Image src={ranger.imagem} width={1002} alt={ranger.alt} loading="lazy" />
+            <div class="vn-dialog-rules"><h3>{ranger.nome}</h3><p>{ranger.rotulo} na OPERAÇÃO VIETNÃ.</p></div>
+          </div>
+        ))}
       </div>
     </dialog>
   </div>
@@ -263,9 +296,10 @@ const schema = {
       if (!dialog) return;
       ultimoBotao = botao;
       const guia = botao.dataset.loadout;
-      dialog.querySelectorAll<HTMLElement>("[data-guia]").forEach((item) => { item.hidden = item.dataset.guia !== guia; });
+      const guias = Array.from(dialog.querySelectorAll<HTMLElement>("[data-guia]"));
+      guias.forEach((item) => { item.hidden = item.dataset.guia !== guia; });
       const titulo = dialog.querySelector("#titulo-guia");
-      if (titulo) titulo.textContent = guia === "sorteio" ? "Sorteio de capacete — arte oficial" : `Loadout oficial — ${guia === "us-army" ? "US Army" : "Vietcong"}`;
+      if (titulo) titulo.textContent = guias.find((item) => item.dataset.guia === guia)?.dataset.tituloGuia ?? "Arte oficial da operação";
       dialog.showModal();
       dialog.scrollTop = 0;
       document.documentElement.classList.add("vn-modal-open");

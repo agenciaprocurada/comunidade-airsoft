@@ -97,6 +97,16 @@
 .vn-versus { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 28px; height: 44px; display: grid; place-items: center; background: #b32d21; color: #f5e2c2; font: 800 18px var(--font-display); }
 .vn-army-note { display: flex; align-items: start; gap: 10px; color: #9ea88e; margin-top: 25px !important; font-size: 12px; }
 .vn-army-note svg { flex-shrink: 0; }
+.vn-rangers { background: #11160e; border-bottom: 1px solid var(--vn-line); }
+.vn-ranger-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+.vn-ranger-card { border: 1px solid #343c2a; border-top: 2px solid #819253; background: #0f130d; }
+.vn-ranger-card:last-child { border-top-color: var(--vn-red); }
+.vn-ranger-info { padding: 23px 26px; }
+.vn-ranger-info h3 { margin-top: 5px; font-size: 33px; line-height: 1.2; text-transform: uppercase; }
+.vn-ranger-poster { display: block; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; }
+.vietna-page .vn-ranger-poster { cursor: zoom-in; }
+.vn-ranger-poster > img { display: block; width: 100%; height: auto; object-fit: contain; }
+.vn-ranger-poster:hover .vn-loadout-zoom { background: #242e1a; }
 .vn-benefits-grid { display: grid; grid-template-columns: repeat(5, 1fr); border-block: 1px solid var(--vn-line); }
 .vn-benefits-grid article { padding: 31px 24px 30px; border-right: 1px solid var(--vn-line); }
 .vn-benefits-grid article:first-child { padding-left: 0; }
@@ -255,6 +265,9 @@ html.vn-modal-open { overflow: hidden; }
   .vn-colors { margin-block: 20px 23px; }
   .vn-colors > span:last-child { font-size: 8px; }
   .vn-army-note { font-size: 11px; }
+  .vn-ranger-grid { grid-template-columns: 1fr; gap: 28px; }
+  .vn-ranger-info { padding: 20px; }
+  .vn-ranger-info h3 { font-size: 30px; }
   .vn-benefits-grid { grid-template-columns: 1fr 1fr; }
   .vn-benefits-grid article, .vn-benefits-grid article:first-child, .vn-benefits-grid article:last-child { padding: 25px 18px 25px 0; border-bottom: 1px solid var(--vn-line); }
   .vn-benefits-grid article:nth-child(even) { padding-inline: 20px 0; border-right: 0; }
