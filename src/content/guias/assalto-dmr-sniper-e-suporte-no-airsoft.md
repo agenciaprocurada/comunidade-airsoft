@@ -48,6 +48,8 @@ com automático, carregador mid-cap de 120 a 150 BBs.
 - **FPS típico:** 350 a 400 (o limite mais comum de campo de mata)
 - **Cadência:** semiautomático e automático
 - **Peso:** 2,5 a 3,5 kg — dá para carregar o dia inteiro
+- **Mira típica:** red dot sem aumento. Veja
+  [como escolher e zerar um red dot](/guias/red-dot-airsoft-o-que-e-e-como-escolher)
 
 **O que ela faz na partida:** avança, toma ponto, entra em construção, cobre
 companheiro. É a única função que não depende de terreno específico nem de

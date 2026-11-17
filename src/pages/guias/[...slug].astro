@@ -305,6 +305,27 @@ const imagemSocial = capaSocial
     margin: 2rem 0;
     border: 1px solid var(--color-borda);
   }
+  /* Tabelas: sem estilo as colunas ficavam coladas. Rola de lado se não couber. */
+  .conteudo table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    margin: 0 0 1.5rem;
+    font-size: 0.9375rem;
+  }
+  .conteudo th,
+  .conteudo td {
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--color-borda);
+    text-align: left;
+    vertical-align: top;
+  }
+  .conteudo th {
+    font-weight: 600;
+    color: var(--color-oliva-300);
+    white-space: nowrap;
+  }
   .conteudo blockquote {
     border-left: 2px solid var(--color-oliva-300);
     padding-left: 1rem;

@@ -118,7 +118,8 @@ segundo par de calçado.
   ganha jogo por causa de farda.
 - **Colete.** Chest rig simples resolve os dois primeiros anos.
 - **Óptica.** Red dot de entrada faz o trabalho. Mira em airsoft é curta
-  distância na maior parte do tempo.
+  distância na maior parte do tempo. Veja
+  [como escolher um red dot](/guias/red-dot-airsoft-o-que-e-e-como-escolher).
 
 **Nunca economize em:**
 

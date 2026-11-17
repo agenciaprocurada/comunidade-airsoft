@@ -176,7 +176,7 @@ em semiautomático.
 
 **Sling** — bandoleira que segura a réplica no corpo.
 
-**Red dot** — mira de ponto vermelho, sem ampliação.
+**Red dot** — mira de ponto vermelho, sem ampliação. Veja como funciona e como escolher no [guia de red dot](/guias/red-dot-airsoft-o-que-e-e-como-escolher).
 
 **Trilho / rail (Picatinny, M-LOK, KeyMod)** — padrões de encaixe de acessório.
 
