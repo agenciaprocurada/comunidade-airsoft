@@ -6,6 +6,8 @@ autor: "Comunidade Airsoft"
 nivel: intermediario
 categoria: "Técnico"
 palavra_chave: "onde consertar airsoft"
+imagem: "../../assets/guias/onde-consertar-airsoft.webp"
+imagem_alt: "Bancada de armeiro com gearbox de AEG aberta, chaves de fenda, pinça e lubrificante"
 rascunho: false
 relacionados:
   - manutencao-de-replica-de-airsoft

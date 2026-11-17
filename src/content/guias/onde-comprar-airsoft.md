@@ -6,6 +6,8 @@ autor: "Comunidade Airsoft"
 nivel: iniciante
 categoria: "Equipamento"
 palavra_chave: "onde comprar airsoft"
+imagem: "../../assets/guias/onde-comprar-airsoft.webp"
+imagem_alt: "Loja de airsoft com réplicas, óculos e coletes expostos nas prateleiras e balcão de madeira"
 rascunho: false
 relacionados:
   - como-escolher-a-primeira-replica-de-airsoft

@@ -6,6 +6,8 @@ autor: "Comunidade Airsoft"
 nivel: iniciante
 categoria: "Primeiros passos"
 palavra_chave: "o que levar para jogar airsoft"
+imagem: "../../assets/guias/o-que-levar-para-jogar-airsoft.webp"
+imagem_alt: "Itens para um dia de airsoft organizados sobre a mesa: óculos de proteção, máscara, luvas, água, BBs, protetor solar, botas e mochila"
 rascunho: false
 relacionados:
   - equipamento-de-protecao-no-airsoft

@@ -6,6 +6,8 @@ autor: "Comunidade Airsoft"
 nivel: iniciante
 categoria: "Primeiros passos"
 palavra_chave: "como escolher campo de airsoft"
+imagem: "../../assets/guias/como-escolher-campo-de-airsoft.webp"
+imagem_alt: "Campo de airsoft ao entardecer com barricadas de madeira, pneus e um abrigo entre as árvores"
 rascunho: false
 relacionados:
   - como-encontrar-campo-de-airsoft-perto-de-voce
